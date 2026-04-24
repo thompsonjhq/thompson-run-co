@@ -1,0 +1,1145 @@
+// ── CONFIG ──
+const SUPABASE_URL = 'https://zqnoahdhexjmtgfyczpz.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpxbm9haGRoZXhqbXRnZnljenB6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NTM4NjksImV4cCI6MjA5MjMyOTg2OX0.osTtLezghbBWXnOhN9PgAbD6O3L9fYuNezCBmsy2_Mc';
+
+// ── SUPABASE HELPERS ──
+async function sb(path, opts = {}) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...opts,
+    headers: {
+      'apikey': SUPABASE_ANON,
+      'Authorization': `Bearer ${SUPABASE_ANON}`,
+      'Content-Type': 'application/json',
+      'Prefer': opts.prefer || 'return=representation',
+      ...(opts.headers || {})
+    }
+  });
+  if (!res.ok) { const e = await res.text(); throw new Error(e); }
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+const api = {
+  get: (table, params='') => sb(`${table}?${params}`),
+  post: (table, body, prefer='resolution=merge-duplicates') => sb(table, { method:'POST', body: JSON.stringify(body), prefer }),
+  patch: (table, match, body) => sb(`${table}?${match}`, { method:'PATCH', body: JSON.stringify(body) }),
+  delete: (table, match) => sb(`${table}?${match}`, { method:'DELETE' })
+};
+
+// ── PLAN DATA ──
+const PLAN_START = new Date(2026, 3, 27);
+const RACE_DATE  = new Date(2026, 6, 19);
+
+const weeks = [
+  { num:1, phase:'base', label:'Return To Running', km:28, note:'Maintenance week transitioning into the plan. All easy aerobic running — no intervals, no tempo. Re-establish the habit, wake the legs up, introduce strength without digging a hole.', hamstring:true,
+    days:{ Mon:{type:'Easy Run',detail:'5km easy Z2 · 5:50/km · genuinely conversational',dot:'easy'}, Tue:{type:'Rest',detail:'Full rest day — resist the urge to run',dot:'rest'}, Wed:{type:'Strength',detail:'40 min · RDL first + Nordics · 3×10 light',dot:'strength'}, Thu:{type:'Easy Run',detail:'6km easy Z2 · 5:45/km · relaxed',dot:'easy'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'10km easy Z2 · 5:50/km · flat route, no watch pressure',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+  { num:2, phase:'base', label:'Building The Habit', km:33, note:'+5km on week 1. Still no hard sessions — introduce strides on Thursday. Keep long run easy.', hamstring:true,
+    days:{ Mon:{type:'Easy Run',detail:'7km easy Z2 · 5:45/km',dot:'easy'}, Tue:{type:'Rest',detail:'Full rest day',dot:'rest'}, Wed:{type:'Strength',detail:'40 min · RDL + Nordics · 3×10 · start adding light load',dot:'strength'}, Thu:{type:'Strides',detail:'7km easy + 6×80m strides · relaxed, not sprinting',dot:'easy'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'12km easy Z2 · 5:50/km · focus on time on feet',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+  { num:3, phase:'base', label:'First Quality Work', km:38, note:'First intervals of the plan — kept short and conservative. Tempo introduced at the lower end. Hamstring protocol active on all speed work.', hamstring:true,
+    days:{ Mon:{type:'Easy Run',detail:'8km easy Z2 · 5:45/km',dot:'easy'}, Tue:{type:'Intervals',detail:'8×400m @ 4:10/km · 90s rest · 2km WU/CD · conservative pace',dot:'hard'}, Wed:{type:'Strength',detail:'45 min · RDL + Nordics priority · 3×10',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 12 min @ Z4 (4:25/km) · 2km CD',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'13km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+  { num:4, phase:'base', label:'Deload — Consolidate', km:32, note:'Planned deload after 3 progressive weeks. Volume drops ~15%. Quality maintained but sessions shorter. Body adapts during recovery weeks.', hamstring:true,
+    days:{ Mon:{type:'Easy Run',detail:'6km easy Z2 · full recovery feel',dot:'easy'}, Tue:{type:'Strides',detail:'7km easy + 6×100m strides · relaxed turnover',dot:'easy'}, Wed:{type:'Strength',detail:'40 min · reduced load, focus on form · 3×8',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 10 min @ Z4 · 2km CD',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'11km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+  { num:5, phase:'build', label:'Threshold Introduction', km:44, note:'Phase 2 begins. A proper base is now under you. Longer intervals at race pace, longer tempo blocks. Resume full Z5b if hamstring soreness has resolved.', hamstring:false,
+    days:{ Mon:{type:'Easy Run',detail:'9km easy Z2',dot:'easy'}, Tue:{type:'Intervals',detail:'6×1000m @ 10km RP (4:10–4:15) · 2 min rest · 2km WU/CD',dot:'hard'}, Wed:{type:'Strength',detail:'50 min · Phase 2 load · 4×8',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 20 min Z4 continuous · 2km CD',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'15km easy Z2 + 2km Z3 finish',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+  { num:6, phase:'build', label:'Volume Increase', km:48, note:'Longer intervals and tempo. Long run adds progression finish. Keep Monday genuinely easy.', hamstring:false,
+    days:{ Mon:{type:'Easy Run',detail:'10km easy Z2',dot:'easy'}, Tue:{type:'Intervals',detail:'5×1200m @ 10km RP · 2.5 min rest · 2km WU/CD',dot:'hard'}, Wed:{type:'Strength',detail:'50 min · Progressive load · 3×8',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 2×15 min Z4 (3 min jog) · 2km CD',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'16km · last 4km @ Z3 progression',dot:'moderate'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+  { num:7, phase:'build', label:'Aerobic Push', km:51, note:'Highest aerobic volume of the build. Thursday 30 min tempo is the key session — protect it.', hamstring:false,
+    days:{ Mon:{type:'Easy Run',detail:'11km easy Z2',dot:'easy'}, Tue:{type:'Intervals',detail:'10×400m @ Z5b (3:58/km) · 75s rest · 2km WU/CD',dot:'hard'}, Wed:{type:'Strength',detail:'50 min · Heavy phase · 4×6–8',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 30 min Z4 continuous · 2km CD',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'17km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+  { num:8, phase:'build', label:'Deload — Consolidate', km:41, note:'Second deload. Volume drops, two quality sessions maintained at shorter duration. Legs should feel fresher by Saturday.', hamstring:false,
+    days:{ Mon:{type:'Easy Run',detail:'8km easy Z2',dot:'easy'}, Tue:{type:'Intervals',detail:'6×800m @ 10km RP · 90s rest · 2km WU/CD',dot:'hard'}, Wed:{type:'Strength',detail:'45 min · Reduced load, maintain form',dot:'strength'}, Thu:{type:'Easy Run',detail:'8km easy Z2 + 4×100m strides',dot:'easy'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'13km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+  { num:9, phase:'build', label:'Peak Volume', km:54, note:'Highest weekly volume in the plan. 4×2km at race pace is the centrepiece — all other sessions exist to enable that one.', hamstring:false,
+    days:{ Mon:{type:'Easy Run',detail:'11km easy Z2',dot:'easy'}, Tue:{type:'Intervals',detail:'4×2000m @ 10km RP (4:10) · 3 min rest · 2km WU/CD',dot:'hard'}, Wed:{type:'Strength',detail:'55 min · Peak strength block · 4×6–8',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 35 min Z4 · 2km CD',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'18km · last 5km @ Z3',dot:'moderate'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+  { num:10, phase:'peak', label:'Race-Specific Sharpening', km:52, note:'Volume slightly reduced, intensity at exact race pace. The 3×3km at race pace should feel controlled.', hamstring:false,
+    days:{ Mon:{type:'Easy Run',detail:'10km easy Z2',dot:'easy'}, Tue:{type:'Race Pace',detail:'3×3km @ exact race pace (4:11/km) · 3 min rest · 2km WU/CD',dot:'hard'}, Wed:{type:'Strength',detail:'45 min · Maintain strength, reduce volume',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 25 min Z4 · 2km CD',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'17km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+  { num:11, phase:'peak', label:'Race Simulation', km:50, note:'8km race simulation Saturday. Treat it like race day — warm up properly, execute the pace, don\'t blow up.', hamstring:false,
+    days:{ Mon:{type:'Easy Run',detail:'10km easy Z2',dot:'easy'}, Tue:{type:'Intervals',detail:'12×400m @ Z5b (3:55/km) · 60s rest · 2km WU/CD',dot:'hard'}, Wed:{type:'Strength',detail:'40 min · Reduced intensity, keep form',dot:'strength'}, Thu:{type:'Easy Run',detail:'8km easy Z2 · fresh legs for Sat',dot:'easy'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Race Simulation',detail:'2km WU · 8km @ 4:10–4:12/km · 2km CD',dot:'race'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+  { num:12, phase:'taper', label:'Freshen Up', km:35, note:'Volume drops 30–35%. Keep two quality sessions but shorten them. The fitness is banked — trust the taper.', hamstring:false,
+    days:{ Mon:{type:'Easy Run',detail:'7km easy Z2',dot:'easy'}, Tue:{type:'Intervals',detail:'6×600m @ race pace · 2 min rest · 2km WU/CD',dot:'hard'}, Wed:{type:'Strength',detail:'25 min · Bodyweight + activation only',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 12 min Z4 · 2km CD',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Easy Run',detail:'9km easy Z2 · no long run',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+  { num:13, phase:'taper', label:'Race Week', km:21, note:'19 July race day. Everything this week is activation. Short, sharp, easy. Sleep is your biggest performance lever.', hamstring:false,
+    days:{ Mon:{type:'Easy Run',detail:'5km very easy Z1 · shake out legs',dot:'easy'}, Tue:{type:'Shakeout',detail:'4km easy + 4×100m race pace strides · feel sharp',dot:'easy'}, Wed:{type:'Rest',detail:'Full rest day',dot:'rest'}, Thu:{type:'Shakeout',detail:'3km easy + 4×100m strides · keep very short',dot:'easy'}, Fri:{type:'Rest',detail:'Prep kit, finalise nutrition plan, early night',dot:'rest'}, Sat:{type:'RACE DAY',detail:'10km · Target: sub-42:00 (4:11/km) · 2km WU · trust the training',dot:'race'}, Sun:{type:'Rest',detail:'',dot:'rest'} }}
+];
+
+const pillClass = { base:'pill-base', build:'pill-build', peak:'pill-peak', taper:'pill-taper' };
+const phaseLabel = { base:'Base', build:'Build', peak:'Peak', taper:'Taper' };
+const dayOrder = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+// ── DATE HELPERS ──
+function getLocalMidnight() { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); }
+function getCurrentWeekNum() {
+  const today = getLocalMidnight();
+  if (today < PLAN_START) return null;
+  const diff = Math.floor((today - PLAN_START) / 86400000);
+  return Math.max(1, Math.min(13, Math.floor(diff / 7) + 1));
+}
+function getCurrentDayOfWeek() { return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date().getDay()]; }
+function getWeekStartDate(n) { const d = new Date(PLAN_START); d.setDate(d.getDate() + (n-1)*7); return d; }
+function daysUntilStart() { const t = getLocalMidnight(); return t < PLAN_START ? Math.ceil((PLAN_START-t)/86400000) : 0; }
+function fmtDate(d) { const [y,m,day] = d.split('-'); return new Date(y,m-1,day).toLocaleDateString('en-AU',{day:'numeric',month:'short'}); }
+function fmtTime(s) { const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60; return h>0?`${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`:`${m}:${String(sec).padStart(2,'0')}`; }
+function fmtPace(speed) { if(!speed||speed===0) return '—'; const s=1000/speed; return `${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,'0')}`; }
+function todayISO() { return new Date().toISOString().split('T')[0]; }
+
+// ── STATE ──
+let activities = [];
+let activityNotes = {};
+let strengthLog = [];
+let currentStrengthSession = JSON.parse(localStorage.getItem('strength_session_wip') || '{}');
+let chatHistory = [];
+let mealLog = [];
+let currentMealType = 'Breakfast';
+let currentFilter = 'all';
+let currentPageName = 'dashboard';
+
+// ── PAGE NAVIGATION ──
+const pageOrder = ['dashboard','schedule','coach','activities','meals','paces','strength','nutrition','methodology','hamstring'];
+let touchStartX = 0, touchStartY = 0;
+
+document.addEventListener('touchstart', e => {
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+}, { passive: true });
+document.addEventListener('touchend', e => {
+  if (window.innerWidth > 700) return;
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx) * 0.7) return;
+  const idx = pageOrder.indexOf(currentPageName);
+  if (dx < 0 && idx < pageOrder.length - 1) showPage(pageOrder[idx+1]);
+  if (dx > 0 && idx > 0) showPage(pageOrder[idx-1]);
+}, { passive: true });
+
+function showPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const el = document.getElementById('page-' + name);
+  if (!el) return;
+  el.classList.add('active');
+  currentPageName = name;
+  // Find matching nav button if not passed
+  if (!btn) btn = document.querySelector(`.nav-item[onclick*="'${name}'"]`);
+  if (btn) btn.classList.add('active');
+  // Render page content
+  const renders = {
+    dashboard: renderDashboard,
+    schedule: renderSchedulePage,
+    coach: renderCoachPage,
+    activities: renderActivitiesPage,
+    meals: renderMealsPage,
+    paces: renderPacesPage,
+    strength: renderStrengthPage,
+    nutrition: renderNutritionPage,
+    methodology: renderMethodologyPage,
+    hamstring: renderHamstringPage
+  };
+  if (renders[name]) renders[name]();
+  if (window.innerWidth <= 700) window.scrollTo(0, 0);
+}
+
+// ── SUPABASE DATA LOADING ──
+async function loadAllData() {
+  try {
+    // Activities
+    const acts = await api.get('strava_activities', 'select=*&order=start_date.desc&limit=200');
+    activities = (acts || []).map(a => ({
+      ...a,
+      date: a.start_date ? a.start_date.split('T')[0] : a.date,
+      distance: a.distance ? (a.distance / 1000).toFixed(2) : '0',
+      pace: a.pace || fmtPace(a.average_speed),
+      source: 'strava'
+    }));
+    document.getElementById('sidebar-sync-dot').classList.add('on');
+    document.getElementById('sidebar-sync-text').textContent = `${activities.length} activities`;
+  } catch(e) { console.warn('Activities load failed:', e.message); }
+
+  try {
+    const notes = await api.get('activity_notes', 'select=*');
+    activityNotes = {};
+    (notes || []).forEach(n => { activityNotes[n.activity_id] = n.note; });
+  } catch(e) { console.warn('Notes load failed:', e.message); }
+
+  try {
+    const sessions = await api.get('strength_sessions', 'select=*&order=session_date.desc&limit=30');
+    strengthLog = (sessions || []).map(s => ({
+      id: s.id,
+      date: s.session_date,
+      week: s.week_num,
+      exercises: s.exercises || []
+    }));
+  } catch(e) { console.warn('Strength load failed:', e.message); }
+
+  try {
+    const meals = await api.get('meal_log', 'select=*&order=created_at.desc&limit=200');
+    mealLog = (meals || []).map(m => ({
+      id: m.id,
+      date: m.meal_date,
+      time: m.meal_time,
+      type: m.meal_type,
+      text: m.description,
+      protein: m.protein_g,
+      carbs: m.carbs_g,
+      fat: m.fat_g,
+      kcal: m.kcal
+    }));
+  } catch(e) { console.warn('Meals load failed:', e.message); }
+
+  try {
+    const history = await api.get('chat_history', 'select=*&order=created_at.asc&limit=80');
+    chatHistory = (history || []).map(h => ({ role: h.role, content: h.content }));
+  } catch(e) { console.warn('Chat history load failed:', e.message); }
+
+  // Re-render current page with fresh data
+  showPage(currentPageName);
+}
+
+// ── ACTIVITY MATCHING ──
+function matchActivityToSession(act) {
+  if (!act.date) return null;
+  const [y,m,d] = act.date.split('-');
+  const dt = new Date(y, m-1, d);
+  const diffDays = Math.floor((dt - PLAN_START) / 86400000);
+  if (diffDays < 0) return null;
+  const weekNum = Math.floor(diffDays / 7) + 1;
+  const dayName = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()];
+  if (weekNum < 1 || weekNum > 13) return null;
+  return { week: weekNum, day: dayName, planned: weeks[weekNum-1].days[dayName] };
+}
+
+function getMatchQuality(act, planned) {
+  if (!planned || planned.dot === 'rest') return 'unmatched';
+  if (!act.pace) return 'ok';
+  const [m,s] = act.pace.split(':').map(Number);
+  const secs = m*60 + (s||0);
+  if (planned.dot === 'easy') return (secs >= 310 && secs <= 390) ? 'great' : secs < 310 ? 'warn' : 'miss';
+  if (planned.dot === 'hard') return (secs >= 230 && secs <= 270) ? 'great' : 'ok';
+  if (planned.dot === 'moderate') return (secs >= 260 && secs <= 310) ? 'great' : 'ok';
+  return 'ok';
+}
+
+function buildActivityIndex() {
+  const idx = {};
+  activities.forEach(act => {
+    const match = matchActivityToSession(act);
+    if (!match) return;
+    const key = `${match.week}-${match.day}`;
+    if (!idx[key]) idx[key] = [];
+    idx[key].push(act);
+  });
+  return idx;
+}
+
+// ── DASHBOARD ──
+function renderDashboard() {
+  const wkNum = getCurrentWeekNum();
+  const daysToRace = Math.ceil((RACE_DATE - new Date()) / 86400000);
+  const today = new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
+  const el = document.getElementById('page-dashboard');
+
+  let greeting, weekLabel, phaseText, kmLogged, kmPlanned, todayType, todayDetail;
+  if (!wkNum) {
+    const d = daysUntilStart();
+    greeting = `Plan starts in ${d} day${d!==1?'s':''} — 27 April. Keep this week easy.`;
+    weekLabel = '—'; phaseText = 'Pre-plan'; kmLogged = '—'; kmPlanned = '—';
+    todayType = 'Maintenance'; todayDetail = 'Easy running only this week';
+  } else {
+    const w = weeks[wkNum-1];
+    greeting = `${today} · Week ${wkNum} of 13 · ${w.label}`;
+    weekLabel = `${wkNum} / 13`; phaseText = `${phaseLabel[w.phase]} Phase`;
+    const wkStart = getWeekStartDate(wkNum);
+    const wkEnd = new Date(wkStart); wkEnd.setDate(wkEnd.getDate()+6);
+    kmLogged = activities.filter(a => {
+      const [y,m,d] = (a.date||'').split('-');
+      const dt = new Date(y,m-1,d);
+      return dt >= wkStart && dt <= wkEnd && !a.sport_type?.includes('Weight');
+    }).reduce((s,a) => s + parseFloat(a.distance||0), 0).toFixed(1);
+    kmPlanned = w.km;
+    const day = getCurrentDayOfWeek();
+    const session = w.days[day];
+    todayType = session?.type || 'Rest';
+    todayDetail = session?.dot === 'rest' ? 'Recovery is training' : (session?.detail?.split('·')[0].trim() || '');
+  }
+
+  // Training load chart
+  const maxKm = Math.max(...weeks.map(w=>w.km));
+  const barsHTML = weeks.map(w => {
+    const cls = wkNum && w.num < wkNum ? 'done' : wkNum && w.num === wkNum ? 'current' : '';
+    return `<div class="week-bar-wrap"><div class="week-bar ${cls}" style="height:${(w.km/maxKm*100).toFixed(0)}%" title="Wk ${w.num}: ${w.km}km"></div><div class="week-bar-label">${w.num}</div></div>`;
+  }).join('');
+
+  // Trends
+  const runs = activities.filter(a => !a.sport_type?.includes('Weight'));
+  const easyRuns = runs.filter(a => matchActivityToSession(a)?.planned?.dot === 'easy').slice(0,5);
+  let trendsHTML = '<div style="font-size:13px;color:var(--text-muted)">Log activities to see trends.</div>';
+  if (runs.length >= 1) {
+    const avgPace = easyRuns.length ? easyRuns.reduce((s,a) => { const [m,sec] = (a.pace||'6:00').split(':').map(Number); return s+m*60+(sec||0); },0)/easyRuns.length : null;
+    const fmt = s => `${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,'0')}`;
+    const compliance = wkNum > 1 ? (() => {
+      let planned=0,actual=0;
+      for(let w=Math.max(1,wkNum-3);w<wkNum;w++){
+        planned += weeks[w-1].km;
+        const ws=getWeekStartDate(w), we=new Date(ws); we.setDate(we.getDate()+6);
+        actual += activities.filter(a=>{const[y,m,d]=(a.date||'').split('-');const dt=new Date(y,m-1,d);return dt>=ws&&dt<=we&&!a.sport_type?.includes('Weight');}).reduce((s,a)=>s+parseFloat(a.distance||0),0);
+      }
+      return planned>0?Math.round(actual/planned*100):null;
+    })() : null;
+    trendsHTML = `
+      ${avgPace ? `<div class="trend-row"><span class="trend-label">Avg easy run pace (last ${easyRuns.length})</span><span class="trend-val">${fmt(avgPace)}/km <span class="trend-flag ${avgPace>=310?'tf-good':'tf-warn'}">${avgPace>=310?'On Target':'Too Fast'}</span></span></div>` : ''}
+      ${compliance !== null ? `<div class="trend-row"><span class="trend-label">Volume compliance (last 4 wks)</span><span class="trend-val">${compliance}% <span class="trend-flag ${compliance>=85?'tf-good':compliance>=60?'tf-warn':'tf-info'}">${compliance>=85?'On Track':compliance>=60?'Slightly Under':'Building'}</span></span></div>` : ''}
+      <div class="trend-row"><span class="trend-label">Strength sessions logged</span><span class="trend-val">${strengthLog.length}</span></div>
+      <div class="trend-row"><span class="trend-label">Total activities</span><span class="trend-val">${activities.length}</span></div>
+      <div class="trend-row"><span class="trend-label">Days to race</span><span class="trend-val">${daysToRace}</span></div>`;
+  }
+
+  // Today macros
+  const todayMeals = mealLog.filter(m => m.date === todayISO());
+  const macroTotals = todayMeals.reduce((t,m)=>({p:t.p+(m.protein||0),c:t.c+(m.carbs||0),f:t.f+(m.fat||0),k:t.k+(m.kcal||0)}),{p:0,c:0,f:0,k:0});
+  const macroHTML = todayMeals.length
+    ? `<div class="macro-bars" style="margin-bottom:8px">
+        <div><div class="macro-bar-label"><span>Protein</span><span>${Math.round(macroTotals.p)}g</span></div><div class="macro-bar-track"><div class="macro-bar-fill mbf-protein" style="width:${Math.min(100,macroTotals.p/130*100).toFixed(0)}%"></div></div></div>
+        <div><div class="macro-bar-label"><span>Carbs</span><span>${Math.round(macroTotals.c)}g</span></div><div class="macro-bar-track"><div class="macro-bar-fill mbf-carbs" style="width:${Math.min(100,macroTotals.c/450*100).toFixed(0)}%"></div></div></div>
+        <div><div class="macro-bar-label"><span>Fat</span><span>${Math.round(macroTotals.f)}g</span></div><div class="macro-bar-track"><div class="macro-bar-fill mbf-fat" style="width:${Math.min(100,macroTotals.f/80*100).toFixed(0)}%"></div></div></div>
+      </div><div style="font-size:12px;color:var(--text-muted);text-align:center">${Math.round(macroTotals.k)} kcal · ${todayMeals.length} item${todayMeals.length!==1?'s':''} logged</div>`
+    : '<div style="font-size:13px;color:var(--text-muted)">No food logged today. <button class="btn-secondary" style="font-size:12px;padding:4px 10px;margin-left:6px" onclick="showPage(\'meals\')">Log food →</button></div>';
+
+  el.innerHTML = `
+    <div class="page-title">Dashboard</div>
+    <p class="page-sub" style="margin-bottom:1.5rem">${greeting}</p>
+    <div class="dash-grid">
+      <div class="dash-stat-card"><div class="dsc-label">Days To Race</div><div class="dsc-value dsc-race">${daysToRace}</div><div class="dsc-sub">19 July 2026</div></div>
+      <div class="dash-stat-card"><div class="dsc-label">Current Week</div><div class="dsc-value">${weekLabel}</div><div class="dsc-sub">${phaseText}</div></div>
+      <div class="dash-stat-card"><div class="dsc-label">This Week</div><div class="dsc-value">${kmLogged}</div><div class="dsc-sub">of ${kmPlanned} km planned</div></div>
+      <div class="dash-stat-card"><div class="dsc-label">Today</div><div class="dsc-value" style="font-size:16px;padding-top:6px">${todayType}</div><div class="dsc-sub">${todayDetail}</div></div>
+    </div>
+    <div class="digest-card">
+      <div class="digest-header"><div class="digest-title">Training Load — 13 Weeks</div></div>
+      <div class="week-bars">${barsHTML}</div>
+      <div style="display:flex;gap:14px;font-size:11px;color:var(--text-faint);font-family:var(--mono);margin-top:6px">
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#1D9E75;margin-right:4px"></span>Done</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#378ADD;margin-right:4px"></span>Current</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--surface2);margin-right:4px"></span>Upcoming</span>
+      </div>
+    </div>
+    <div class="digest-card">
+      <div class="digest-header">
+        <div class="digest-title">Weekly Digest</div>
+        <button class="digest-btn" id="digest-btn" onclick="generateDigest()"><span id="digest-icon">✦</span> Generate</button>
+      </div>
+      <div class="digest-content" id="digest-content" style="color:var(--text-faint);font-style:italic">Click Generate for your AI weekly summary and coaching notes.</div>
+    </div>
+    <div class="digest-card">
+      <div class="digest-header" style="margin-bottom:8px"><div class="digest-title">Training Trends</div></div>
+      <div>${trendsHTML}</div>
+    </div>
+    <div class="digest-card">
+      <div class="digest-header" style="margin-bottom:8px">
+        <div class="digest-title">Today's Nutrition</div>
+        <button class="btn-secondary" onclick="showPage('meals')" style="font-size:12px;padding:5px 12px">Log food →</button>
+      </div>
+      ${macroHTML}
+    </div>`;
+}
+
+async function generateDigest() {
+  const btn = document.getElementById('digest-btn');
+  const content = document.getElementById('digest-content');
+  btn.disabled = true; btn.innerHTML = '<span class="spin">⟳</span> Generating…';
+  content.style.fontStyle = 'italic'; content.style.color = 'var(--text-faint)';
+  content.textContent = 'Analysing your training data…';
+
+  const wkNum = getCurrentWeekNum() || 1;
+  const w = weeks[wkNum-1];
+  const wkStart = getWeekStartDate(wkNum);
+  const wkEnd = new Date(wkStart); wkEnd.setDate(wkEnd.getDate()+6);
+  const thisWeekRuns = activities.filter(a => {
+    const [y,m,d] = (a.date||'').split('-'); const dt = new Date(y,m-1,d);
+    return dt >= wkStart && dt <= wkEnd;
+  });
+  const runSummary = thisWeekRuns.map(a => `  • ${a.date}: ${a.sport_type||'Run'} ${a.distance}km @ ${a.pace||'—'}/km${activityNotes[String(a.strava_id||a.id)] ? ' | "'+activityNotes[String(a.strava_id||a.id)]+'"' : ''}`).join('\n') || '  None logged';
+  const strengthSummary = strengthLog.slice(0,3).map(e => `  Wk${e.week} ${e.date}: ${(e.exercises||[]).filter(ex=>ex.sets?.some(s=>s.kg||s.reps)).map(ex=>`${ex.name?.split(' ')[0]} ${ex.sets?.reduce((b,s)=>parseFloat(s.kg||0)>parseFloat(b.kg||0)?s:b,{}).kg||'?'}kg`).join(', ')}`).join('\n') || '  None';
+
+  try {
+    const res = await fetch('/api/chat', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        system: 'You are a running coach writing a concise weekly digest. Be specific, reference actual data. Use plain text, no markdown. 3-4 short paragraphs max.',
+        messages: [{ role:'user', content:`Write a weekly training digest for Week ${wkNum} of 13 (${w.label}, ${w.phase} phase, ${w.km}km planned).\n\nThis week:\n${runSummary}\n\nRecent strength:\n${strengthSummary}\n\nDays to race: ${Math.ceil((RACE_DATE-new Date())/86400000)}\n\nCover what went well, what needs attention, key focus for next week. Be specific and encouraging.` }],
+        max_tokens: 600
+      })
+    });
+    const data = await res.json();
+    content.style.fontStyle = 'normal'; content.style.color = 'var(--text-muted)';
+    content.textContent = data.content || data.error || 'Could not generate digest.';
+  } catch(e) { content.textContent = 'Network error — check connection.'; }
+  btn.disabled = false; btn.innerHTML = '<span>✦</span> Regenerate';
+}
+
+// ── SCHEDULE PAGE ──
+function renderSchedulePage() {
+  const el = document.getElementById('page-schedule');
+  el.innerHTML = `
+    <div class="page-title">Weekly Schedule</div>
+    <p class="page-sub">13 weeks · Starts 27 April 2026 · Wks 1–2 gentle return, Wk 4 deload, Wks 5–9 build, Wks 10–11 peak, Wks 12–13 taper.</p>
+    <div class="phase-strip">
+      <div class="phase-block ph-base" onclick="filterPhase('base')"><div class="ph-label">Phase 1</div><div class="ph-name">Base</div><div class="ph-wks">Wks 1–4</div></div>
+      <div class="phase-block ph-build" onclick="filterPhase('build')"><div class="ph-label">Phase 2</div><div class="ph-name">Build</div><div class="ph-wks">Wks 5–9</div></div>
+      <div class="phase-block ph-peak" onclick="filterPhase('peak')"><div class="ph-label">Phase 3</div><div class="ph-name">Peak</div><div class="ph-wks">Wks 10–11</div></div>
+      <div class="phase-block ph-taper" onclick="filterPhase('taper')"><div class="ph-label">Phase 4</div><div class="ph-name">Taper</div><div class="ph-wks">Wks 12–13</div></div>
+    </div>
+    <div class="week-filter">
+      <button class="filter-btn ${currentFilter==='all'?'active':''}" onclick="filterPhase('all',this)">All Weeks</button>
+      <button class="filter-btn ${currentFilter==='base'?'active':''}" onclick="filterPhase('base',this)">Base</button>
+      <button class="filter-btn ${currentFilter==='build'?'active':''}" onclick="filterPhase('build',this)">Build</button>
+      <button class="filter-btn ${currentFilter==='peak'?'active':''}" onclick="filterPhase('peak',this)">Peak</button>
+      <button class="filter-btn ${currentFilter==='taper'?'active':''}" onclick="filterPhase('taper',this)">Taper</button>
+    </div>
+    <div id="weeks-container"></div>`;
+  renderWeeks();
+}
+
+function renderWeeks() {
+  const c = document.getElementById('weeks-container');
+  if (!c) return;
+  c.innerHTML = '';
+  const wkNum = getCurrentWeekNum();
+  const actIdx = buildActivityIndex();
+
+  weeks.forEach(w => {
+    if (currentFilter !== 'all' && w.phase !== currentFilter) return;
+    const isCurrent = wkNum !== null && w.num === wkNum;
+    const wkStart = getWeekStartDate(w.num);
+    const wkEnd = new Date(wkStart); wkEnd.setDate(wkEnd.getDate()+6);
+    const dateStr = wkStart.toLocaleDateString('en-AU',{day:'numeric',month:'short'}) + ' – ' + wkEnd.toLocaleDateString('en-AU',{day:'numeric',month:'short'});
+    let actualKm = 0;
+    dayOrder.forEach(day => { const key=`${w.num}-${day}`; if(actIdx[key]) actIdx[key].forEach(a=>{ actualKm+=parseFloat(a.distance||0); }); });
+
+    const daysHTML = dayOrder.map(day => {
+      const d = w.days[day];
+      const isRest = d.dot === 'rest';
+      const isTodayCard = isCurrent && day === getCurrentDayOfWeek();
+      const key = `${w.num}-${day}`;
+      const dayActs = actIdx[key] || [];
+      let overlayHTML = '';
+      dayActs.forEach(act => {
+        const quality = getMatchQuality(act, d);
+        const qClass = quality==='great'?'match-great':quality==='warn'?'match-warn':quality==='miss'?'match-miss':'';
+        const labelText = quality==='great'?'✓ On Target':quality==='warn'?'⚠ Check Pace':quality==='miss'?'✗ Off Plan':'↗ Strava';
+        overlayHTML += `<div class="activity-overlay ${qClass}"><div class="ao-label">${labelText}</div><div style="font-size:11px;color:var(--text-muted)">${act.distance}km · ${act.pace||'—'}/km${act.elapsed_time?' · '+fmtTime(act.elapsed_time):''}</div></div>`;
+      });
+      return `<div class="day-card ${isRest?'rest-card':''}" style="${isTodayCard?'border:2px solid #1D9E75;':''}">
+        <div class="day-name">${day}${isTodayCard?' · TODAY':''}</div>
+        <div class="day-type"><span class="dot d-${d.dot}"></span>${d.type}</div>
+        <div class="day-detail">${d.detail||'—'}</div>
+        ${overlayHTML}
+        ${!isRest?`<button class="brief-btn" onclick="briefSession(${w.num},'${day}',event)">Brief this session</button>`:''}
+      </div>`;
+    }).join('');
+
+    const summaryBar = actualKm > 0 ? `<div class="week-summary-bar"><div class="wsb-item">Planned: <span class="wsb-val">${w.km}km</span></div><div class="wsb-item">Logged: <span class="wsb-val" style="color:${actualKm>=w.km*0.9?'#1D9E75':'#EF9F27'}">${actualKm.toFixed(1)}km</span></div><div class="wsb-item">${Math.round(actualKm/w.km*100)}%</div></div>` : '';
+    const hamAlert = w.hamstring ? `<div class="hamstring-alert"><strong>Hamstring Protocol Active</strong> — Speed sessions at 4:05–4:10/km. RDL + Nordics prioritised. Dynamic warm-up before every run.</div>` : '';
+
+    const card = document.createElement('div');
+    card.className = 'week-card' + (isCurrent?' current-week':'');
+    card.innerHTML = `
+      <div class="week-header" onclick="toggleWeek(${w.num})">
+        <div class="week-left">
+          <span class="week-num">WK ${w.num}</span>
+          <span class="week-title">${w.label}</span>
+          <span class="phase-pill ${pillClass[w.phase]}">${phaseLabel[w.phase]}</span>
+          ${isCurrent?'<span class="current-badge">Current</span>':''}
+        </div>
+        <div class="week-right">
+          <span class="week-km" style="font-size:11px;color:var(--text-faint)">${dateStr}</span>
+          <span class="week-km">${w.km} km</span>
+          <span class="week-chevron" id="chev-${w.num}">▼</span>
+        </div>
+      </div>
+      <div class="week-body" id="wb-${w.num}">
+        <div class="week-note">${w.note}</div>
+        ${hamAlert}
+        <div class="day-grid">${daysHTML}</div>
+        ${summaryBar}
+      </div>`;
+    c.appendChild(card);
+  });
+
+  // Auto-open current or first visible week
+  if (wkNum) {
+    const w = weeks.find(w => w.num === wkNum);
+    if (w && (currentFilter === 'all' || w.phase === currentFilter)) toggleWeek(wkNum);
+    else { const first = weeks.find(w => currentFilter==='all'||w.phase===currentFilter); if(first) toggleWeek(first.num); }
+  } else {
+    const first = weeks.find(w => currentFilter==='all'||w.phase===currentFilter);
+    if(first) toggleWeek(first.num);
+  }
+}
+
+function toggleWeek(num) {
+  const body = document.getElementById('wb-'+num);
+  const chev = document.getElementById('chev-'+num);
+  if(!body) return;
+  const open = body.classList.contains('open');
+  body.classList.toggle('open', !open);
+  if(chev) chev.classList.toggle('open', !open);
+}
+
+function filterPhase(phase, btn) {
+  currentFilter = phase;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  renderWeeks();
+}
+
+// ── AI COACH PAGE ──
+const COACH_SYSTEM = `You are a professional running coach helping an athlete train for a sub-42 minute 10km race on 19 July 2026. The training plan starts 27 April 2026 (13 weeks).
+
+ATHLETE: 5km PB 20:50 (4:10/km), HM PB 1:33:30 (4:25/km), Target sub-42:00 (4:11/km), 75kg/188cm, Perth WA.
+Current issue: Mid-belly hamstring soreness during speed work — overload protocol active weeks 1-4.
+
+ZONES: Z1-2 Easy 5:30-6:00/km · Z3 Aerobic 4:50-5:10/km · Z4 Threshold 4:20-4:30/km · Z5a Race 4:05-4:15/km · Z5b VO2max 3:55-4:05/km (reduced to 4:05-4:10 wks 1-3)
+
+PLAN: Base wks 1-4 (28/33/38/32km) · Build wks 5-9 (44/48/51/41/54km) · Peak wks 10-11 (52/50km) · Taper wks 12-13 (35/21km)
+
+STYLE: Direct, warm, specific. Give actual paces and reps. Reference the athlete's real data. Build on conversation history — don't repeat yourself. Flag patterns proactively.`;
+
+function renderCoachPage() {
+  const el = document.getElementById('page-coach');
+  const wkNum = getCurrentWeekNum();
+  const day = getCurrentDayOfWeek();
+  const w = wkNum ? weeks[wkNum-1] : null;
+  const session = w ? w.days[day] : null;
+  const daysToRace = Math.ceil((RACE_DATE - new Date()) / 86400000);
+  const pct = wkNum ? Math.round((wkNum-1)/13*100) : 0;
+
+  let todayCardHTML;
+  if (!wkNum) {
+    todayCardHTML = `<div style="font-size:13px;color:var(--text-muted)">Plan starts in ${daysUntilStart()} days. Keep this week easy maintenance.</div>`;
+  } else if (!session || session.dot === 'rest') {
+    todayCardHTML = `<div style="font-size:13px;color:var(--text-muted)">Rest day. Recovery is training.</div>`;
+  } else {
+    todayCardHTML = `<div class="today-session"><div class="ts-day">Week ${wkNum} · ${day} · ${new Date().toLocaleDateString('en-AU',{day:'numeric',month:'short'})}</div><div class="ts-type">${session.type}</div><div class="ts-detail">${session.detail}</div></div>`;
+  }
+
+  el.innerHTML = `
+    <div class="page-title">AI Coach</div>
+    <p class="page-sub">Your personal running coach. Ask for session briefs, post-run debriefs, motivation, injury advice, or anything about your training.</p>
+    <div class="coach-layout">
+      <div class="chat-panel">
+        <div class="chat-header">
+          <div class="coach-avatar">C</div>
+          <div><div class="coach-name">Coach</div><div class="coach-status"><span>●</span> Thompson Run Co. · Sub-42 · Race 19 Jul 2026</div></div>
+        </div>
+        <div class="chat-messages" id="chat-messages">
+          ${chatHistory.length === 0 ? `<div class="msg msg-coach"><div class="msg-label">Coach</div><div class="msg-bubble">Hey! I'm your AI running coach for the sub-42 10km build. I've got your full plan, training data, and session history loaded.<br><br>What do you need today?</div></div>` : chatHistory.map(m => `<div class="msg msg-${m.role==='assistant'?'coach':'user'}"><div class="msg-label">${m.role==='assistant'?'Coach':'You'}</div><div class="msg-bubble">${m.content.replace(/\n/g,'<br>')}</div></div>`).join('')}
+        </div>
+        <div class="quick-prompts">
+          <button class="qp-btn" onclick="sendQuick('Brief today\\'s session')">Brief today's session</button>
+          <button class="qp-btn" onclick="sendQuick('How is my hamstring protocol going?')">Hamstring check-in</button>
+          <button class="qp-btn" onclick="sendQuick('Motivate me')">Motivate me</button>
+          <button class="qp-btn" onclick="sendQuick('Race day strategy for sub-42')">Race strategy</button>
+        </div>
+        <div class="chat-input-area">
+          <textarea class="chat-input" id="chat-input" rows="1" placeholder="Ask your coach anything…" onkeydown="handleChatKey(event)" oninput="autoResizeChat(this)"></textarea>
+          <button class="send-btn" id="send-btn" onclick="sendMessage()">Send</button>
+        </div>
+      </div>
+      <div class="coach-side">
+        <div class="side-card"><div class="side-card-title">Today's Session</div>${todayCardHTML}</div>
+        <div class="side-card">
+          <div class="side-card-title">Plan Progress</div>
+          <div class="stat-row"><span class="stat-label">Current week</span><span class="stat-val">${wkNum||'—'} / 13</span></div>
+          <div class="stat-row"><span class="stat-label">Days to race</span><span class="stat-val ${daysToRace<14?'stat-warn':'stat-good'}">${daysToRace}</span></div>
+          <div class="stat-row"><span class="stat-label">Phase</span><span class="stat-val">${w?phaseLabel[w.phase]:'Pre-plan'}</span></div>
+          <div class="stat-row"><span class="stat-label">Activities</span><span class="stat-val">${activities.length}</span></div>
+          ${wkNum?`<div class="progress-bar-wrap"><div class="progress-label"><span>Plan progress</span><span>${pct}%</span></div><div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div></div>`:''}
+        </div>
+        <div class="side-card">
+          <div class="side-card-title">Quick Actions</div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <button class="btn-secondary" style="width:100%;text-align:left" onclick="sendQuick('Give me a full brief for today\\'s session including warm-up, paces, and what to watch for')">📋 Brief today's session</button>
+            <button class="btn-secondary" style="width:100%;text-align:left" onclick="sendQuick('Give me an overview of this week — theme, key sessions, what to focus on')">📅 This week overview</button>
+            <button class="btn-secondary" style="width:100%;text-align:left" onclick="sendQuick('Help me debrief my last run — ask me what I did')">🏃 Debrief last run</button>
+            <button class="btn-secondary" style="width:100%;text-align:left" onclick="sendQuick('Check in on my hamstring protocol — week ${wkNum||1}, what should I be noticing?')">🦵 Hamstring check-in</button>
+            <button class="btn-secondary" style="width:100%;text-align:left" onclick="sendQuick('Full race day strategy for sub-42 — pacing, warm-up, fuelling, mindset')">🏁 Race day strategy</button>
+            <button class="btn-secondary" style="width:100%;text-align:left;border-color:var(--red-light);color:var(--red);margin-top:4px" onclick="clearChatHistory()">🗑 Clear chat history</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  // Scroll chat to bottom
+  setTimeout(() => {
+    const msgs = document.getElementById('chat-messages');
+    if (msgs) msgs.scrollTop = msgs.scrollHeight;
+  }, 50);
+}
+
+async function sendMessage() {
+  const input = document.getElementById('chat-input');
+  const btn = document.getElementById('send-btn');
+  const text = input.value.trim();
+  if (!text) return;
+
+  appendMessage('user', text);
+  const userMsg = { role:'user', content: text };
+  chatHistory.push(userMsg);
+  input.value = ''; input.style.height = 'auto'; btn.disabled = true;
+
+  // Save to Supabase
+  api.post('chat_history', { role:'user', content: text }, 'return=minimal').catch(()=>{});
+
+  // Build rich context
+  const wkNum = getCurrentWeekNum();
+  const day = getCurrentDayOfWeek();
+  const w = wkNum ? weeks[wkNum-1] : null;
+  const savedNotes = activityNotes;
+  const recentRuns = activities.filter(a=>!a.sport_type?.includes('Weight')).slice(0,8)
+    .map(a => `  • ${a.date}: ${a.sport_type||'Run'} ${a.distance}km @ ${a.pace||'—'}/km${savedNotes[String(a.strava_id||a.id)]?' | "'+savedNotes[String(a.strava_id||a.id)]+'"':''}`)
+    .join('\n') || '  None yet';
+  const recentStrength = strengthLog.slice(0,4).map(e =>
+    `  Wk${e.week} ${e.date}: ${(e.exercises||[]).filter(ex=>ex.sets?.some(s=>s.kg||s.reps)).map(ex=>`${ex.name?.split(' ')[0]} top:${ex.sets?.reduce((b,s)=>parseFloat(s.kg||0)>parseFloat(b.kg||0)?s:b,{}).kg||'?'}kg`).join(', ')}`
+  ).join('\n') || '  None yet';
+  const contextSystem = COACH_SYSTEM + `\n\nLIVE DATA:\nToday: ${new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}\n${wkNum?`Week ${wkNum}/13 (${w.label}) · Today: ${w.days[day]?.type||'Rest'} — ${w.days[day]?.detail||''}`:(`Plan starts in ${daysUntilStart()} days`)}\nDays to race: ${Math.ceil((RACE_DATE-new Date())/86400000)}\n\nRECENT RUNS:\n${recentRuns}\n\nSTRENGTH (last 4):\n${recentStrength}`;
+
+  const thinking = showThinking();
+  try {
+    const res = await fetch('/api/chat', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ system: contextSystem, messages: chatHistory, max_tokens: 800 })
+    });
+    const data = await res.json();
+    thinking.remove();
+    const reply = data.content || data.error || 'Something went wrong.';
+    chatHistory.push({ role:'assistant', content: reply });
+    appendMessage('coach', reply);
+    // Save assistant reply to Supabase
+    api.post('chat_history', { role:'assistant', content: reply }, 'return=minimal').catch(()=>{});
+    // Keep last 60 messages in memory
+    if (chatHistory.length > 60) chatHistory = chatHistory.slice(-60);
+  } catch(e) {
+    thinking.remove();
+    appendMessage('coach', 'Network error — check your connection.');
+  }
+  btn.disabled = false;
+}
+
+function appendMessage(role, content) {
+  const msgs = document.getElementById('chat-messages');
+  if (!msgs) return;
+  const div = document.createElement('div');
+  div.className = `msg msg-${role==='coach'?'coach':'user'}`;
+  div.innerHTML = `<div class="msg-label">${role==='coach'?'Coach':'You'}</div><div class="msg-bubble">${content.replace(/\n/g,'<br>')}</div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function showThinking() {
+  const msgs = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'msg msg-coach'; div.id = 'thinking-msg';
+  div.innerHTML = `<div class="msg-label">Coach</div><div class="thinking">Thinking<div class="thinking-dots"><span>.</span><span>.</span><span>.</span></div></div>`;
+  msgs.appendChild(div); msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+function sendQuick(text) {
+  const input = document.getElementById('chat-input');
+  if(input) { input.value = text; sendMessage(); }
+}
+
+async function clearChatHistory() {
+  if(!confirm('Clear all chat history? The coach will start fresh.')) return;
+  try { await api.delete('chat_history', 'id=gt.0'); } catch(e) {}
+  chatHistory = [];
+  renderCoachPage();
+}
+
+function handleChatKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} }
+function autoResizeChat(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
+function briefSession(weekNum, day, e) {
+  e.stopPropagation();
+  const w = weeks.find(x=>x.num===weekNum);
+  const session = w.days[day];
+  const prompt = `Give me a full pre-session brief for Week ${weekNum}, ${day}: ${session.type} — ${session.detail}. Include warm-up tips, key focus points, target paces, and what to watch for.`;
+  showPage('coach');
+  setTimeout(() => { const input=document.getElementById('chat-input'); if(input){input.value=prompt;sendMessage();} }, 200);
+}
+
+// ── ACTIVITIES PAGE ──
+function renderActivitiesPage() {
+  const el = document.getElementById('page-activities');
+  const today = todayISO();
+  const wkNum = getCurrentWeekNum();
+  const wkStart = wkNum ? getWeekStartDate(wkNum) : new Date();
+  const wkEnd = new Date(wkStart); wkEnd.setDate(wkEnd.getDate()+6);
+  const thisWeekKm = activities.filter(a=>{const[y,m,d]=(a.date||'').split('-');const dt=new Date(y,m-1,d);return dt>=wkStart&&dt<=wkEnd&&!a.sport_type?.includes('Weight');}).reduce((s,a)=>s+parseFloat(a.distance||0),0);
+  const planned = wkNum ? weeks[wkNum-1].km : 0;
+  const pct = planned > 0 ? Math.min(100, Math.round(thisWeekKm/planned*100)) : 0;
+
+  const activitiesHTML = activities.length ? activities.slice(0,40).map(act => {
+    const isStrength = act.sport_type?.includes('Weight') || act.sport_type?.includes('Strength');
+    const match = isStrength ? null : matchActivityToSession(act);
+    const quality = match ? getMatchQuality(act, match.planned) : 'unmatched';
+    const badges = {great:'mb-great',ok:'mb-ok',warn:'mb-ok',miss:'mb-miss',unmatched:'mb-unmatched'};
+    const badgeText = {great:'On Target',ok:'Close',warn:'Check Pace',miss:'Off Plan',unmatched:'Unmatched'};
+    const actId = String(act.strava_id||act.id);
+    const note = activityNotes[actId] || '';
+    return `<div class="activity-card">
+      <div style="display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center">
+        <div class="act-icon">${isStrength?'🏋️':'🏃'}</div>
+        <div>
+          <div class="act-name">${act.name||act.sport_type||'Activity'}</div>
+          <div class="act-meta">${fmtDate(act.date)} · ${isStrength?'Strength session':match?`Wk${match.week} ${match.day} · ${match.planned?.type||'—'}`:'Outside plan dates'}</div>
+          <div style="margin-top:5px;display:flex;align-items:center;gap:8px">
+            ${isStrength?'<span class="match-badge mb-unmatched">🏋️ Strength</span>':`<span class="match-badge ${badges[quality]}">${badgeText[quality]}</span>`}
+            <span style="font-size:11px;color:var(--strava);font-family:var(--mono);font-weight:500">STRAVA</span>
+          </div>
+        </div>
+        ${!isStrength?`<div class="act-stats"><div class="act-stat"><div class="act-stat-val">${act.distance}km</div><div class="act-stat-label">Distance</div></div><div class="act-stat"><div class="act-stat-val">${act.pace||'—'}</div><div class="act-stat-label">Pace</div></div>${act.elapsed_time?`<div class="act-stat"><div class="act-stat-val">${fmtTime(act.elapsed_time)}</div><div class="act-stat-label">Time</div></div>`:''}</div>`:''}
+      </div>
+      <textarea class="run-note-input" rows="1" placeholder="${isStrength?'Add session notes…':'How did this feel? e.g. felt easy, HR high, legs tired…'}" oninput="saveActivityNote('${actId}',this)" onfocus="this.rows=3" onblur="this.rows=this.value?2:1">${note}</textarea>
+      <div class="run-note-saved" id="note-saved-${actId}">Saved ✓</div>
+    </div>`;
+  }).join('') : '<p style="font-size:13px;color:var(--text-muted)">No activities yet. Connect Strava to start syncing.</p>';
+
+  el.innerHTML = `
+    <div class="page-title">Activities</div>
+    <p class="page-sub">Strava activities sync automatically via the webhook. Add notes to any run — the AI coach can see them.</p>
+    <div class="alert alert-green" style="margin-bottom:16px">
+      <strong>Strava sync is automatic.</strong> Upload a run to Strava → it appears here within seconds. No manual action needed.
+    </div>
+    <div class="digest-card" style="margin-bottom:20px">
+      <div class="digest-header" style="margin-bottom:12px"><div class="digest-title">This Week's Progress</div></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+        <div><div style="font-size:12px;color:var(--text-muted);margin-bottom:2px">Logged</div><div style="font-size:26px;font-family:var(--serif);font-weight:300">${thisWeekKm.toFixed(1)} km</div></div>
+        <div style="text-align:right"><div style="font-size:12px;color:var(--text-muted);margin-bottom:2px">Planned</div><div style="font-size:26px;font-family:var(--serif);font-weight:300">${planned} km</div></div>
+      </div>
+      <div class="progress-bar-wrap"><div class="progress-label"><span>${pct}% of weekly target</span></div><div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${pct>=90?'#1D9E75':pct>=60?'#EF9F27':'#E24B4A'}"></div></div></div>
+    </div>
+    <div class="sec-title" style="margin-top:0">Add Activity Manually</div>
+    <div class="setup-card" style="padding:18px;margin-bottom:20px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr)) auto;gap:10px;align-items:end">
+        <div><label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;font-family:var(--mono)">DATE</label><input type="date" class="text-input" id="act-date" style="width:100%"></div>
+        <div><label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;font-family:var(--mono)">DISTANCE (km)</label><input type="number" class="text-input" id="act-dist" placeholder="10.2" step="0.1" style="width:100%"></div>
+        <div><label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;font-family:var(--mono)">PACE (min:sec)</label><input type="text" class="text-input" id="act-pace" placeholder="4:30" style="width:100%"></div>
+        <div><label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;font-family:var(--mono)">TYPE</label><select class="text-input" id="act-type" style="width:100%"><option>Easy Run</option><option>Intervals</option><option>Tempo</option><option>Long Run</option><option>Race Simulation</option><option>Strength</option></select></div>
+        <button class="btn-primary" onclick="addManualActivity()" style="height:38px">Add</button>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div class="sec-title" style="margin:0">Activity Log</div>
+      <button class="sync-btn" onclick="loadAllData()">⟳ Refresh</button>
+    </div>
+    <div id="activities-list">${activitiesHTML}</div>`;
+}
+
+async function saveActivityNote(actId, textarea) {
+  activityNotes[actId] = textarea.value;
+  try {
+    await api.post('activity_notes', { activity_id: actId, note: textarea.value, updated_at: new Date().toISOString() });
+    const indicator = document.getElementById('note-saved-'+actId);
+    if(indicator) { indicator.classList.add('show'); clearTimeout(indicator._t); indicator._t = setTimeout(()=>indicator.classList.remove('show'), 1800); }
+  } catch(e) { console.warn('Note save failed:', e.message); }
+}
+
+async function addManualActivity() {
+  const date = document.getElementById('act-date').value;
+  const dist = parseFloat(document.getElementById('act-dist').value);
+  const pace = document.getElementById('act-pace').value.trim();
+  const type = document.getElementById('act-type').value;
+  if(!date||!dist||!pace) { alert('Please fill in date, distance, and pace.'); return; }
+  const [m,s] = pace.split(':').map(Number);
+  const speed = 1000 / (m*60 + (s||0));
+  try {
+    const result = await api.post('strava_activities', {
+      strava_id: Date.now(),
+      name: type,
+      sport_type: type,
+      start_date: date + 'T00:00:00Z',
+      distance: dist * 1000,
+      pace,
+      average_speed: speed,
+      elapsed_time: Math.round((m*60+(s||0))*dist),
+      moving_time: Math.round((m*60+(s||0))*dist)
+    });
+    await loadAllData();
+    document.getElementById('act-date').value = '';
+    document.getElementById('act-dist').value = '';
+    document.getElementById('act-pace').value = '';
+  } catch(e) { alert('Error saving activity: ' + e.message); }
+}
+
+// ── MEALS PAGE ──
+function renderMealsPage() {
+  const el = document.getElementById('page-meals');
+  const today = todayISO();
+  const todayMeals = mealLog.filter(m => m.date === today);
+  const totals = todayMeals.reduce((t,m)=>({p:t.p+(m.protein||0),c:t.c+(m.carbs||0),f:t.f+(m.fat||0),k:t.k+(m.kcal||0)}),{p:0,c:0,f:0,k:0});
+  const typeClass = {Breakfast:'met-breakfast',Snack:'met-snack',Lunch:'met-lunch',Dinner:'met-dinner'};
+
+  const todayHTML = todayMeals.length
+    ? todayMeals.map(m=>`<div class="meal-entry">
+        <div class="meal-entry-header"><span class="meal-entry-time">${m.time||''}</span><span class="meal-entry-type ${typeClass[m.type]||'met-snack'}">${m.type}</span><button class="meal-delete" onclick="deleteMeal(${m.id})">✕</button></div>
+        <div class="meal-entry-text">${m.text}</div>
+        <div class="meal-entry-macros"><span><strong>${Math.round(m.protein||0)}g</strong> protein</span><span><strong>${Math.round(m.carbs||0)}g</strong> carbs</span><span><strong>${Math.round(m.fat||0)}g</strong> fat</span><span><strong>${m.kcal||0}</strong> kcal</span></div>
+      </div>`).join('')
+    : '<p style="font-size:13px;color:var(--text-muted)">No food logged today.</p>';
+
+  const prevMeals = mealLog.filter(m=>m.date!==today);
+  const byDate = {};
+  prevMeals.forEach(m=>{if(!byDate[m.date])byDate[m.date]=[];byDate[m.date].push(m);});
+  const historyHTML = Object.keys(byDate).slice(0,7).map(date=>{
+    const meals=byDate[date];
+    const t=meals.reduce((acc,m)=>({p:acc.p+(m.protein||0),c:acc.c+(m.carbs||0),k:acc.k+(m.kcal||0)}),{p:0,c:0,k:0});
+    return `<div class="st-hist-entry"><div class="st-hist-header" onclick="this.nextElementSibling.classList.toggle('open')"><div><div class="st-hist-date">${fmtDate(date)}</div><div class="st-hist-summary">${meals.length} items · ${Math.round(t.p)}g protein · ${Math.round(t.k)} kcal</div></div><span style="font-size:10px;color:var(--text-faint)">▼</span></div><div class="st-hist-body">${meals.map(m=>`<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--text-faint);font-family:var(--mono)">${m.time||''}</span> <strong>${m.type}</strong> — ${m.text}<div style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">${Math.round(m.protein||0)}g P · ${Math.round(m.carbs||0)}g C · ${Math.round(m.fat||0)}g F · ${m.kcal||0}kcal</div></div>`).join('')}</div></div>`;
+  }).join('') || '<p style="font-size:13px;color:var(--text-muted)">No history yet.</p>';
+
+  el.innerHTML = `
+    <div class="page-title">Meal Tracker</div>
+    <p class="page-sub">Type what you ate — the AI extracts macros automatically. Focus on snacks and problem areas, or track everything. Targets: ~130g protein, ~450g carbs, ~80g fat on training days.</p>
+    <div class="meal-input-card">
+      <div class="meal-tabs">
+        ${['Breakfast','Snack','Lunch','Dinner'].map(t=>`<button class="meal-tab ${currentMealType===t?'active':''}" onclick="selectMealType('${t}',this)">${t}</button>`).join('')}
+      </div>
+      <textarea class="meal-textarea" id="meal-input" rows="3" placeholder="e.g. banana and peanut butter on 2 slices sourdough toast&#10;or: handful of almonds, apple, protein bar&#10;or: chicken breast 180g, rice 200g, broccoli"></textarea>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div class="parsing-indicator" id="meal-parsing" style="display:none">✦ Extracting macros…</div>
+        <div></div>
+        <button class="meal-log-btn" id="meal-log-btn" onclick="logMeal()">Log →</button>
+      </div>
+    </div>
+    <div class="digest-card">
+      <div class="digest-header" style="margin-bottom:12px">
+        <div class="digest-title">Today's Macros</div>
+        <span style="font-size:12px;color:var(--text-muted)">${new Date().toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})}</span>
+      </div>
+      <div class="macro-bars">
+        <div><div class="macro-bar-label"><span>Protein</span><span id="mb-protein">${Math.round(totals.p)} / 130g</span></div><div class="macro-bar-track"><div class="macro-bar-fill mbf-protein" style="width:${Math.min(100,totals.p/130*100).toFixed(0)}%"></div></div></div>
+        <div><div class="macro-bar-label"><span>Carbs</span><span id="mb-carbs">${Math.round(totals.c)} / 450g</span></div><div class="macro-bar-track"><div class="macro-bar-fill mbf-carbs" style="width:${Math.min(100,totals.c/450*100).toFixed(0)}%"></div></div></div>
+        <div><div class="macro-bar-label"><span>Fat</span><span id="mb-fat">${Math.round(totals.f)} / 80g</span></div><div class="macro-bar-track"><div class="macro-bar-fill mbf-fat" style="width:${Math.min(100,totals.f/80*100).toFixed(0)}%"></div></div></div>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);text-align:center">${Math.round(totals.k)} kcal · ${todayMeals.length} item${todayMeals.length!==1?'s':''} logged today</div>
+    </div>
+    <div class="sec-title" style="margin-top:0">Today's Food Log</div>
+    <div id="meal-log-list">${todayHTML}</div>
+    <div class="sec-title">Previous Days</div>
+    <div id="meal-history-list">${historyHTML}</div>`;
+}
+
+function selectMealType(type, btn) {
+  currentMealType = type;
+  document.querySelectorAll('.meal-tab').forEach(t=>t.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+}
+
+async function logMeal() {
+  const input = document.getElementById('meal-input');
+  const text = input.value.trim();
+  if(!text) return;
+  const btn = document.getElementById('meal-log-btn');
+  const parsing = document.getElementById('meal-parsing');
+  btn.disabled = true; parsing.style.display = 'block';
+  let macros = {protein:0,carbs:0,fat:0,kcal:0};
+  try {
+    const res = await fetch('/api/parse-meal', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({text})
+    });
+    macros = await res.json();
+  } catch(e) { console.warn('Macro parse failed:', e.message); }
+
+  try {
+    const now = new Date();
+    await api.post('meal_log', {
+      meal_date: todayISO(),
+      meal_time: now.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'}),
+      meal_type: currentMealType,
+      description: text,
+      protein_g: Math.round(macros.protein||0),
+      carbs_g: Math.round(macros.carbs||0),
+      fat_g: Math.round(macros.fat||0),
+      kcal: Math.round(macros.kcal||0)
+    }, 'return=minimal');
+    input.value = '';
+    // Reload meal data and re-render
+    const meals = await api.get('meal_log','select=*&order=created_at.desc&limit=200');
+    mealLog = (meals||[]).map(m=>({id:m.id,date:m.meal_date,time:m.meal_time,type:m.meal_type,text:m.description,protein:m.protein_g,carbs:m.carbs_g,fat:m.fat_g,kcal:m.kcal}));
+    renderMealsPage();
+  } catch(e) { alert('Error saving meal: '+e.message); }
+  btn.disabled = false; parsing.style.display = 'none';
+}
+
+async function deleteMeal(id) {
+  if(!confirm('Remove this entry?')) return;
+  try {
+    await api.delete('meal_log', `id=eq.${id}`);
+    mealLog = mealLog.filter(m=>m.id!==id);
+    renderMealsPage();
+  } catch(e) { alert('Error: '+e.message); }
+}
+
+// ── STRENGTH PAGE ──
+const STRENGTH_P1 = [
+  {id:'rdl',name:'Romanian Deadlift (RDL)',target:'3×10 · slow eccentric',sets:3},
+  {id:'nordic',name:'Nordic Hamstring Curl',target:'3×5 (assisted)',sets:3},
+  {id:'hip',name:'Hip Thrust / Glute Bridge',target:'3×12',sets:3},
+  {id:'bss',name:'Bulgarian Split Squat',target:'3×8 each',sets:3},
+  {id:'calf',name:'Single-Leg Calf Raise',target:'3×15 each',sets:3},
+  {id:'cope',name:'Copenhagen Plank',target:'3×20s each',sets:3},
+  {id:'bug',name:'Dead Bug',target:'3×8 each',sets:3}
+];
+const STRENGTH_P2 = [
+  {id:'rdl',name:'Romanian Deadlift',target:'4×8 · heavier',sets:4},
+  {id:'nordic',name:'Nordic Hamstring Curl',target:'3×6–8',sets:3},
+  {id:'bss',name:'Bulgarian Split Squat',target:'4×8 each · heavier',sets:4},
+  {id:'hip',name:'Hip Thrust',target:'4×10 · heavier',sets:4},
+  {id:'calf',name:'Single-Leg Calf Raise',target:'3×15 · weighted',sets:3},
+  {id:'cope',name:'Copenhagen Plank',target:'3×30s each',sets:3}
+];
+
+function getStrengthExercises() {
+  const wk = getCurrentWeekNum() || 1;
+  if(wk<=4) return STRENGTH_P1;
+  const exercises = STRENGTH_P2;
+  if(wk>=10) return exercises.map(e=>({...e,sets:Math.max(2,e.sets-1)}));
+  return exercises;
+}
+
+function renderStrengthPage() {
+  const el = document.getElementById('page-strength');
+  const exercises = getStrengthExercises();
+  const wk = getCurrentWeekNum() || 1;
+  const phase = wk<=4?'Phase 1 · Base':wk<=9?'Phase 2 · Build':wk<=11?'Phase 3 · Peak':'Phase 4 · Taper';
+
+  const exerciseInputs = exercises.map(ex => {
+    const saved = currentStrengthSession[ex.id] || {};
+    const setsHTML = Array.from({length:ex.sets},(_,i)=>{
+      const s = saved.sets?.[i] || {};
+      return `<div class="st-set-row">
+        <div class="st-set-label">${i+1}</div>
+        <input class="st-input" type="number" placeholder="kg" step="2.5" value="${s.kg||''}" oninput="saveSetData('${ex.id}',${i},'kg',this.value)">
+        <input class="st-input" type="number" placeholder="reps" step="1" value="${s.reps||''}" oninput="saveSetData('${ex.id}',${i},'reps',this.value)">
+        <input class="st-input" type="text" placeholder="note" value="${s.note||''}" oninput="saveSetData('${ex.id}',${i},'note',this.value)">
+      </div>`;
+    }).join('');
+    return `<div class="st-exercise">
+      <div class="st-ex-header" onclick="this.nextElementSibling.classList.toggle('open')">
+        <div><div class="st-ex-name">${ex.name}</div><div class="st-ex-target">${ex.target}</div></div>
+        <span style="font-size:10px;color:var(--text-faint)">▼</span>
+      </div>
+      <div class="st-ex-body">
+        <div class="st-set-row" style="margin-bottom:4px"><div></div><div class="st-col-label">Weight (kg)</div><div class="st-col-label">Reps</div><div class="st-col-label">Note</div></div>
+        ${setsHTML}
+        <textarea class="st-notes" rows="2" placeholder="Notes for this exercise…" oninput="saveExNotes('${ex.id}',this.value)">${saved.notes||''}</textarea>
+      </div>
+    </div>`;
+  }).join('');
+
+  // History
+  const histHTML = strengthLog.length ? strengthLog.slice(0,12).map((entry,idx)=>{
+    const dateStr = fmtDate(entry.date);
+    const logged = (entry.exercises||[]).filter(ex=>ex.sets?.some(s=>s.kg||s.reps));
+    const summary = logged.map(ex=>{const top=ex.sets?.reduce((b,s)=>parseFloat(s.kg||0)>parseFloat(b.kg||0)?s:b,{});return `${ex.name?.split(' ')[0]} ${top.kg||''}${top.reps?'×'+top.reps:''}`.trim();}).join(' · ') || 'Logged';
+    const detail = (entry.exercises||[]).map(ex=>{
+      const filled=(ex.sets||[]).filter(s=>s.kg||s.reps);
+      if(!filled.length&&!ex.notes) return '';
+      return `<div class="st-hist-ex"><div class="st-hist-ex-name">${ex.name}</div><div class="st-hist-sets">${filled.map((s,i)=>`<div class="st-hist-set">Set ${i+1}: ${s.kg||'?'}kg×${s.reps||'?'}${s.note?' ('+s.note+')':''}</div>`).join('')}</div>${ex.notes?`<div class="st-hist-note">📝 ${ex.notes}</div>`:''}</div>`;
+    }).filter(Boolean).join('');
+    return `<div class="st-hist-entry"><div class="st-hist-header" onclick="toggleStHist(${idx})"><div><div class="st-hist-date">Wk ${entry.week} · ${dateStr}</div><div class="st-hist-summary">${summary}</div></div><div style="display:flex;align-items:center;gap:8px"><button class="st-hist-delete" onclick="event.stopPropagation();deleteStrengthEntry(${idx})">✕</button><span style="font-size:10px;color:var(--text-faint)" id="sth-chev-${idx}">▼</span></div></div><div class="st-hist-body" id="sth-body-${idx}">${detail||'<p style="font-size:12px;color:var(--text-muted);padding-top:8px">No weights recorded.</p>'}</div></div>`;
+  }).join('') : '<p style="font-size:13px;color:var(--text-muted)">No sessions logged yet.</p>';
+
+  el.innerHTML = `
+    <div class="page-title">Strength Plan</div>
+    <p class="page-sub">Wednesday sessions, 45–50 minutes. Log each session below — saved to your database automatically.</p>
+    <div class="alert alert-amber">Weeks 1–4 hamstring modification: RDL first (3–4s eccentric). Nordic curls added. Reduce load if any sharp pain.</div>
+    <div class="strength-tracker">
+      <div class="st-header">
+        <div style="font-size:15px;font-weight:500">📋 Log Today's Session <span style="font-size:12px;color:var(--text-muted);font-weight:400">· ${phase}</span></div>
+        <span class="st-saved" id="st-saved-msg">Saved ✓</span>
+      </div>
+      ${exerciseInputs}
+      <button class="st-complete-btn" onclick="completeStrengthSession()">Mark Session Complete</button>
+    </div>
+    <div class="sec-title">Session History</div>
+    <div id="st-history-list">${histHTML}</div>
+    <div class="sec-title">Phase 1 — Base (Weeks 1–4) · Learn + Rehab</div>
+    <p class="sec-sub">3×10–12 reps, moderate weight. Master the movements.</p>
+    <div class="exercise-list">
+      <div class="exercise-row"><div><div class="exercise-name">Romanian Deadlift (RDL)<span class="hsring-badge">hamstring priority</span></div></div><div class="exercise-sets">3×10 · slow eccentric</div><div class="exercise-why">Most important exercise. 3–4s lowering. Start light.</div></div>
+      <div class="exercise-row"><div><div class="exercise-name">Nordic Hamstring Curl<span class="hsring-badge">hamstring priority</span></div></div><div class="exercise-sets">3×5 (assisted)</div><div class="exercise-why">Best evidence-based hamstring prevention. Anchor feet, assist lowering.</div></div>
+      <div class="exercise-row"><div><div class="exercise-name">Hip Thrust / Glute Bridge</div></div><div class="exercise-sets">3×12</div><div class="exercise-why">Glute activation. Powers propulsion, reduces hamstring compensation.</div></div>
+      <div class="exercise-row"><div><div class="exercise-name">Bulgarian Split Squat</div></div><div class="exercise-sets">3×8 each</div><div class="exercise-why">Single-leg quad + glute. Mimics running gait.</div></div>
+      <div class="exercise-row"><div><div class="exercise-name">Single-Leg Calf Raise</div></div><div class="exercise-sets">3×15 each</div><div class="exercise-why">Achilles and calf resilience.</div></div>
+      <div class="exercise-row"><div><div class="exercise-name">Copenhagen Plank</div></div><div class="exercise-sets">3×20s each</div><div class="exercise-why">Hip adductor strength.</div></div>
+      <div class="exercise-row"><div><div class="exercise-name">Dead Bug</div></div><div class="exercise-sets">3×8 each</div><div class="exercise-why">Core stability at speed.</div></div>
+    </div>
+    <div class="sec-title">Phase 2 — Build (Weeks 5–9) · Load Increase</div>
+    <p class="sec-sub">3–4×8 reps, increase load progressively.</p>
+    <div class="exercise-list">
+      <div class="exercise-row"><div><div class="exercise-name">Romanian Deadlift</div></div><div class="exercise-sets">4×8 · heavier</div><div class="exercise-why">Progressive overload. Controlled eccentric.</div></div>
+      <div class="exercise-row"><div><div class="exercise-name">Nordic Hamstring Curl</div></div><div class="exercise-sets">3×6–8</div><div class="exercise-why">Build to unassisted reps.</div></div>
+      <div class="exercise-row"><div><div class="exercise-name">Bulgarian Split Squat</div></div><div class="exercise-sets">4×8 each · heavier</div><div class="exercise-why">Add load with dumbbells or barbell.</div></div>
+      <div class="exercise-row"><div><div class="exercise-name">Hip Thrust</div></div><div class="exercise-sets">4×10 · heavier</div><div class="exercise-why">Load the glutes progressively.</div></div>
+      <div class="exercise-row"><div><div class="exercise-name">Single-Leg Calf Raise</div></div><div class="exercise-sets">3×15 · weighted</div><div class="exercise-why">Hold a dumbbell or use the machine.</div></div>
+      <div class="exercise-row"><div><div class="exercise-name">Copenhagen Plank</div></div><div class="exercise-sets">3×30s each</div><div class="exercise-why">Extend duration as strength improves.</div></div>
+    </div>
+    <div class="alert alert-green"><strong>Warm-Up (10 min):</strong> Glute bridges ×15, leg swings ×10 each, lateral band walks ×15, hip 90/90 ×5 each side. <strong>Cool-Down:</strong> Hip flexor stretch, pigeon pose, calf stretch. 60 seconds each.</div>`;
+}
+
+function saveSetData(exId, setIdx, field, value) {
+  if(!currentStrengthSession[exId]) currentStrengthSession[exId]={sets:[]};
+  if(!currentStrengthSession[exId].sets) currentStrengthSession[exId].sets=[];
+  if(!currentStrengthSession[exId].sets[setIdx]) currentStrengthSession[exId].sets[setIdx]={};
+  currentStrengthSession[exId].sets[setIdx][field]=value;
+  localStorage.setItem('strength_session_wip', JSON.stringify(currentStrengthSession));
+  flashSaved();
+}
+function saveExNotes(exId, value) {
+  if(!currentStrengthSession[exId]) currentStrengthSession[exId]={};
+  currentStrengthSession[exId].notes=value;
+  localStorage.setItem('strength_session_wip', JSON.stringify(currentStrengthSession));
+  flashSaved();
+}
+function flashSaved() {
+  const el = document.getElementById('st-saved-msg');
+  if(!el) return;
+  el.classList.add('show');
+  clearTimeout(window._savedTimer);
+  window._savedTimer = setTimeout(()=>el.classList.remove('show'), 1800);
+}
+
+async function completeStrengthSession() {
+  const wkNum = getCurrentWeekNum() || 1;
+  const exercises = getStrengthExercises().map(ex => ({
+    name: ex.name,
+    sets: currentStrengthSession[ex.id]?.sets || [],
+    notes: currentStrengthSession[ex.id]?.notes || ''
+  }));
+  try {
+    await api.post('strength_sessions', {
+      session_date: todayISO(),
+      week_num: wkNum,
+      exercises
+    }, 'return=minimal');
+    currentStrengthSession = {};
+    localStorage.removeItem('strength_session_wip');
+    // Reload strength data
+    const sessions = await api.get('strength_sessions','select=*&order=session_date.desc&limit=30');
+    strengthLog = (sessions||[]).map(s=>({id:s.id,date:s.session_date,week:s.week_num,exercises:s.exercises||[]}));
+    renderStrengthPage();
+    alert(`Session logged ✓ — Week ${wkNum} strength session saved.`);
+  } catch(e) { alert('Error saving session: '+e.message); }
+}
+
+function toggleStHist(idx) {
+  const body=document.getElementById('sth-body-'+idx);
+  const chev=document.getElementById('sth-chev-'+idx);
+  if(!body) return;
+  body.classList.toggle('open');
+  if(chev) chev.textContent=body.classList.contains('open')?'▲':'▼';
+}
+
+async function deleteStrengthEntry(idx) {
+  if(!confirm('Delete this strength session?')) return;
+  const entry = strengthLog[idx];
+  try {
+    if(entry.id) await api.delete('strength_sessions',`id=eq.${entry.id}`);
+    strengthLog.splice(idx,1);
+    renderStrengthPage();
+  } catch(e) { alert('Error: '+e.message); }
+}
+
+// ── STATIC REFERENCE PAGES ──
+function renderPacesPage() {
+  document.getElementById('page-paces').innerHTML = `
+    <div class="page-title">Training Paces</div>
+    <p class="page-sub">Based on 5km PB 20:50 and HM PB 1:33:30. Target race pace for sub-42 is 4:11/km. Run 80% of volume at Z1–2.</p>
+    <table class="data-table">
+      <thead><tr><th>Zone</th><th>Name</th><th>Pace / km</th><th>Feel</th><th>Used For</th></tr></thead>
+      <tbody>
+        <tr><td><span class="dot d-easy" style="display:inline-block;margin-right:6px"></span>Z1–2</td><td>Easy / Recovery</td><td class="pace-val">5:30–6:00</td><td>Fully conversational</td><td>Long runs, warm-up, Monday runs</td></tr>
+        <tr><td><span class="dot d-moderate" style="display:inline-block;margin-right:6px"></span>Z3</td><td>Aerobic / Marathon Pace</td><td class="pace-val">4:50–5:10</td><td>Comfortably hard</td><td>Progression long run finishes</td></tr>
+        <tr><td><span class="dot d-moderate" style="display:inline-block;margin-right:6px"></span>Z4</td><td>Threshold / Tempo</td><td class="pace-val">4:20–4:30</td><td>Hard, sustainable ~60 min</td><td>Thursday tempo runs</td></tr>
+        <tr><td><span class="dot d-hard" style="display:inline-block;margin-right:6px"></span>Z5a</td><td>10km Race Pace</td><td class="pace-val">4:05–4:15</td><td>Very hard, controlled</td><td>Race-pace intervals (phase 2–3)</td></tr>
+        <tr><td><span class="dot d-hard" style="display:inline-block;margin-right:6px"></span>Z5b</td><td>5km / VO2max</td><td class="pace-val">3:55–4:05</td><td>Near maximal</td><td>Short 400m intervals</td></tr>
+        <tr><td><span class="dot d-race" style="display:inline-block;margin-right:6px"></span>Race</td><td>Target Race Pace</td><td class="pace-val">4:11</td><td>Race effort</td><td>19 July 2026</td></tr>
+      </tbody>
+    </table>
+    <div class="alert alert-amber"><strong>Hamstring Modification (Weeks 1–4):</strong> Z5b intervals run at 4:05–4:10/km rather than 3:55–4:05. Never push through a sharp or grabbing sensation.</div>
+    <div class="alert alert-green">The 80/20 principle: ~80% of training volume at low intensity (Z1–2), ~20% at high intensity. Hard days only work if easy days are truly easy.</div>`;
+}
+
+function renderNutritionPage() {
+  document.getElementById('page-nutrition').innerHTML = `
+    <div class="page-title">Nutrition</div>
+    <p class="page-sub">At 75kg/188cm training 40–55km/week. Track snacks and meals in the Meal Tracker page for real macro data.</p>
+    <div class="sec-title">Daily Targets</div>
+    <div class="info-grid">
+      <div class="info-card"><h4>Training Days</h4><p>Carbs: 5–7g/kg → 375–525g<br>Protein: 1.6–1.8g/kg → 120–135g<br>Fat: 1.0–1.2g/kg → 75–90g<br>~2,800–3,200 kcal</p></div>
+      <div class="info-card"><h4>Rest / Easy Days</h4><p>Carbs: 4–5g/kg → 300–375g<br>Protein: 1.6–1.8g/kg → 120–135g<br>Fat: 1.2–1.4g/kg → 90–105g<br>~2,400–2,700 kcal</p></div>
+    </div>
+    <div class="sec-title">Timing</div>
+    <div class="info-grid">
+      <div class="info-card"><h4>Pre-Run (1–2 hrs before)</h4><p>50–80g carbs, low fat and fibre. Banana + oats, toast + honey. For early morning: a banana or 2 dates is enough.</p></div>
+      <div class="info-card"><h4>During Runs</h4><p>Under 60 min: water only. 60–90 min: 30g carbs/hr. 90+ min: 40–60g carbs/hr from 45 min.</p></div>
+      <div class="info-card"><h4>Post-Run (within 30–45 min)</h4><p>20–30g protein + 60–80g carbs. Greek yoghurt + fruit, chocolate milk, rice + chicken.</p></div>
+    </div>
+    <div class="alert alert-blue">Iron and Vitamin D are the most common deficiencies in distance runners. Consider getting bloods checked if you feel unexpectedly fatigued.</div>`;
+}
+
+function renderMethodologyPage() {
+  document.getElementById('page-methodology').innerHTML = `
+    <div class="page-title">Methodology</div>
+    <p class="page-sub">How and why this plan is structured the way it is.</p>
+    <div class="sec-title">Phase Structure</div>
+    <div class="info-grid">
+      <div class="info-card"><h4 style="color:var(--accent)">Phase 1 — Base (Wks 1–4)</h4><p>Gentle return. Weeks 1–2 easy only. Week 3 first quality. Week 4 deload. Let legs adapt without injury risk.</p></div>
+      <div class="info-card"><h4 style="color:var(--blue)">Phase 2 — Build (Wks 5–9)</h4><p>Threshold + 10km intervals. Volume builds to 54km peak. 80/20 split maintained.</p></div>
+      <div class="info-card"><h4 style="color:var(--amber)">Phase 3 — Peak (Wks 10–11)</h4><p>Race-specific workouts. Race simulation week 11. Volume held, quality increases.</p></div>
+      <div class="info-card"><h4 style="color:var(--red)">Phase 4 — Taper (Wks 12–13)</h4><p>Volume drops 30–40%, intensity maintained. Trust the work done.</p></div>
+    </div>
+    <div class="sec-title">Key Principles</div>
+    <div class="timeline">
+      <div class="tl-item"><div class="tl-dot" style="background:#1D9E75"></div><div class="tl-title">Never increase volume AND intensity in the same week</div><div class="tl-body">When volume goes up, intensity stays flat. When quality increases, volume holds.</div></div>
+      <div class="tl-item"><div class="tl-dot" style="background:#378ADD"></div><div class="tl-title">80% easy (polarised model)</div><div class="tl-body">Backed by Seiler's research. Hard days are hard, easy days are genuinely easy — not moderate.</div></div>
+      <div class="tl-item"><div class="tl-dot" style="background:#EF9F27"></div><div class="tl-title">Deload every 4th week</div><div class="tl-body">Volume drops ~15%, quality maintained. The body adapts during recovery, not loading.</div></div>
+      <div class="tl-item"><div class="tl-dot" style="background:#E24B4A"></div><div class="tl-title">2-week taper</div><div class="tl-body">Long enough to recover, short enough not to lose fitness. Race-pace sharpness preserved.</div></div>
+    </div>
+    <div class="alert alert-blue">Using the Riegel formula, your HM PB predicts a 10km of ~42:15 and your 5km PB predicts ~43:10. The HM being faster means your threshold is your biggest lever — hence the emphasis on tempo work.</div>`;
+}
+
+function renderHamstringPage() {
+  document.getElementById('page-hamstring').innerHTML = `
+    <div class="page-title">Hamstring Protocol</div>
+    <p class="page-sub">Mid-belly soreness with a flicking sensation during speed work. Hamstring overload, not a strain. Management plan below.</p>
+    <div class="alert alert-amber"><strong>What This Is:</strong> High-speed forces without the strength base to handle them. Mid-belly location rules out proximal hamstring tendinopathy. The right response is load management and targeted strengthening.</div>
+    <div class="sec-title">Immediate Adjustments (Weeks 1–4)</div>
+    <div class="info-grid">
+      <div class="info-card"><h4>Speed Sessions</h4><p>Drop Z5b intensity by 5 sec/km (4:05–4:10 instead of 3:55–4:05). Full speed on under-strength hamstrings is how partial strains happen.</p></div>
+      <div class="info-card"><h4>Before Every Run</h4><p>5-min dynamic warm-up: leg swings, slow bodyweight RDL movements, walking lunges. Non-negotiable until soreness resolves.</p></div>
+      <div class="info-card"><h4>Strength Priority</h4><p>RDL first in every session (done fresh). Nordic curls added. All hamstring work uses 3–4 second eccentric.</p></div>
+      <div class="info-card"><h4>After Hard Sessions</h4><p>5 min ice or cold water on back of thigh. Gentle stretch (not aggressive). Hit protein target within 45 min.</p></div>
+    </div>
+    <div class="alert" style="background:var(--red-light);border-left:3px solid #E24B4A;color:var(--red)"><strong>Red Line — Stop Immediately If:</strong> A sharp, distinct pull or grab during a run. Drop to a walk, do not run it off. Ice, rest, reassess in 48 hours. See a physio if pain persists.</div>
+    <div class="sec-title">Dynamic Warm-Up (Every Single Run)</div>
+    <table class="data-table">
+      <thead><tr><th>Exercise</th><th>Reps</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>Leg swings (forward/back)</td><td>10 each leg</td><td>Hamstring and hip flexor activation</td></tr>
+        <tr><td>Leg swings (side to side)</td><td>10 each leg</td><td>Hip abductor/adductor preparation</td></tr>
+        <tr><td>Slow bodyweight RDL</td><td>8 each leg</td><td>Lengthens and activates hamstring</td></tr>
+        <tr><td>Walking lunges</td><td>10 steps</td><td>Hip flexor length + quad activation</td></tr>
+        <tr><td>High knees (slow)</td><td>20 steps</td><td>Hip flexor and glute activation</td></tr>
+        <tr><td>Butt kicks (slow)</td><td>20 steps</td><td>Engages hamstrings through contraction</td></tr>
+      </tbody>
+    </table>`;
+}
+
+// ── PWA SERVICE WORKER ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(e => console.warn('SW failed:', e));
+  });
+}
+
+// ── INIT ──
+showPage('dashboard');
+loadAllData();
