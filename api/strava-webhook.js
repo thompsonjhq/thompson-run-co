@@ -48,7 +48,14 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
         'apikey': process.env.SUPABASE_SERVICE_KEY,
         'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
-        'Prefer': 'resolution=merge-duplicates'
+        const sbRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/strava_activities?on_conflict=strava_id`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'apikey': process.env.SUPABASE_SERVICE_KEY,
+    'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+    'Prefer': 'resolution=merge-duplicates,return=minimal'
+  },
       },
       body: JSON.stringify({
         strava_id: act.id,
