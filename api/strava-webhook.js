@@ -1,6 +1,5 @@
-// Handles both Strava webhook validation (GET) and activity events (POST)
 export default async function handler(req, res) {
-  // GET: Strava hub verification challenge
+  // GET: Strava hub verification
   if (req.method === 'GET') {
     const challenge = req.query['hub.challenge'];
     const verify = req.query['hub.verify_token'];
@@ -11,7 +10,6 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
   const event = req.body;
-  // Only handle new activity creates
   if (event.object_type !== 'activity' || event.aspect_type !== 'create') {
     return res.status(200).json({ status: 'ignored' });
   }
@@ -28,34 +26,38 @@ export default async function handler(req, res) {
         grant_type: 'refresh_token'
       })
     });
-    const { access_token } = await tokenRes.json();
+    const tokenData = await tokenRes.json();
+    console.log('Token response status:', tokenRes.status);
+    console.log('Token error:', tokenData.errors || tokenData.message || 'none');
+    const access_token = tokenData.access_token;
+    if (!access_token) {
+      return res.status(500).json({ error: 'No access token', detail: tokenData });
+    }
 
-    // 2. Fetch activity details from Strava
+    // 2. Fetch activity from Strava
     const actRes = await fetch(`https://www.strava.com/api/v3/activities/${event.object_id}`, {
       headers: { 'Authorization': `Bearer ${access_token}` }
     });
     const act = await actRes.json();
+    console.log('Activity fetch status:', actRes.status);
+    console.log('Activity ID:', act.id, 'Name:', act.name);
 
-    // 3. Calculate pace (min/km string) from average_speed (m/s)
+    // 3. Calculate pace
     const paceStr = act.average_speed > 0
       ? (() => { const s = 1000 / act.average_speed; const m = Math.floor(s/60); const sec = Math.round(s%60); return `${m}:${String(sec).padStart(2,'0')}`; })()
       : null;
 
-    // 4. Upsert into Supabase
-    const sbRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/strava_activities`, {
+    // 4. Insert into Supabase
+    console.log('SUPABASE_URL set:', !!process.env.SUPABASE_URL);
+    console.log('SUPABASE_SERVICE_KEY set:', !!process.env.SUPABASE_SERVICE_KEY);
+
+    const sbRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/strava_activities?on_conflict=strava_id`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'apikey': process.env.SUPABASE_SERVICE_KEY,
         'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
-        const sbRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/strava_activities?on_conflict=strava_id`, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'apikey': process.env.SUPABASE_SERVICE_KEY,
-    'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
-    'Prefer': 'resolution=merge-duplicates,return=minimal'
-  },
+        'Prefer': 'resolution=merge-duplicates,return=minimal'
       },
       body: JSON.stringify({
         strava_id: act.id,
@@ -74,13 +76,17 @@ export default async function handler(req, res) {
       })
     });
 
+    const sbText = await sbRes.text();
+    console.log('Supabase status:', sbRes.status);
+    console.log('Supabase response:', sbText);
+
     if (!sbRes.ok) {
-      const err = await sbRes.text();
-      return res.status(500).json({ error: 'Supabase insert failed', detail: err });
+      return res.status(500).json({ error: 'Supabase insert failed', status: sbRes.status, detail: sbText });
     }
 
     res.status(200).json({ status: 'synced', activity_id: act.id });
   } catch (err) {
+    console.log('Caught error:', err.message);
     res.status(500).json({ error: err.message });
   }
 }
