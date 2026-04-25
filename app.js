@@ -149,6 +149,9 @@ async function loadAllData() {
     }));
     document.getElementById('sidebar-sync-dot').classList.add('on');
     document.getElementById('sidebar-sync-text').textContent = `${activities.length} activities`;
+    // Update last-seen timestamp if on activities page
+    const lu = document.getElementById('last-updated');
+    if (lu) lu.textContent = `Updated ${new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'})}`;
   } catch(e) { console.warn('Activities load failed:', e.message); }
 
   try {
@@ -670,30 +673,50 @@ function renderActivitiesPage() {
   const wkNum = getCurrentWeekNum();
   const wkStart = wkNum ? getWeekStartDate(wkNum) : new Date();
   const wkEnd = new Date(wkStart); wkEnd.setDate(wkEnd.getDate()+6);
-  const thisWeekKm = activities.filter(a=>{const[y,m,d]=(a.date||'').split('-');const dt=new Date(y,m-1,d);return dt>=wkStart&&dt<=wkEnd&&!a.sport_type?.includes('Weight');}).reduce((s,a)=>s+parseFloat(a.distance||0),0);
+  const thisWeekRuns = activities.filter(a=>{const[y,m,d]=(a.date||'').split('-');const dt=new Date(y,m-1,d);return dt>=wkStart&&dt<=wkEnd&&!a.sport_type?.includes('Weight')&&!a.sport_type?.includes('Strength')&&!a.sport_type?.includes('Ride')&&!a.sport_type?.includes('Cycling');});
+  const thisWeekCycles = activities.filter(a=>{const[y,m,d]=(a.date||'').split('-');const dt=new Date(y,m-1,d);return dt>=wkStart&&dt<=wkEnd&&(a.sport_type?.includes('Ride')||a.sport_type?.includes('Cycling'));});
+  const thisWeekKm = thisWeekRuns.reduce((s,a)=>s+parseFloat(a.distance||0),0);
+  const thisWeekCycleKm = thisWeekCycles.reduce((s,a)=>s+parseFloat(a.distance||0),0);
   const planned = wkNum ? weeks[wkNum-1].km : 0;
   const pct = planned > 0 ? Math.min(100, Math.round(thisWeekKm/planned*100)) : 0;
 
   const activitiesHTML = activities.length ? activities.slice(0,40).map(act => {
     const isStrength = act.sport_type?.includes('Weight') || act.sport_type?.includes('Strength');
-    const match = isStrength ? null : matchActivityToSession(act);
+    const isCycling = act.sport_type?.includes('Ride') || act.sport_type?.includes('Cycling') || act.sport_type === 'Cycling';
+    const isRun = !isStrength && !isCycling;
+    const match = isRun ? matchActivityToSession(act) : null;
     const quality = match ? getMatchQuality(act, match.planned) : 'unmatched';
     const badges = {great:'mb-great',ok:'mb-ok',warn:'mb-ok',miss:'mb-miss',unmatched:'mb-unmatched'};
     const badgeText = {great:'On Target',ok:'Close',warn:'Check Pace',miss:'Off Plan',unmatched:'Unmatched'};
     const actId = String(act.strava_id||act.id);
     const note = activityNotes[actId] || '';
+    const icon = isStrength ? '🏋️' : isCycling ? '🚴' : '🏃';
+    const metaLabel = isStrength ? 'Strength session'
+      : isCycling ? 'Cycling'
+      : match ? `Wk${match.week} ${match.day} · ${match.planned?.type||'—'}` : 'Outside plan dates';
+    const badgeHTML = isStrength
+      ? '<span class="match-badge mb-unmatched">🏋️ Strength</span>'
+      : isCycling
+      ? '<span class="match-badge" style="background:#E3EAF5;color:#1A3260">🚴 Cycling</span>'
+      : `<span class="match-badge ${badges[quality]}">${badgeText[quality]}</span>`;
+    // Show speed for cycling instead of pace
+    const statsHTML = isStrength ? '' : `<div class="act-stats">
+      <div class="act-stat"><div class="act-stat-val">${act.distance}km</div><div class="act-stat-label">Distance</div></div>
+      <div class="act-stat"><div class="act-stat-val">${isCycling && act.average_speed ? (act.average_speed*3.6).toFixed(1)+'km/h' : (act.pace||'—')}</div><div class="act-stat-label">${isCycling?'Avg Speed':'Pace'}</div></div>
+      ${act.elapsed_time?`<div class="act-stat"><div class="act-stat-val">${fmtTime(act.elapsed_time)}</div><div class="act-stat-label">Time</div></div>`:''}
+    </div>`;
     return `<div class="activity-card">
       <div style="display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center">
-        <div class="act-icon">${isStrength?'🏋️':'🏃'}</div>
+        <div class="act-icon" style="${isCycling?'background:#E3EAF5':''}">${icon}</div>
         <div>
           <div class="act-name">${act.name||act.sport_type||'Activity'}</div>
-          <div class="act-meta">${fmtDate(act.date)} · ${isStrength?'Strength session':match?`Wk${match.week} ${match.day} · ${match.planned?.type||'—'}`:'Outside plan dates'}</div>
+          <div class="act-meta">${fmtDate(act.date)} · ${metaLabel}</div>
           <div style="margin-top:5px;display:flex;align-items:center;gap:8px">
-            ${isStrength?'<span class="match-badge mb-unmatched">🏋️ Strength</span>':`<span class="match-badge ${badges[quality]}">${badgeText[quality]}</span>`}
+            ${badgeHTML}
             <span style="font-size:11px;color:var(--strava);font-family:var(--mono);font-weight:500">STRAVA</span>
           </div>
         </div>
-        ${!isStrength?`<div class="act-stats"><div class="act-stat"><div class="act-stat-val">${act.distance}km</div><div class="act-stat-label">Distance</div></div><div class="act-stat"><div class="act-stat-val">${act.pace||'—'}</div><div class="act-stat-label">Pace</div></div>${act.elapsed_time?`<div class="act-stat"><div class="act-stat-val">${fmtTime(act.elapsed_time)}</div><div class="act-stat-label">Time</div></div>`:''}</div>`:''}
+        ${statsHTML}
       </div>
       <textarea class="run-note-input" rows="1" placeholder="${isStrength?'Add session notes…':'How did this feel? e.g. felt easy, HR high, legs tired…'}" oninput="saveActivityNote('${actId}',this)" onfocus="this.rows=3" onblur="this.rows=this.value?2:1">${note}</textarea>
       <div class="run-note-saved" id="note-saved-${actId}">Saved ✓</div>
@@ -709,10 +732,11 @@ function renderActivitiesPage() {
     <div class="digest-card" style="margin-bottom:20px">
       <div class="digest-header" style="margin-bottom:12px"><div class="digest-title">This Week's Progress</div></div>
       <div style="display:flex;justify-content:space-between;margin-bottom:10px">
-        <div><div style="font-size:12px;color:var(--text-muted);margin-bottom:2px">Logged</div><div style="font-size:26px;font-family:var(--serif);font-weight:300">${thisWeekKm.toFixed(1)} km</div></div>
-        <div style="text-align:right"><div style="font-size:12px;color:var(--text-muted);margin-bottom:2px">Planned</div><div style="font-size:26px;font-family:var(--serif);font-weight:300">${planned} km</div></div>
+        <div><div style="font-size:12px;color:var(--text-muted);margin-bottom:2px">Running</div><div style="font-size:26px;font-family:var(--serif);font-weight:300">${thisWeekKm.toFixed(1)} km</div></div>
+        ${thisWeekCycleKm > 0 ? `<div style="text-align:center"><div style="font-size:12px;color:var(--text-muted);margin-bottom:2px">Cycling</div><div style="font-size:26px;font-family:var(--serif);font-weight:300">${thisWeekCycleKm.toFixed(1)} km</div></div>` : ''}
+        <div style="text-align:right"><div style="font-size:12px;color:var(--text-muted);margin-bottom:2px">Run Target</div><div style="font-size:26px;font-family:var(--serif);font-weight:300">${planned} km</div></div>
       </div>
-      <div class="progress-bar-wrap"><div class="progress-label"><span>${pct}% of weekly target</span></div><div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${pct>=90?'#1D9E75':pct>=60?'#EF9F27':'#E24B4A'}"></div></div></div>
+      <div class="progress-bar-wrap"><div class="progress-label"><span>${pct}% of running target</span></div><div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${pct>=90?'#1D9E75':pct>=60?'#EF9F27':'#E24B4A'}"></div></div></div>
     </div>
     <div class="sec-title" style="margin-top:0">Add Activity Manually</div>
     <div class="setup-card" style="padding:18px;margin-bottom:20px">
@@ -720,13 +744,13 @@ function renderActivitiesPage() {
         <div><label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;font-family:var(--mono)">DATE</label><input type="date" class="text-input" id="act-date" style="width:100%"></div>
         <div><label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;font-family:var(--mono)">DISTANCE (km)</label><input type="number" class="text-input" id="act-dist" placeholder="10.2" step="0.1" style="width:100%"></div>
         <div><label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;font-family:var(--mono)">PACE (min:sec)</label><input type="text" class="text-input" id="act-pace" placeholder="4:30" style="width:100%"></div>
-        <div><label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;font-family:var(--mono)">TYPE</label><select class="text-input" id="act-type" style="width:100%"><option>Easy Run</option><option>Intervals</option><option>Tempo</option><option>Long Run</option><option>Race Simulation</option><option>Strength</option></select></div>
+        <div><label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;font-family:var(--mono)">TYPE</label><select class="text-input" id="act-type" style="width:100%"><option>Easy Run</option><option>Intervals</option><option>Tempo</option><option>Long Run</option><option>Race Simulation</option><option>Cycling</option><option>Strength</option></select></div>
         <button class="btn-primary" onclick="addManualActivity()" style="height:38px">Add</button>
       </div>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
       <div class="sec-title" style="margin:0">Activity Log</div>
-      <button class="sync-btn" onclick="loadAllData()">⟳ Refresh</button>
+      <span style="font-size:12px;color:var(--text-muted);font-family:var(--mono)" id="last-updated"></span>
     </div>
     <div id="activities-list">${activitiesHTML}</div>`;
 }
@@ -1052,7 +1076,7 @@ function renderPacesPage() {
   document.getElementById('page-paces').innerHTML = `
     <div class="page-title">Training Paces</div>
     <p class="page-sub">Based on 5km PB 20:50 and HM PB 1:33:30. Target race pace for sub-42 is 4:11/km. Run 80% of volume at Z1–2.</p>
-    <table class="data-table">
+    <div class="table-scroll"><table class="data-table">
       <thead><tr><th>Zone</th><th>Name</th><th>Pace / km</th><th>Feel</th><th>Used For</th></tr></thead>
       <tbody>
         <tr><td><span class="dot d-easy" style="display:inline-block;margin-right:6px"></span>Z1–2</td><td>Easy / Recovery</td><td class="pace-val">5:30–6:00</td><td>Fully conversational</td><td>Long runs, warm-up, Monday runs</td></tr>
@@ -1062,7 +1086,7 @@ function renderPacesPage() {
         <tr><td><span class="dot d-hard" style="display:inline-block;margin-right:6px"></span>Z5b</td><td>5km / VO2max</td><td class="pace-val">3:55–4:05</td><td>Near maximal</td><td>Short 400m intervals</td></tr>
         <tr><td><span class="dot d-race" style="display:inline-block;margin-right:6px"></span>Race</td><td>Target Race Pace</td><td class="pace-val">4:11</td><td>Race effort</td><td>19 July 2026</td></tr>
       </tbody>
-    </table>
+    </table></div>
     <div class="alert alert-amber"><strong>Hamstring Modification (Weeks 1–4):</strong> Z5b intervals run at 4:05–4:10/km rather than 3:55–4:05. Never push through a sharp or grabbing sensation.</div>
     <div class="alert alert-green">The 80/20 principle: ~80% of training volume at low intensity (Z1–2), ~20% at high intensity. Hard days only work if easy days are truly easy.</div>`;
 }
@@ -1120,7 +1144,7 @@ function renderHamstringPage() {
     </div>
     <div class="alert" style="background:var(--red-light);border-left:3px solid #E24B4A;color:var(--red)"><strong>Red Line — Stop Immediately If:</strong> A sharp, distinct pull or grab during a run. Drop to a walk, do not run it off. Ice, rest, reassess in 48 hours. See a physio if pain persists.</div>
     <div class="sec-title">Dynamic Warm-Up (Every Single Run)</div>
-    <table class="data-table">
+    <div class="table-scroll"><table class="data-table">
       <thead><tr><th>Exercise</th><th>Reps</th><th>Purpose</th></tr></thead>
       <tbody>
         <tr><td>Leg swings (forward/back)</td><td>10 each leg</td><td>Hamstring and hip flexor activation</td></tr>
@@ -1130,7 +1154,7 @@ function renderHamstringPage() {
         <tr><td>High knees (slow)</td><td>20 steps</td><td>Hip flexor and glute activation</td></tr>
         <tr><td>Butt kicks (slow)</td><td>20 steps</td><td>Engages hamstrings through contraction</td></tr>
       </tbody>
-    </table>`;
+    </table></div>`;
 }
 
 // ── PWA SERVICE WORKER ──
@@ -1143,3 +1167,8 @@ if ('serviceWorker' in navigator) {
 // ── INIT ──
 showPage('dashboard');
 loadAllData();
+
+// Auto-refresh data every 60 seconds so new Strava activities appear automatically
+setInterval(() => {
+  loadAllData();
+}, 60000);
