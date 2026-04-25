@@ -1,4 +1,4 @@
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // GET: Strava hub verification
   if (req.method === 'GET') {
     const challenge = req.query['hub.challenge'];
@@ -27,8 +27,6 @@ export default async function handler(req, res) {
       })
     });
     const tokenData = await tokenRes.json();
-    console.log('Token response status:', tokenRes.status);
-    console.log('Token error:', tokenData.errors || tokenData.message || 'none');
     const access_token = tokenData.access_token;
     if (!access_token) {
       return res.status(500).json({ error: 'No access token', detail: tokenData });
@@ -39,8 +37,6 @@ export default async function handler(req, res) {
       headers: { 'Authorization': `Bearer ${access_token}` }
     });
     const act = await actRes.json();
-    console.log('Activity fetch status:', actRes.status);
-    console.log('Activity ID:', act.id, 'Name:', act.name);
 
     // 3. Calculate pace
     const paceStr = act.average_speed > 0
@@ -48,9 +44,6 @@ export default async function handler(req, res) {
       : null;
 
     // 4. Insert into Supabase
-    console.log('SUPABASE_URL set:', !!process.env.SUPABASE_URL);
-    console.log('SUPABASE_SERVICE_KEY set:', !!process.env.SUPABASE_SERVICE_KEY);
-
     const sbRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/strava_activities?on_conflict=strava_id`, {
       method: 'POST',
       headers: {
@@ -77,8 +70,7 @@ export default async function handler(req, res) {
     });
 
     const sbText = await sbRes.text();
-    console.log('Supabase status:', sbRes.status);
-    console.log('Supabase response:', sbText);
+    console.log('Supabase status:', sbRes.status, sbText);
 
     if (!sbRes.ok) {
       return res.status(500).json({ error: 'Supabase insert failed', status: sbRes.status, detail: sbText });
@@ -86,7 +78,7 @@ export default async function handler(req, res) {
 
     res.status(200).json({ status: 'synced', activity_id: act.id });
   } catch (err) {
-    console.log('Caught error:', err.message);
+    console.log('Error:', err.message);
     res.status(500).json({ error: err.message });
   }
 }
