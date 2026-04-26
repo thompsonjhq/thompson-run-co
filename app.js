@@ -725,10 +725,7 @@ function renderActivitiesPage() {
 
   el.innerHTML = `
     <div class="page-title">Activities</div>
-    <p class="page-sub">Strava activities sync automatically via the webhook. Add notes to any run — the AI coach can see them.</p>
-    <div class="alert alert-green" style="margin-bottom:16px">
-      <strong>Strava sync is automatic.</strong> Upload a run to Strava → it appears here within seconds. No manual action needed.
-    </div>
+    <p class="page-sub">Strava activities sync automatically. Add notes to any run — the AI coach can see them.</p>
     <div class="digest-card" style="margin-bottom:20px">
       <div class="digest-header" style="margin-bottom:12px"><div class="digest-title">This Week's Progress</div></div>
       <div style="display:flex;justify-content:space-between;margin-bottom:10px">
@@ -738,7 +735,13 @@ function renderActivitiesPage() {
       </div>
       <div class="progress-bar-wrap"><div class="progress-label"><span>${pct}% of running target</span></div><div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${pct>=90?'#1D9E75':pct>=60?'#EF9F27':'#E24B4A'}"></div></div></div>
     </div>
-    <div class="sec-title" style="margin-top:0">Add Activity Manually</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div class="sec-title" style="margin:0">Recent Activities</div>
+      <span style="font-size:12px;color:var(--text-muted);font-family:var(--mono)" id="last-updated"></span>
+    </div>
+    <div id="activities-list">${activitiesHTML}</div>
+    <div class="sec-title">Add Activity Manually</div>
+    <p class="sec-sub" style="margin-bottom:12px">For activities not on Strava — or if you need to log something manually.</p>
     <div class="setup-card" style="padding:18px;margin-bottom:20px">
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr)) auto;gap:10px;align-items:end">
         <div><label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;font-family:var(--mono)">DATE</label><input type="date" class="text-input" id="act-date" style="width:100%"></div>
@@ -747,12 +750,7 @@ function renderActivitiesPage() {
         <div><label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;font-family:var(--mono)">TYPE</label><select class="text-input" id="act-type" style="width:100%"><option>Easy Run</option><option>Intervals</option><option>Tempo</option><option>Long Run</option><option>Race Simulation</option><option>Cycling</option><option>Strength</option></select></div>
         <button class="btn-primary" onclick="addManualActivity()" style="height:38px">Add</button>
       </div>
-    </div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <div class="sec-title" style="margin:0">Activity Log</div>
-      <span style="font-size:12px;color:var(--text-muted);font-family:var(--mono)" id="last-updated"></span>
-    </div>
-    <div id="activities-list">${activitiesHTML}</div>`;
+    </div>`;
 }
 
 async function saveActivityNote(actId, textarea) {
@@ -1076,17 +1074,19 @@ function renderPacesPage() {
   document.getElementById('page-paces').innerHTML = `
     <div class="page-title">Training Paces</div>
     <p class="page-sub">Based on 5km PB 20:50 and HM PB 1:33:30. Target race pace for sub-42 is 4:11/km. Run 80% of volume at Z1–2.</p>
-    <div class="table-scroll"><table class="data-table">
-      <thead><tr><th>Zone</th><th>Name</th><th>Pace / km</th><th>Feel</th><th>Used For</th></tr></thead>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+    <table class="data-table" style="min-width:380px">
+      <thead><tr><th>Zone</th><th>Name</th><th>Pace/km</th><th>Used For</th></tr></thead>
       <tbody>
-        <tr><td><span class="dot d-easy" style="display:inline-block;margin-right:6px"></span>Z1–2</td><td>Easy / Recovery</td><td class="pace-val">5:30–6:00</td><td>Fully conversational</td><td>Long runs, warm-up, Monday runs</td></tr>
-        <tr><td><span class="dot d-moderate" style="display:inline-block;margin-right:6px"></span>Z3</td><td>Aerobic / Marathon Pace</td><td class="pace-val">4:50–5:10</td><td>Comfortably hard</td><td>Progression long run finishes</td></tr>
-        <tr><td><span class="dot d-moderate" style="display:inline-block;margin-right:6px"></span>Z4</td><td>Threshold / Tempo</td><td class="pace-val">4:20–4:30</td><td>Hard, sustainable ~60 min</td><td>Thursday tempo runs</td></tr>
-        <tr><td><span class="dot d-hard" style="display:inline-block;margin-right:6px"></span>Z5a</td><td>10km Race Pace</td><td class="pace-val">4:05–4:15</td><td>Very hard, controlled</td><td>Race-pace intervals (phase 2–3)</td></tr>
-        <tr><td><span class="dot d-hard" style="display:inline-block;margin-right:6px"></span>Z5b</td><td>5km / VO2max</td><td class="pace-val">3:55–4:05</td><td>Near maximal</td><td>Short 400m intervals</td></tr>
-        <tr><td><span class="dot d-race" style="display:inline-block;margin-right:6px"></span>Race</td><td>Target Race Pace</td><td class="pace-val">4:11</td><td>Race effort</td><td>19 July 2026</td></tr>
+        <tr><td><span class="dot d-easy" style="display:inline-block;margin-right:6px"></span>Z1–2</td><td>Easy</td><td class="pace-val">5:30–6:00</td><td>Long runs, warm-up, Monday runs</td></tr>
+        <tr><td><span class="dot d-moderate" style="display:inline-block;margin-right:6px"></span>Z3</td><td>Aerobic</td><td class="pace-val">4:50–5:10</td><td>Progression run finishes</td></tr>
+        <tr><td><span class="dot d-moderate" style="display:inline-block;margin-right:6px"></span>Z4</td><td>Threshold</td><td class="pace-val">4:20–4:30</td><td>Thursday tempo runs</td></tr>
+        <tr><td><span class="dot d-hard" style="display:inline-block;margin-right:6px"></span>Z5a</td><td>10km Race</td><td class="pace-val">4:05–4:15</td><td>Race-pace intervals (phase 2–3)</td></tr>
+        <tr><td><span class="dot d-hard" style="display:inline-block;margin-right:6px"></span>Z5b</td><td>VO2max</td><td class="pace-val">3:55–4:05</td><td>Short 400m intervals</td></tr>
+        <tr><td><span class="dot d-race" style="display:inline-block;margin-right:6px"></span>Race</td><td>Target</td><td class="pace-val">4:11</td><td>19 July 2026</td></tr>
       </tbody>
-    </table></div>
+    </table>
+    </div>
     <div class="alert alert-amber"><strong>Hamstring Modification (Weeks 1–4):</strong> Z5b intervals run at 4:05–4:10/km rather than 3:55–4:05. Never push through a sharp or grabbing sensation.</div>
     <div class="alert alert-green">The 80/20 principle: ~80% of training volume at low intensity (Z1–2), ~20% at high intensity. Hard days only work if easy days are truly easy.</div>`;
 }
@@ -1132,29 +1132,37 @@ function renderMethodologyPage() {
 
 function renderHamstringPage() {
   document.getElementById('page-hamstring').innerHTML = `
-    <div class="page-title">Hamstring Protocol</div>
-    <p class="page-sub">Mid-belly soreness with a flicking sensation during speed work. Hamstring overload, not a strain. Management plan below.</p>
-    <div class="alert alert-amber"><strong>What This Is:</strong> High-speed forces without the strength base to handle them. Mid-belly location rules out proximal hamstring tendinopathy. The right response is load management and targeted strengthening.</div>
-    <div class="sec-title">Immediate Adjustments (Weeks 1–4)</div>
+    <div class="page-title">Injury Management</div>
+    <p class="page-sub">Log and manage current injuries or niggles. Active protocol: hamstring overload management.</p>
+    <div class="alert alert-amber"><strong>Current Issue — Hamstring Overload:</strong> Mid-belly soreness with a flicking sensation during speed work. Not a strain — a warning signal. The right response is load management and targeted strengthening.</div>
+    <div class="sec-title">Current Protocol</div>
     <div class="info-grid">
-      <div class="info-card"><h4>Speed Sessions</h4><p>Drop Z5b intensity by 5 sec/km (4:05–4:10 instead of 3:55–4:05). Full speed on under-strength hamstrings is how partial strains happen.</p></div>
-      <div class="info-card"><h4>Before Every Run</h4><p>5-min dynamic warm-up: leg swings, slow bodyweight RDL movements, walking lunges. Non-negotiable until soreness resolves.</p></div>
-      <div class="info-card"><h4>Strength Priority</h4><p>RDL first in every session (done fresh). Nordic curls added. All hamstring work uses 3–4 second eccentric.</p></div>
-      <div class="info-card"><h4>After Hard Sessions</h4><p>5 min ice or cold water on back of thigh. Gentle stretch (not aggressive). Hit protein target within 45 min.</p></div>
+      <div class="info-card"><h4>Speed Sessions</h4><p>Drop Z5b by 5 sec/km (4:05–4:10 instead of 3:55–4:05). Full speed on under-strength hamstrings is how partial strains happen.</p></div>
+      <div class="info-card"><h4>Before Every Run</h4><p>5-min dynamic warm-up: leg swings, slow bodyweight RDL, walking lunges. Non-negotiable until soreness resolves.</p></div>
+      <div class="info-card"><h4>Strength Priority</h4><p>RDL first in every session. Nordic curls added. All hamstring work uses 3–4 second eccentric lowering.</p></div>
+      <div class="info-card"><h4>After Hard Sessions</h4><p>5 min ice or cold water on back of thigh. Gentle stretch. Hit protein target within 45 min.</p></div>
     </div>
-    <div class="alert" style="background:var(--red-light);border-left:3px solid #E24B4A;color:var(--red)"><strong>Red Line — Stop Immediately If:</strong> A sharp, distinct pull or grab during a run. Drop to a walk, do not run it off. Ice, rest, reassess in 48 hours. See a physio if pain persists.</div>
-    <div class="sec-title">Dynamic Warm-Up (Every Single Run)</div>
-    <div class="table-scroll"><table class="data-table">
+    <div class="alert" style="background:var(--red-light);border-left:3px solid #E24B4A;color:var(--red)"><strong>Stop Immediately If:</strong> A sharp, distinct pull or grab during a run. Walk home, do not run it off. Ice, rest, 48 hours minimum. See a physio if pain persists.</div>
+    <div class="sec-title">General Injury Traffic Light</div>
+    <div class="info-grid">
+      <div class="info-card"><h4 style="color:#1D9E75">🟢 Green — Train normally</h4><p>No pain during or after running. Proceed with the plan as written.</p></div>
+      <div class="info-card"><h4 style="color:#EF9F27">🟡 Amber — Modify</h4><p>Mild discomfort (1–3/10) that doesn't worsen during the run. Reduce intensity, skip speed work, consult the AI coach.</p></div>
+      <div class="info-card"><h4 style="color:#E24B4A">🔴 Red — Stop</h4><p>Sharp pain, above 4/10, or worsens during the run. Stop immediately. Rest 48 hrs. See a physio if it persists.</p></div>
+    </div>
+    <div class="sec-title">Dynamic Warm-Up (Every Run)</div>
+    <div style="overflow-x:auto">
+    <table class="data-table">
       <thead><tr><th>Exercise</th><th>Reps</th><th>Purpose</th></tr></thead>
       <tbody>
-        <tr><td>Leg swings (forward/back)</td><td>10 each leg</td><td>Hamstring and hip flexor activation</td></tr>
-        <tr><td>Leg swings (side to side)</td><td>10 each leg</td><td>Hip abductor/adductor preparation</td></tr>
-        <tr><td>Slow bodyweight RDL</td><td>8 each leg</td><td>Lengthens and activates hamstring</td></tr>
-        <tr><td>Walking lunges</td><td>10 steps</td><td>Hip flexor length + quad activation</td></tr>
+        <tr><td>Leg swings (forward/back)</td><td>10 each</td><td>Hamstring and hip flexor activation</td></tr>
+        <tr><td>Leg swings (side to side)</td><td>10 each</td><td>Hip abductor/adductor preparation</td></tr>
+        <tr><td>Slow bodyweight RDL</td><td>8 each</td><td>Lengthens and activates hamstring</td></tr>
+        <tr><td>Walking lunges</td><td>10 steps</td><td>Hip flexor + quad activation</td></tr>
         <tr><td>High knees (slow)</td><td>20 steps</td><td>Hip flexor and glute activation</td></tr>
-        <tr><td>Butt kicks (slow)</td><td>20 steps</td><td>Engages hamstrings through contraction</td></tr>
+        <tr><td>Butt kicks (slow)</td><td>20 steps</td><td>Hamstring contraction</td></tr>
       </tbody>
-    </table></div>`;
+    </table>
+    </div>`;
 }
 
 // ── PWA SERVICE WORKER ──
