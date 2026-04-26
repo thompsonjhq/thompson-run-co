@@ -375,6 +375,13 @@ function renderDashboard() {
         <button class="btn-secondary" onclick="showPage('meals')" style="font-size:12px;padding:5px 12px">Log food →</button>
       </div>
       ${macroHTML}
+    </div>
+    <div class="digest-card" id="recommendations-card">
+      <div class="digest-header">
+        <div class="digest-title">Coach Recommendations</div>
+        <button class="digest-btn" id="rec-btn" onclick="generateRecommendations()"><span>✦</span> Analyse</button>
+      </div>
+      <div id="rec-content" style="font-size:13px;color:var(--text-faint);font-style:italic">Click Analyse — the coach will review your recent training data and suggest any changes to upcoming sessions.</div>
     </div>`;
 }
 
@@ -410,6 +417,155 @@ async function generateDigest() {
     content.textContent = data.content || data.error || 'Could not generate digest.';
   } catch(e) { content.textContent = 'Network error — check connection.'; }
   btn.disabled = false; btn.innerHTML = '<span>✦</span> Regenerate';
+}
+
+// ── COACH RECOMMENDATIONS ──
+let acceptedRecs = JSON.parse(localStorage.getItem('accepted_recs') || '[]');
+let dismissedRecs = JSON.parse(localStorage.getItem('dismissed_recs') || '[]');
+let activeRecommendations = [];
+
+async function generateRecommendations() {
+  const btn = document.getElementById('rec-btn');
+  const content = document.getElementById('rec-content');
+  if (!btn || !content) return;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin">⟳</span> Analysing…';
+  content.style.fontStyle = 'italic';
+  content.style.color = 'var(--text-faint)';
+  content.textContent = 'Reviewing your recent training data…';
+
+  const wkNum = getCurrentWeekNum() || 1;
+  try {
+    const res = await fetch('/api/recommendations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        activities: activities.slice(0, 10).map(a => ({
+          date: a.date,
+          sport_type: a.sport_type,
+          distance: a.distance,
+          pace: a.pace,
+          average_heartrate: a.average_heartrate,
+          strava_id: a.strava_id,
+          id: a.id
+        })),
+        notes: activityNotes,
+        strengthLog: strengthLog.slice(0, 5),
+        currentWeek: wkNum,
+        weeks: weeks.map(w => ({
+          num: w.num,
+          phase: w.phase,
+          km: w.km,
+          days: w.days
+        }))
+      })
+    });
+    const data = await res.json();
+    activeRecommendations = data.recommendations || [];
+    renderRecommendations(data);
+  } catch(e) {
+    content.style.fontStyle = 'normal';
+    content.textContent = 'Could not generate recommendations — check your connection.';
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<span>✦</span> Re-analyse';
+}
+
+function renderRecommendations(data) {
+  const content = document.getElementById('rec-content');
+  if (!content) return;
+  content.style.fontStyle = 'normal';
+  content.style.color = 'var(--text)';
+
+  const recs = (data.recommendations || []).filter(r =>
+    !dismissedRecs.includes(r.id)
+  );
+
+  // Status banner
+  const statusColour = data.status === 'on_track' ? '#1D9E75' : '#EF9F27';
+  const statusIcon = data.status === 'on_track' ? '✓' : '⚠';
+
+  if (recs.length === 0) {
+    content.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--accent-light);border-radius:8px;font-size:13px;color:var(--accent)">
+        <span style="font-size:16px">✓</span>
+        <span>${data.summary || 'Training looks good — no changes needed this week.'}</span>
+      </div>`;
+    return;
+  }
+
+  content.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--amber-light);border-radius:8px;font-size:13px;color:var(--amber);margin-bottom:14px">
+      <span style="font-size:16px">⚠</span>
+      <span>${data.summary}</span>
+    </div>
+    ${recs.map(rec => {
+      const accepted = acceptedRecs.includes(rec.id);
+      const priorityColour = rec.priority === 'high' ? 'var(--red)' : rec.priority === 'medium' ? '#EF9F27' : 'var(--blue)';
+      return `<div class="rec-card ${accepted ? 'rec-accepted' : ''}" id="rec-${rec.id}" style="border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden">
+        <div style="padding:12px 14px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="font-size:10px;font-family:var(--mono);font-weight:500;padding:2px 8px;border-radius:10px;background:${priorityColour}20;color:${priorityColour}">${rec.priority?.toUpperCase()||'SUGGESTION'}</span>
+            <span style="font-size:13px;font-weight:500">${rec.session}</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-bottom:8px;font-size:12px">
+            <div style="background:var(--red-light);border-radius:6px;padding:6px 10px;color:var(--red)">
+              <div style="font-size:10px;font-family:var(--mono);margin-bottom:2px;opacity:0.7">CURRENT</div>
+              ${rec.current}
+            </div>
+            <div style="color:var(--text-faint);font-size:18px">→</div>
+            <div style="background:var(--accent-light);border-radius:6px;padding:6px 10px;color:var(--accent)">
+              <div style="font-size:10px;font-family:var(--mono);margin-bottom:2px;opacity:0.7">PROPOSED</div>
+              ${rec.proposed}
+            </div>
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);line-height:1.5;margin-bottom:10px">${rec.reason}</div>
+          ${accepted
+            ? `<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#1D9E75;font-family:var(--mono)">✓ Accepted — check your schedule for the updated session</div>`
+            : `<div style="display:flex;gap:8px">
+                <button onclick="acceptRec('${rec.id}')" style="flex:1;padding:8px;background:var(--accent);color:#fff;border:none;border-radius:7px;font-size:12px;font-family:var(--sans);font-weight:500;cursor:pointer">✓ Accept change</button>
+                <button onclick="dismissRec('${rec.id}')" style="flex:1;padding:8px;background:transparent;color:var(--text-muted);border:1px solid var(--border-strong);border-radius:7px;font-size:12px;font-family:var(--sans);cursor:pointer">✕ Dismiss</button>
+              </div>`
+          }
+        </div>
+      </div>`;
+    }).join('')}`;
+}
+
+function acceptRec(id) {
+  if (!acceptedRecs.includes(id)) {
+    acceptedRecs.push(id);
+    localStorage.setItem('accepted_recs', JSON.stringify(acceptedRecs));
+  }
+  // Find the recommendation and apply it to the schedule
+  const rec = activeRecommendations.find(r => r.id === id);
+  if (rec) {
+    // Store accepted modifications so schedule can show them
+    let mods = JSON.parse(localStorage.getItem('schedule_mods') || '{}');
+    const wkNum = getCurrentWeekNum() || 1;
+    if (!mods[wkNum]) mods[wkNum] = [];
+    mods[wkNum].push({
+      id: rec.id,
+      session: rec.session,
+      original: rec.current,
+      modified: rec.proposed,
+      reason: rec.reason,
+      accepted_at: new Date().toISOString()
+    });
+    localStorage.setItem('schedule_mods', JSON.stringify(mods));
+  }
+  // Re-render the card
+  renderRecommendations({ recommendations: activeRecommendations, summary: 'Changes applied — see your updated schedule.' });
+  // Refresh schedule if open
+  if (currentPageName === 'schedule') renderSchedulePage();
+}
+
+function dismissRec(id) {
+  if (!dismissedRecs.includes(id)) {
+    dismissedRecs.push(id);
+    localStorage.setItem('dismissed_recs', JSON.stringify(dismissedRecs));
+  }
+  renderRecommendations({ recommendations: activeRecommendations, summary: activeRecommendations.length > 1 ? 'Some suggestions dismissed.' : 'Suggestion dismissed.' });
 }
 
 // ── SCHEDULE PAGE ──
@@ -476,6 +632,14 @@ function renderWeeks() {
     const summaryBar = actualKm > 0 ? `<div class="week-summary-bar"><div class="wsb-item">Planned: <span class="wsb-val">${w.km}km</span></div><div class="wsb-item">Logged: <span class="wsb-val" style="color:${actualKm>=w.km*0.9?'#1D9E75':'#EF9F27'}">${actualKm.toFixed(1)}km</span></div><div class="wsb-item">${Math.round(actualKm/w.km*100)}%</div></div>` : '';
     const hamAlert = w.hamstring ? `<div class="hamstring-alert"><strong>Hamstring Protocol Active</strong> — Speed sessions at 4:05–4:10/km. RDL + Nordics prioritised. Dynamic warm-up before every run.</div>` : '';
 
+  // Check for accepted coach modifications this week
+  const scheduleMods = JSON.parse(localStorage.getItem('schedule_mods') || '{}');
+  const weekMods = scheduleMods[w.num] || [];
+  const modsHTML = weekMods.length ? `<div style="margin-bottom:10px;padding:10px 12px;background:var(--blue-light);border-radius:8px;border-left:3px solid #378ADD">
+    <div style="font-size:11px;font-family:var(--mono);color:var(--blue);margin-bottom:4px">COACH MODIFICATIONS APPLIED</div>
+    ${weekMods.map(m=>`<div style="font-size:12px;color:var(--blue);margin-bottom:2px">• ${m.session}: <span style="text-decoration:line-through;opacity:0.6">${m.original}</span> → <strong>${m.modified}</strong></div>`).join('')}
+  </div>` : '';
+
     const card = document.createElement('div');
     card.className = 'week-card' + (isCurrent?' current-week':'');
     card.innerHTML = `
@@ -494,6 +658,7 @@ function renderWeeks() {
       </div>
       <div class="week-body" id="wb-${w.num}">
         <div class="week-note">${w.note}</div>
+        ${modsHTML}
         ${hamAlert}
         <div class="day-grid">${daysHTML}</div>
         ${summaryBar}
