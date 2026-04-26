@@ -237,6 +237,15 @@ function renderDashboard() {
   const today = new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
   const el = document.getElementById('page-dashboard');
 
+  // Race countdown message
+  const countdownMsg = daysToRace > 84 ? 'Build the habit. Easy wins everything right now.'
+    : daysToRace > 56 ? 'Deep in the build. This is where fitness is made.'
+    : daysToRace > 28 ? 'Peak phase. Trust the process — sharpness is coming.'
+    : daysToRace > 14 ? 'Taper time. The work is done. Freshen up.'
+    : daysToRace > 7 ? 'Race week. Short, sharp, and sleep well.'
+    : daysToRace > 0 ? `${daysToRace} day${daysToRace!==1?'s':''} to go. You\'re ready.`
+    : 'Race day! Go sub-42. 🏁';
+
   let greeting, weekLabel, phaseText, kmLogged, kmPlanned, todayType, todayDetail;
   if (!wkNum) {
     const d = daysUntilStart();
@@ -252,7 +261,7 @@ function renderDashboard() {
     kmLogged = activities.filter(a => {
       const [y,m,d] = (a.date||'').split('-');
       const dt = new Date(y,m-1,d);
-      return dt >= wkStart && dt <= wkEnd && !a.sport_type?.includes('Weight');
+      return dt >= wkStart && dt <= wkEnd && !a.sport_type?.includes('Weight') && !a.sport_type?.includes('Ride');
     }).reduce((s,a) => s + parseFloat(a.distance||0), 0).toFixed(1);
     kmPlanned = w.km;
     const day = getCurrentDayOfWeek();
@@ -268,9 +277,15 @@ function renderDashboard() {
     return `<div class="week-bar-wrap"><div class="week-bar ${cls}" style="height:${(w.km/maxKm*100).toFixed(0)}%" title="Wk ${w.num}: ${w.km}km"></div><div class="week-bar-label">${w.num}</div></div>`;
   }).join('');
 
-  // Trends
-  const runs = activities.filter(a => !a.sport_type?.includes('Weight'));
+  // Trends + HR analysis
+  const runs = activities.filter(a => !a.sport_type?.includes('Weight') && !a.sport_type?.includes('Ride'));
   const easyRuns = runs.filter(a => matchActivityToSession(a)?.planned?.dot === 'easy').slice(0,5);
+  const runsWithHR = runs.filter(a => a.average_heartrate > 0).slice(0,5);
+  const avgHR = runsWithHR.length ? Math.round(runsWithHR.reduce((s,a)=>s+(a.average_heartrate||0),0)/runsWithHR.length) : null;
+  const easyRunsWithHR = easyRuns.filter(a => a.average_heartrate > 0);
+  const avgEasyHR = easyRunsWithHR.length ? Math.round(easyRunsWithHR.reduce((s,a)=>s+(a.average_heartrate||0),0)/easyRunsWithHR.length) : null;
+  // HR zones based on 180-age formula (approx max HR ~187 for late 20s/early 30s - adjust if needed)
+  const hrEasyTarget = 148; // Z2 upper limit (~79% max HR)
   let trendsHTML = '<div style="font-size:13px;color:var(--text-muted)">Log activities to see trends.</div>';
   if (runs.length >= 1) {
     const avgPace = easyRuns.length ? easyRuns.reduce((s,a) => { const [m,sec] = (a.pace||'6:00').split(':').map(Number); return s+m*60+(sec||0); },0)/easyRuns.length : null;
@@ -280,16 +295,17 @@ function renderDashboard() {
       for(let w=Math.max(1,wkNum-3);w<wkNum;w++){
         planned += weeks[w-1].km;
         const ws=getWeekStartDate(w), we=new Date(ws); we.setDate(we.getDate()+6);
-        actual += activities.filter(a=>{const[y,m,d]=(a.date||'').split('-');const dt=new Date(y,m-1,d);return dt>=ws&&dt<=we&&!a.sport_type?.includes('Weight');}).reduce((s,a)=>s+parseFloat(a.distance||0),0);
+        actual += activities.filter(a=>{const[y,m,d]=(a.date||'').split('-');const dt=new Date(y,m-1,d);return dt>=ws&&dt<=we&&!a.sport_type?.includes('Weight')&&!a.sport_type?.includes('Ride');}).reduce((s,a)=>s+parseFloat(a.distance||0),0);
       }
       return planned>0?Math.round(actual/planned*100):null;
     })() : null;
     trendsHTML = `
       ${avgPace ? `<div class="trend-row"><span class="trend-label">Avg easy run pace (last ${easyRuns.length})</span><span class="trend-val">${fmt(avgPace)}/km <span class="trend-flag ${avgPace>=310?'tf-good':'tf-warn'}">${avgPace>=310?'On Target':'Too Fast'}</span></span></div>` : ''}
+      ${avgEasyHR ? `<div class="trend-row"><span class="trend-label">Avg HR on easy runs</span><span class="trend-val">${avgEasyHR} bpm <span class="trend-flag ${avgEasyHR<=hrEasyTarget?'tf-good':avgEasyHR<=hrEasyTarget+10?'tf-warn':'tf-warn'}">${avgEasyHR<=hrEasyTarget?'Z2':'Running Hot'}</span></span></div>` : ''}
+      ${avgHR ? `<div class="trend-row"><span class="trend-label">Avg HR all runs (last ${runsWithHR.length})</span><span class="trend-val">${avgHR} bpm</span></div>` : ''}
       ${compliance !== null ? `<div class="trend-row"><span class="trend-label">Volume compliance (last 4 wks)</span><span class="trend-val">${compliance}% <span class="trend-flag ${compliance>=85?'tf-good':compliance>=60?'tf-warn':'tf-info'}">${compliance>=85?'On Track':compliance>=60?'Slightly Under':'Building'}</span></span></div>` : ''}
       <div class="trend-row"><span class="trend-label">Strength sessions logged</span><span class="trend-val">${strengthLog.length}</span></div>
-      <div class="trend-row"><span class="trend-label">Total activities</span><span class="trend-val">${activities.length}</span></div>
-      <div class="trend-row"><span class="trend-label">Days to race</span><span class="trend-val">${daysToRace}</span></div>`;
+      <div class="trend-row"><span class="trend-label">Total activities</span><span class="trend-val">${activities.length}</span></div>`;
   }
 
   // Today macros
@@ -306,11 +322,32 @@ function renderDashboard() {
   el.innerHTML = `
     <div class="page-title">Dashboard</div>
     <p class="page-sub" style="margin-bottom:1.5rem">${greeting}</p>
+
+    <!-- Race countdown -->
+    <div class="digest-card" style="margin-bottom:16px;background:linear-gradient(135deg,#1A3A2A 0%,#0F2318 100%);border:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <div style="font-size:11px;font-family:var(--mono);color:rgba(255,255,255,0.5);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px">Race Countdown</div>
+          <div style="font-size:48px;font-family:var(--serif);font-weight:300;color:#fff;line-height:1">${daysToRace}</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.6);margin-top:2px">days to 19 July 2026</div>
+        </div>
+        <div style="text-align:right;max-width:240px">
+          <div style="font-size:14px;color:rgba(255,255,255,0.85);line-height:1.5;font-style:italic">"${countdownMsg}"</div>
+          <div style="margin-top:12px">
+            <div style="height:4px;background:rgba(255,255,255,0.15);border-radius:2px;overflow:hidden">
+              <div style="height:100%;width:${Math.min(100,Math.round((1-daysToRace/84)*100))}%;background:#1D9E75;border-radius:2px;transition:width 0.5s"></div>
+            </div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px;font-family:var(--mono)">${Math.min(100,Math.round((1-daysToRace/84)*100))}% of plan complete</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="dash-grid">
-      <div class="dash-stat-card"><div class="dsc-label">Days To Race</div><div class="dsc-value dsc-race">${daysToRace}</div><div class="dsc-sub">19 July 2026</div></div>
       <div class="dash-stat-card"><div class="dsc-label">Current Week</div><div class="dsc-value">${weekLabel}</div><div class="dsc-sub">${phaseText}</div></div>
       <div class="dash-stat-card"><div class="dsc-label">This Week</div><div class="dsc-value">${kmLogged}</div><div class="dsc-sub">of ${kmPlanned} km planned</div></div>
       <div class="dash-stat-card"><div class="dsc-label">Today</div><div class="dsc-value" style="font-size:16px;padding-top:6px">${todayType}</div><div class="dsc-sub">${todayDetail}</div></div>
+      ${avgHR ? `<div class="dash-stat-card"><div class="dsc-label">Avg Heart Rate</div><div class="dsc-value" style="color:${avgEasyHR&&avgEasyHR>hrEasyTarget?'#EF9F27':'var(--text)'}">${avgHR}</div><div class="dsc-sub">bpm avg · ${avgEasyHR?avgEasyHR+' bpm easy runs':''}</div></div>` : ''}
     </div>
     <div class="digest-card">
       <div class="digest-header"><div class="digest-title">Training Load — 13 Weeks</div></div>
@@ -594,8 +631,8 @@ async function sendMessage() {
   const day = getCurrentDayOfWeek();
   const w = wkNum ? weeks[wkNum-1] : null;
   const savedNotes = activityNotes;
-  const recentRuns = activities.filter(a=>!a.sport_type?.includes('Weight')).slice(0,8)
-    .map(a => `  • ${a.date}: ${a.sport_type||'Run'} ${a.distance}km @ ${a.pace||'—'}/km${savedNotes[String(a.strava_id||a.id)]?' | "'+savedNotes[String(a.strava_id||a.id)]+'"':''}`)
+  const recentRuns = activities.filter(a=>!a.sport_type?.includes('Weight')&&!a.sport_type?.includes('Ride')).slice(0,8)
+    .map(a => `  • ${a.date}: ${a.sport_type||'Run'} ${a.distance}km @ ${a.pace||'—'}/km${a.average_heartrate?` ♥${Math.round(a.average_heartrate)}bpm`:''}${savedNotes[String(a.strava_id||a.id)]?' | "'+savedNotes[String(a.strava_id||a.id)]+'"':''}`)
     .join('\n') || '  None yet';
   const recentStrength = strengthLog.slice(0,4).map(e =>
     `  Wk${e.week} ${e.date}: ${(e.exercises||[]).filter(ex=>ex.sets?.some(s=>s.kg||s.reps)).map(ex=>`${ex.name?.split(' ')[0]} top:${ex.sets?.reduce((b,s)=>parseFloat(s.kg||0)>parseFloat(b.kg||0)?s:b,{}).kg||'?'}kg`).join(', ')}`
@@ -699,7 +736,8 @@ function renderActivitiesPage() {
       : isCycling
       ? '<span class="match-badge" style="background:#E3EAF5;color:#1A3260">🚴 Cycling</span>'
       : `<span class="match-badge ${badges[quality]}">${badgeText[quality]}</span>`;
-    // Show speed for cycling instead of pace
+    // Show speed for cycling instead of pace, add HR if available
+    const hrBadge = act.average_heartrate ? `<span style="font-size:11px;font-family:var(--mono);color:${act.average_heartrate>160?'#EF9F27':act.average_heartrate>148?'var(--text-muted)':'#1D9E75'};margin-left:4px">♥ ${Math.round(act.average_heartrate)} bpm</span>` : '';
     const statsHTML = isStrength ? '' : `<div class="act-stats">
       <div class="act-stat"><div class="act-stat-val">${act.distance}km</div><div class="act-stat-label">Distance</div></div>
       <div class="act-stat"><div class="act-stat-val">${isCycling && act.average_speed ? (act.average_speed*3.6).toFixed(1)+'km/h' : (act.pace||'—')}</div><div class="act-stat-label">${isCycling?'Avg Speed':'Pace'}</div></div>
@@ -711,9 +749,10 @@ function renderActivitiesPage() {
         <div>
           <div class="act-name">${act.name||act.sport_type||'Activity'}</div>
           <div class="act-meta">${fmtDate(act.date)} · ${metaLabel}</div>
-          <div style="margin-top:5px;display:flex;align-items:center;gap:8px">
+          <div style="margin-top:5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             ${badgeHTML}
             <span style="font-size:11px;color:var(--strava);font-family:var(--mono);font-weight:500">STRAVA</span>
+            ${hrBadge}
           </div>
         </div>
         ${statsHTML}
