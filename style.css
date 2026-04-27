@@ -324,7 +324,7 @@ body { background: var(--bg); font-family: var(--sans); color: var(--text); min-
 /* ── PACES ── */
 .setup-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 24px; margin-bottom: 20px; }
 
-/* ── MOBILE ── */
+.mobile-more-btn { display: none; } /* shown only in mobile media query */
 @media (max-width: 900px) {
   .coach-layout { grid-template-columns: 1fr; height: auto; }
   .chat-panel { height: 65vh; }
@@ -356,12 +356,37 @@ body { background: var(--bg); font-family: var(--sans); color: var(--text); min-
   .nav-item[onclick*="coach"]::before       { content: '💬'; }
   .nav-item[onclick*="activities"]::before  { content: '🏃'; }
   .nav-item[onclick*="meals"]::before       { content: '🥗'; }
-  .nav-item[onclick*="paces"]::before       { content: '⚡'; }
-  .nav-item[onclick*="strength"]::before    { content: '🏋️'; }
-  .nav-item[onclick*="nutrition"]::before   { content: '📋'; }
-  .nav-item[onclick*="methodology"]::before { content: '📖'; }
-  .nav-item[onclick*="hamstring"]::before   { content: '🦵'; }
-  .nav-dot { display: none; }
+
+  /* Hide reference nav items on mobile — they live in the More drawer */
+  .nav-item[onclick*="paces"],
+  .nav-item[onclick*="strength"],
+  .nav-item[onclick*="nutrition"],
+  .nav-item[onclick*="methodology"],
+  .nav-item[onclick*="hamstring"],
+  .nav-section { display: none !important; }
+
+  /* More button */
+  .mobile-more-btn {
+    flex: 0 0 auto; width: 64px; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 5px 2px 7px; gap: 2px; font-size: 9px;
+    border-radius: 0; border: none; background: none;
+    color: rgba(255,255,255,0.45); text-align: center;
+    font-family: var(--sans); cursor: pointer;
+    border-left: 1px solid rgba(255,255,255,0.07);
+  }
+  .mobile-more-btn::before { content: '⋯'; display: block; font-size: 20px; line-height: 1.1; margin-bottom: 1px; }
+  .mobile-more-btn.active-section { color: #fff; background: rgba(255,255,255,0.12); font-weight: 600; }
+
+  /* More drawer buttons */
+  .more-drawer-btn {
+    padding: 12px 14px; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; font-size: 13px; font-family: var(--sans);
+    color: var(--text); cursor: pointer; text-align: left;
+    transition: all 0.15s;
+  }
+  .more-drawer-btn:hover, .more-drawer-btn:active { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+  .mobile-more-btn { display: flex; }
   .nav-item + .nav-item { border-left: 1px solid rgba(255,255,255,0.07); }
   .main { padding: 1.25rem 1rem calc(58px + 1.5rem); max-width: 100%; width: 100%; }
   .page-title { font-size: 22px; }
@@ -388,3 +413,11 @@ body { background: var(--bg); font-family: var(--sans); color: var(--text); min-
 ::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+
+/* ── TABLE MOBILE FIX ── */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 1.5rem; }
+.table-scroll .data-table { margin-bottom: 0; min-width: 500px; }
+@media (max-width: 700px) {
+  .data-table { font-size: 12px; }
+  .data-table th, .data-table td { padding: 8px 10px; }
+}
