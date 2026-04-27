@@ -18,14 +18,37 @@
     <div class="logo"><span>Thompson</span><br>Run Co.</div>
     <div class="logo-sub">27 Apr — 19 Jul 2026</div>
     <div class="nav-section">Train</div>
-    <button class="nav-item active" onclick="showPage('dashboard',this)"><span class="nav-dot" style="background:#378ADD"></span>Dashboard</button>
-    <button class="nav-item" onclick="showPage('schedule',this)"><span class="nav-dot" style="background:#1D9E75"></span>Weekly Schedule</button>
-    <button class="nav-item" onclick="showPage('coach',this)"><span class="nav-dot" style="background:#7F77DD"></span>AI Coach</button>
-    <button class="nav-item" onclick="showPage('activities',this)"><span class="nav-dot" style="background:#FC4C02"></span>Activities</button>
-    <button class="nav-item" onclick="showPage('meals',this)"><span class="nav-dot" style="background:#EF9F27"></span>Meal Tracker</button>
-    <!-- Mobile-only More button (hidden on desktop via CSS) -->
-    <button class="mobile-more-btn" id="more-btn" onclick="openMoreDrawer()">More</button>
+    <button class="nav-item active" onclick="showPage('dashboard',this)">
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </button>
+    <button class="nav-item" onclick="showPage('schedule',this)">
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Schedule
+    </button>
+    <button class="nav-item" onclick="showPage('coach',this)">
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      Coach
+    </button>
+    <button class="nav-item" onclick="showPage('activities',this)">
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Activity
+    </button>
+    <button class="nav-item" onclick="showPage('meals',this)">
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+      Meals
+    </button>
+    <!-- Mobile-only More button -->
+    <button class="mobile-more-btn" id="more-btn" onclick="openMoreDrawer()">
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>
+      More
+    </button>
     <div class="nav-section">Reference</div>
+    <button class="nav-item" onclick="showPage('paces',this)"><span class="nav-dot" style="background:#378ADD"></span>Training Paces</button>
+    <button class="nav-item" onclick="showPage('strength',this)"><span class="nav-dot" style="background:#7F77DD"></span>Strength Plan</button>
+    <button class="nav-item" onclick="showPage('nutrition',this)"><span class="nav-dot" style="background:#EF9F27"></span>Nutrition</button>
+    <button class="nav-item" onclick="showPage('methodology',this)"><span class="nav-dot" style="background:#888780"></span>Methodology</button>
+    <button class="nav-item" onclick="showPage('hamstring',this)"><span class="nav-dot" style="background:#E24B4A"></span>Injury Management</button>
     <button class="nav-item" onclick="showPage('paces',this)"><span class="nav-dot" style="background:#378ADD"></span>Training Paces</button>
     <button class="nav-item" onclick="showPage('strength',this)"><span class="nav-dot" style="background:#7F77DD"></span>Strength Plan</button>
     <button class="nav-item" onclick="showPage('nutrition',this)"><span class="nav-dot" style="background:#EF9F27"></span>Nutrition</button>
@@ -58,15 +81,15 @@
   <!-- Mobile More drawer -->
   <div id="more-overlay" onclick="closeMoreDrawer()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1998"></div>
   <div id="more-drawer" style="display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-radius:20px 20px 0 0;z-index:1999;padding:0 0 env(safe-area-inset-bottom,0)">
-    <div style="width:36px;height:4px;background:var(--border-strong);border-radius:2px;margin:12px auto 4px"></div>
-    <div style="padding:8px 20px 20px">
-      <div style="font-size:11px;font-family:var(--mono);color:var(--text-faint);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:12px">Reference</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <button class="more-drawer-btn" onclick="showPageFromDrawer('paces')">⚡ Training Paces</button>
-        <button class="more-drawer-btn" onclick="showPageFromDrawer('strength')">🏋️ Strength Plan</button>
-        <button class="more-drawer-btn" onclick="showPageFromDrawer('nutrition')">📋 Nutrition</button>
-        <button class="more-drawer-btn" onclick="showPageFromDrawer('methodology')">📖 Methodology</button>
-        <button class="more-drawer-btn" onclick="showPageFromDrawer('hamstring')" style="grid-column:span 2">🦵 Injury Management</button>
+    <div style="width:36px;height:4px;background:var(--border-strong);border-radius:2px;margin:12px auto 8px"></div>
+    <div style="padding:4px 20px 24px">
+      <div style="font-size:11px;font-family:var(--mono);color:var(--text-faint);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)">Reference</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="more-drawer-btn" onclick="showPageFromDrawer('paces')">Training Paces</button>
+        <button class="more-drawer-btn" onclick="showPageFromDrawer('strength')">Strength Plan</button>
+        <button class="more-drawer-btn" onclick="showPageFromDrawer('nutrition')">Nutrition</button>
+        <button class="more-drawer-btn" onclick="showPageFromDrawer('methodology')">Methodology</button>
+        <button class="more-drawer-btn" onclick="showPageFromDrawer('hamstring')">Injury Management</button>
       </div>
     </div>
   </div>
