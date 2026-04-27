@@ -23,6 +23,8 @@
     <button class="nav-item" onclick="showPage('coach',this)"><span class="nav-dot" style="background:#7F77DD"></span>AI Coach</button>
     <button class="nav-item" onclick="showPage('activities',this)"><span class="nav-dot" style="background:#FC4C02"></span>Activities</button>
     <button class="nav-item" onclick="showPage('meals',this)"><span class="nav-dot" style="background:#EF9F27"></span>Meal Tracker</button>
+    <!-- Mobile-only More button (hidden on desktop via CSS) -->
+    <button class="mobile-more-btn" id="more-btn" onclick="openMoreDrawer()">More</button>
     <div class="nav-section">Reference</div>
     <button class="nav-item" onclick="showPage('paces',this)"><span class="nav-dot" style="background:#378ADD"></span>Training Paces</button>
     <button class="nav-item" onclick="showPage('strength',this)"><span class="nav-dot" style="background:#7F77DD"></span>Strength Plan</button>
@@ -52,6 +54,22 @@
     <div id="page-methodology" class="page"></div>
     <div id="page-hamstring" class="page"></div>
   </main>
+
+  <!-- Mobile More drawer -->
+  <div id="more-overlay" onclick="closeMoreDrawer()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1998"></div>
+  <div id="more-drawer" style="display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-radius:20px 20px 0 0;z-index:1999;padding:0 0 env(safe-area-inset-bottom,0)">
+    <div style="width:36px;height:4px;background:var(--border-strong);border-radius:2px;margin:12px auto 4px"></div>
+    <div style="padding:8px 20px 20px">
+      <div style="font-size:11px;font-family:var(--mono);color:var(--text-faint);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:12px">Reference</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button class="more-drawer-btn" onclick="showPageFromDrawer('paces')">⚡ Training Paces</button>
+        <button class="more-drawer-btn" onclick="showPageFromDrawer('strength')">🏋️ Strength Plan</button>
+        <button class="more-drawer-btn" onclick="showPageFromDrawer('nutrition')">📋 Nutrition</button>
+        <button class="more-drawer-btn" onclick="showPageFromDrawer('methodology')">📖 Methodology</button>
+        <button class="more-drawer-btn" onclick="showPageFromDrawer('hamstring')" style="grid-column:span 2">🦵 Injury Management</button>
+      </div>
+    </div>
+  </div>
 </div>
 <script src="/app.js"></script>
 </body>
