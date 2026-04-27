@@ -246,7 +246,8 @@ function renderDashboard() {
     : daysToRace > 0 ? `${daysToRace} day${daysToRace!==1?'s':''} to go. You\'re ready.`
     : 'Race day! Go sub-42. 🏁';
 
-  let greeting, weekLabel, phaseText, kmLogged, kmPlanned, todayType, todayDetail;
+  let greeting, weekLabel, phaseText, kmLogged, kmPlanned, todayType, todayDetail, session, day;
+  day = getCurrentDayOfWeek();
   if (!wkNum) {
     const d = daysUntilStart();
     greeting = `Plan starts in ${d} day${d!==1?'s':''} — 27 April. Keep this week easy.`;
@@ -264,11 +265,9 @@ function renderDashboard() {
       return dt >= wkStart && dt <= wkEnd && !a.sport_type?.includes('Weight') && !a.sport_type?.includes('Ride');
     }).reduce((s,a) => s + parseFloat(a.distance||0), 0).toFixed(1);
     kmPlanned = w.km;
-    const day = getCurrentDayOfWeek();
-    const session = w.days[day];
+    session = w.days[day];
     todayType = session?.type || 'Rest';
-    todayDetail = session?.dot === 'rest' ? 'Recovery is training' : (session?.detail?.split('·')[0].trim() || '');
-  }
+    todayDetail = session?.dot === 'rest' ? 'Recovery is training' : (session?.detail?.split('·')[0].trim() || '');  }
 
   // Training load chart
   const maxKm = Math.max(...weeks.map(w=>w.km));
@@ -349,6 +348,19 @@ function renderDashboard() {
       <div class="dash-stat-card"><div class="dsc-label">Today</div><div class="dsc-value" style="font-size:16px;padding-top:6px">${todayType}</div><div class="dsc-sub">${todayDetail}</div></div>
       ${avgHR ? `<div class="dash-stat-card"><div class="dsc-label">Avg Heart Rate</div><div class="dsc-value" style="color:${avgEasyHR&&avgEasyHR>hrEasyTarget?'#EF9F27':'var(--text)'}">${avgHR}</div><div class="dsc-sub">bpm avg · ${avgEasyHR?avgEasyHR+' bpm easy runs':''}</div></div>` : ''}
     </div>
+
+    ${wkNum && session && session.dot !== 'rest' ? `
+    <div class="digest-card" style="margin-bottom:16px;border-left:3px solid var(--accent)">
+      <div class="digest-header" style="margin-bottom:10px">
+        <div>
+          <div style="font-size:11px;font-family:var(--mono);color:var(--accent);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:2px">Today's Session Brief</div>
+          <div class="digest-title">${session.type}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${session.detail}</div>
+        </div>
+      </div>
+      <div id="session-brief-content"><span style="color:var(--text-faint);font-style:italic;font-size:13px">Loading brief…</span></div>
+    </div>` : ''}
+
     <div class="digest-card">
       <div class="digest-header"><div class="digest-title">Training Load — 13 Weeks</div></div>
       <div class="week-bars">${barsHTML}</div>
@@ -383,6 +395,11 @@ function renderDashboard() {
       </div>
       <div id="rec-content" style="font-size:13px;color:var(--text-faint);font-style:italic">Click Analyse — the coach will review your recent training data and suggest any changes to upcoming sessions.</div>
     </div>`;
+
+  // Auto-generate session brief if there's a training session today
+  if (wkNum && session && session.dot !== 'rest') {
+    generateSessionBrief(session, wkNum, day);
+  }
 }
 
 async function generateDigest() {
@@ -419,7 +436,101 @@ async function generateDigest() {
   btn.disabled = false; btn.innerHTML = '<span>✦</span> Regenerate';
 }
 
-// ── COACH RECOMMENDATIONS ──
+// ── MORE DRAWER (mobile) ──
+function openMoreDrawer() {
+  const drawer = document.getElementById('more-drawer');
+  const overlay = document.getElementById('more-overlay');
+  const btn = document.getElementById('more-btn');
+  if (!drawer) return;
+  drawer.style.display = 'block';
+  overlay.style.display = 'block';
+  if (btn) btn.classList.add('active-section');
+  // Animate up
+  drawer.style.transform = 'translateY(100%)';
+  requestAnimationFrame(() => {
+    drawer.style.transition = 'transform 0.3s ease';
+    drawer.style.transform = 'translateY(0)';
+  });
+}
+
+function closeMoreDrawer() {
+  const drawer = document.getElementById('more-drawer');
+  const overlay = document.getElementById('more-overlay');
+  const btn = document.getElementById('more-btn');
+  if (!drawer) return;
+  drawer.style.transform = 'translateY(100%)';
+  setTimeout(() => {
+    drawer.style.display = 'none';
+    overlay.style.display = 'none';
+  }, 300);
+  if (btn) btn.classList.remove('active-section');
+}
+
+function showPageFromDrawer(name) {
+  closeMoreDrawer();
+  setTimeout(() => {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    showPage(name);
+    // Mark More button as active-section so user knows they're in reference
+    const btn = document.getElementById('more-btn');
+    if (btn) btn.classList.add('active-section');
+  }, 200);
+}
+
+// ── PRE-SESSION BRIEF ──
+const BRIEF_CACHE_KEY = 'session_brief_cache';
+
+function getTodayBriefCache() {
+  try {
+    const cache = JSON.parse(localStorage.getItem(BRIEF_CACHE_KEY) || '{}');
+    if (cache.date === todayISO() && cache.brief) return cache.brief;
+  } catch(e) {}
+  return null;
+}
+
+function saveTodayBriefCache(brief) {
+  localStorage.setItem(BRIEF_CACHE_KEY, JSON.stringify({ date: todayISO(), brief }));
+}
+
+async function generateSessionBrief(session, wkNum, day) {
+  const el = document.getElementById('session-brief-content');
+  if (!el) return;
+
+  // Check cache first — don't call API if we already have today's brief
+  const cached = getTodayBriefCache();
+  if (cached) {
+    el.innerHTML = cached;
+    return;
+  }
+
+  el.innerHTML = `<span style="color:var(--text-faint);font-style:italic">Generating brief…</span>`;
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system: `You are a running coach giving a pre-session brief. Be concise — maximum 4 short bullet points. Plain text only, use • for bullets. Cover: 1) key focus for this session, 2) target paces/reps, 3) one warm-up tip, 4) one thing to watch for. No waffle, no encouragement fluff — just the practical essentials.`,
+        messages: [{
+          role: 'user',
+          content: `Pre-session brief for Week ${wkNum}, ${day}: ${session.type} — ${session.detail}. Athlete context: sub-42 10km plan, 5km PB 20:50, hamstring overload protocol active weeks 1-4.`
+        }],
+        max_tokens: 200
+      })
+    });
+    const data = await res.json();
+    const brief = data.content || 'Could not generate brief.';
+    // Format bullets as styled HTML
+    const formatted = brief.split('\n')
+      .filter(l => l.trim())
+      .map(l => `<div style="display:flex;gap:8px;margin-bottom:6px;font-size:13px;line-height:1.5"><span style="color:var(--accent);flex-shrink:0">•</span><span style="color:var(--text-muted)">${l.replace(/^[•\-]\s*/,'')}</span></div>`)
+      .join('');
+    saveTodayBriefCache(formatted);
+    el.innerHTML = formatted;
+  } catch(e) {
+    el.innerHTML = `<span style="font-size:13px;color:var(--text-muted)">Could not load brief — check connection.</span>`;
+  }
+}
 let acceptedRecs = JSON.parse(localStorage.getItem('accepted_recs') || '[]');
 let dismissedRecs = JSON.parse(localStorage.getItem('dismissed_recs') || '[]');
 let activeRecommendations = [];
