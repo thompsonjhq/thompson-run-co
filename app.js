@@ -138,6 +138,41 @@ function showPage(name, btn) {
 // ── SUPABASE DATA LOADING ──
 async function loadAllData() {
   try {
+    // Load live plan from Supabase (overrides hardcoded weeks if available)
+    const [planWeeks, planSessions] = await Promise.all([
+      api.get('plan_weeks', 'select=*&order=week_num.asc'),
+      api.get('plan_sessions', 'select=*&order=week_num.asc,day_name.asc')
+    ]);
+    if (planWeeks && planWeeks.length > 0) {
+      const dayOrder = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+      weeks.forEach((w, i) => {
+        const dbWeek = planWeeks.find(pw => pw.week_num === w.num);
+        if (!dbWeek) return;
+        // Update week metadata
+        weeks[i].label = dbWeek.label;
+        weeks[i].km = dbWeek.km_target;
+        weeks[i].note = dbWeek.note || w.note;
+        weeks[i].phase = dbWeek.phase;
+        weeks[i].hamstring = dbWeek.hamstring_protocol;
+        // Update sessions
+        const weekSessions = planSessions.filter(s => s.week_num === w.num);
+        weekSessions.forEach(s => {
+          if (weeks[i].days[s.day_name]) {
+            weeks[i].days[s.day_name].type = s.session_type;
+            weeks[i].days[s.day_name].detail = s.detail;
+            weeks[i].days[s.day_name].dot = s.dot;
+            if (s.is_modified) {
+              weeks[i].days[s.day_name]._modified = true;
+              weeks[i].days[s.day_name]._reason = s.modification_reason;
+            }
+          }
+        });
+      });
+      console.log('Plan loaded from Supabase');
+    }
+  } catch(e) { console.warn('Plan load failed, using hardcoded:', e.message); }
+
+  try {
     // Activities
     const acts = await api.get('strava_activities', 'select=*&order=start_date.desc&limit=200');
     activities = (acts || []).map(a => ({
@@ -149,7 +184,6 @@ async function loadAllData() {
     }));
     document.getElementById('sidebar-sync-dot').classList.add('on');
     document.getElementById('sidebar-sync-text').textContent = `${activities.length} activities`;
-    // Update last-seen timestamp if on activities page
     const lu = document.getElementById('last-updated');
     if (lu) lu.textContent = `Updated ${new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'})}`;
   } catch(e) { console.warn('Activities load failed:', e.message); }
@@ -731,10 +765,12 @@ function renderWeeks() {
         const labelText = quality==='great'?'✓ On Target':quality==='warn'?'⚠ Check Pace':quality==='miss'?'✗ Off Plan':'↗ Strava';
         overlayHTML += `<div class="activity-overlay ${qClass}"><div class="ao-label">${labelText}</div><div style="font-size:11px;color:var(--text-muted)">${act.distance}km · ${act.pace||'—'}/km${act.elapsed_time?' · '+fmtTime(act.elapsed_time):''}</div></div>`;
       });
+      const modifiedBadge = d._modified ? `<div style="font-size:10px;font-family:var(--mono);color:#378ADD;margin-top:4px">✎ Coach modified${d._reason ? ` — ${d._reason}` : ''}</div>` : '';
       return `<div class="day-card ${isRest?'rest-card':''}" style="${isTodayCard?'border:2px solid #1D9E75;':''}">
         <div class="day-name">${day}${isTodayCard?' · TODAY':''}</div>
         <div class="day-type"><span class="dot d-${d.dot}"></span>${d.type}</div>
         <div class="day-detail">${d.detail||'—'}</div>
+        ${modifiedBadge}
         ${overlayHTML}
         ${!isRest?`<button class="brief-btn" onclick="briefSession(${w.num},'${day}',event)">Brief this session</button>`:''}
       </div>`;
@@ -895,46 +931,202 @@ async function sendMessage() {
   if (!text) return;
 
   appendMessage('user', text);
-  const userMsg = { role:'user', content: text };
-  chatHistory.push(userMsg);
+  chatHistory.push({ role:'user', content: text });
   input.value = ''; input.style.height = 'auto'; btn.disabled = true;
 
-  // Save to Supabase
   api.post('chat_history', { role:'user', content: text }, 'return=minimal').catch(()=>{});
 
-  // Build rich context
+  // ── Build rich, unambiguous context ──
   const wkNum = getCurrentWeekNum();
   const day = getCurrentDayOfWeek();
   const w = wkNum ? weeks[wkNum-1] : null;
-  const savedNotes = activityNotes;
-  const recentRuns = activities.filter(a=>!a.sport_type?.includes('Weight')&&!a.sport_type?.includes('Ride')).slice(0,8)
-    .map(a => `  • ${a.date}: ${a.sport_type||'Run'} ${a.distance}km @ ${a.pace||'—'}/km${a.average_heartrate?` ♥${Math.round(a.average_heartrate)}bpm`:''}${savedNotes[String(a.strava_id||a.id)]?' | "'+savedNotes[String(a.strava_id||a.id)]+'"':''}`)
-    .join('\n') || '  None yet';
-  const recentStrength = strengthLog.slice(0,4).map(e =>
-    `  Wk${e.week} ${e.date}: ${(e.exercises||[]).filter(ex=>ex.sets?.some(s=>s.kg||s.reps)).map(ex=>`${ex.name?.split(' ')[0]} top:${ex.sets?.reduce((b,s)=>parseFloat(s.kg||0)>parseFloat(b.kg||0)?s:b,{}).kg||'?'}kg`).join(', ')}`
+
+  // Most recent run — explicit, not buried in a list
+  const runs = activities.filter(a => !a.sport_type?.includes('Weight') && !a.sport_type?.includes('Ride'));
+  const mostRecent = runs[0];
+  let mostRecentStr = 'None logged yet';
+  if (mostRecent) {
+    const match = matchActivityToSession(mostRecent);
+    const planned = match?.planned;
+    const note = activityNotes[String(mostRecent.strava_id||mostRecent.id)] || '';
+    const plannedStr = planned && planned.dot !== 'rest'
+      ? `Planned was: ${planned.type} — ${planned.detail}`
+      : 'No matching planned session';
+    mostRecentStr = `${mostRecent.date} (${mostRecent.name||mostRecent.sport_type||'Run'})
+  Distance: ${mostRecent.distance}km | Pace: ${mostRecent.pace||'—'}/km | Time: ${mostRecent.elapsed_time?fmtTime(mostRecent.elapsed_time):'—'} | HR: ${mostRecent.average_heartrate?Math.round(mostRecent.average_heartrate)+'bpm':'—'}
+  ${plannedStr}
+  Athlete note: "${note||'none left'}"`;
+  }
+
+  // Last 6 runs with planned session comparison
+  const runHistory = runs.slice(0, 6).map((a, i) => {
+    const match = matchActivityToSession(a);
+    const planned = match?.planned;
+    const note = activityNotes[String(a.strava_id||a.id)] || '';
+    const vs = planned && planned.dot !== 'rest'
+      ? ` (planned: ${planned.type})` : '';
+    return `  ${i===0?'[MOST RECENT] ':''}${a.date}: ${a.sport_type||'Run'} ${a.distance}km @ ${a.pace||'—'}/km${a.average_heartrate?` ♥${Math.round(a.average_heartrate)}bpm`:''}${vs}${note?' | note: "'+note+'"':''}`;
+  }).join('\n') || '  None yet';
+
+  // Strength history
+  const strengthSummary = strengthLog.slice(0,3).map(e =>
+    `  Wk${e.week} ${e.date}: ${(e.exercises||[]).filter(ex=>ex.sets?.some(s=>s.kg||s.reps)).map(ex=>`${ex.name?.split(' ')[0]} ${ex.sets?.reduce((b,s)=>parseFloat(s.kg||0)>parseFloat(b.kg||0)?s:b,{}).kg||'?'}kg`).join(', ')}`
   ).join('\n') || '  None yet';
-  const contextSystem = COACH_SYSTEM + `\n\nLIVE DATA:\nToday: ${new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}\n${wkNum?`Week ${wkNum}/13 (${w.label}) · Today: ${w.days[day]?.type||'Rest'} — ${w.days[day]?.detail||''}`:(`Plan starts in ${daysUntilStart()} days`)}\nDays to race: ${Math.ceil((RACE_DATE-new Date())/86400000)}\n\nRECENT RUNS:\n${recentRuns}\n\nSTRENGTH (last 4):\n${recentStrength}`;
+
+  // This week progress
+  const wkStart = wkNum ? getWeekStartDate(wkNum) : new Date();
+  const wkEnd = new Date(wkStart); wkEnd.setDate(wkEnd.getDate()+6);
+  const thisWeekRuns = activities.filter(a => {
+    const [y,m,d2] = (a.date||'').split('-');
+    const dt = new Date(y,m-1,d2);
+    return dt >= wkStart && dt <= wkEnd && !a.sport_type?.includes('Weight') && !a.sport_type?.includes('Ride');
+  });
+  const weekKm = thisWeekRuns.reduce((s,a)=>s+parseFloat(a.distance||0),0).toFixed(1);
+
+  // Today's planned session
+  const todaySession = w?.days[day];
+  const todayStr = todaySession && todaySession.dot !== 'rest'
+    ? `${todaySession.type} — ${todaySession.detail}`
+    : 'Rest day';
+
+  // Upcoming sessions this week
+  const dayOrder = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const todayIdx = dayOrder.indexOf(day);
+  const upcomingSessions = w ? dayOrder.slice(todayIdx+1).map(d => {
+    const s = w.days[d];
+    return s && s.dot !== 'rest' ? `  ${d}: ${s.type} — ${s.detail}` : null;
+  }).filter(Boolean).join('\n') : '';
+
+  const contextSystem = COACH_SYSTEM + `
+
+CURRENT STATE (${new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}):
+${wkNum
+  ? `Week ${wkNum}/13 · ${w.label} · ${phaseLabel[w.phase]} phase
+This week: ${weekKm}km of ${w.km}km planned (${thisWeekRuns.length} sessions done)
+Today's session: ${todayStr}
+Days to race: ${Math.ceil((RACE_DATE-new Date())/86400000)}`
+  : `Pre-plan — starts in ${daysUntilStart()} days`}
+
+MOST RECENT RUN:
+${mostRecentStr}
+
+LAST 6 RUNS (newest first):
+${runHistory}
+
+REMAINING SESSIONS THIS WEEK:
+${upcomingSessions||'  None remaining'}
+
+STRENGTH (last 3 sessions):
+${strengthSummary}
+
+COACH INSTRUCTIONS:
+- When asked about "my last run" or "my most recent run" — use MOST RECENT RUN above. Do not confuse it with earlier entries.
+- Always compare actual vs planned when discussing a completed session.
+- If the athlete's notes say they felt hard/easy, factor that into your assessment.
+- To modify a session: clearly state the change as "PROPOSED CHANGE: [Day] from [current] → [proposed]" so it can be actioned.
+- Be specific — use the actual numbers from their data, not generic advice.`;
 
   const thinking = showThinking();
   try {
     const res = await fetch('/api/chat', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ system: contextSystem, messages: chatHistory, max_tokens: 800 })
+      body: JSON.stringify({ system: contextSystem, messages: chatHistory, max_tokens: 900 })
     });
     const data = await res.json();
     thinking.remove();
     const reply = data.content || data.error || 'Something went wrong.';
     chatHistory.push({ role:'assistant', content: reply });
-    appendMessage('coach', reply);
-    // Save assistant reply to Supabase
+
+    // Check if reply contains a proposed session change — render as actionable card
+    if (reply.includes('PROPOSED CHANGE:')) {
+      appendMessageWithProposal(reply);
+    } else {
+      appendMessage('coach', reply);
+    }
+
     api.post('chat_history', { role:'assistant', content: reply }, 'return=minimal').catch(()=>{});
-    // Keep last 60 messages in memory
     if (chatHistory.length > 60) chatHistory = chatHistory.slice(-60);
   } catch(e) {
     thinking.remove();
     appendMessage('coach', 'Network error — check your connection.');
   }
   btn.disabled = false;
+}
+
+function appendMessageWithProposal(content) {
+  // Split on PROPOSED CHANGE: and render an actionable card for each
+  const parts = content.split(/PROPOSED CHANGE:/);
+  const preText = parts[0].trim();
+  if (preText) appendMessage('coach', preText);
+
+  parts.slice(1).forEach(part => {
+    const msgs = document.getElementById('chat-messages');
+    if (!msgs) return;
+    // Try to parse "Day from [X] → [Y]"
+    const match = part.match(/^([^\n]+)/);
+    const proposalText = match ? match[1].trim() : part.trim();
+    const narrative = part.replace(/^[^\n]+\n?/, '').trim();
+
+    const div = document.createElement('div');
+    div.className = 'msg msg-coach';
+    div.innerHTML = `<div class="msg-label">Coach — Proposed Change</div>
+      <div style="border:1px solid #378ADD;border-radius:12px;overflow:hidden;max-width:85%">
+        <div style="background:var(--blue-light);padding:10px 14px;font-size:13px;color:var(--blue);font-weight:500">${proposalText}</div>
+        ${narrative ? `<div style="padding:10px 14px;font-size:13px;color:var(--text-muted);line-height:1.6;border-top:1px solid var(--border)">${narrative}</div>` : ''}
+        <div style="padding:8px 14px;display:flex;gap:8px;border-top:1px solid var(--border)">
+          <button onclick="acceptProposal('${proposalText.replace(/'/g,"\\'")}', this)" style="flex:1;padding:8px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:12px;font-family:var(--sans);font-weight:500;cursor:pointer">✓ Accept</button>
+          <button onclick="this.closest('.msg').remove()" style="flex:1;padding:8px;background:transparent;border:1px solid var(--border-strong);border-radius:6px;font-size:12px;font-family:var(--sans);color:var(--text-muted);cursor:pointer">✕ Dismiss</button>
+        </div>
+      </div>`;
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+  });
+}
+
+async function acceptProposal(proposalText, btn) {
+  btn.textContent = 'Applying…';
+  btn.disabled = true;
+  // Ask the coach to extract structured data from the proposal text
+  try {
+    const res = await fetch('/api/chat', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        system: 'Extract session modification details from a proposal. Respond ONLY with JSON: {"week_num": number, "day_name": "Mon|Tue|Wed|Thu|Fri|Sat|Sun", "detail": "new session detail string", "dot": "easy|moderate|hard|rest|strength|race", "distance_km": number_or_null, "reason": "brief reason"}',
+        messages: [{ role:'user', content: `Current week: ${getCurrentWeekNum()}. Extract from: "${proposalText}"` }],
+        max_tokens: 200
+      })
+    });
+    const data = await res.json();
+    const clean = (data.content||'{}').replace(/```json|```/g,'').trim();
+    const parsed = JSON.parse(clean);
+
+    if (parsed.week_num && parsed.day_name && parsed.detail) {
+      // Apply to local weeks data immediately
+      const wIdx = weeks.findIndex(w => w.num === parsed.week_num);
+      if (wIdx >= 0 && weeks[wIdx].days[parsed.day_name]) {
+        weeks[wIdx].days[parsed.day_name].detail = parsed.detail;
+        weeks[wIdx].days[parsed.day_name]._modified = true;
+        weeks[wIdx].days[parsed.day_name]._reason = parsed.reason || '';
+        if (parsed.dot) weeks[wIdx].days[parsed.day_name].dot = parsed.dot;
+      }
+
+      // Save to Supabase
+      await fetch('/api/update-session', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(parsed)
+      });
+
+      btn.closest('.msg').querySelector('div[style*="display:flex"]').innerHTML =
+        `<div style="font-size:12px;color:#1D9E75;padding:4px 0;font-family:var(--mono)">✓ Applied — check your schedule</div>`;
+
+      // Refresh schedule if open
+      if (currentPageName === 'schedule') renderSchedulePage();
+      appendMessage('coach', `Done — I've updated ${parsed.day_name} Week ${parsed.week_num}. Check your schedule to see the change.`);
+    }
+  } catch(e) {
+    btn.textContent = 'Error — try again';
+    btn.disabled = false;
+  }
 }
 
 function appendMessage(role, content) {
