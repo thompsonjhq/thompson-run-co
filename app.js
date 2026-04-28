@@ -82,6 +82,7 @@ function todayISO() { return new Date().toISOString().split('T')[0]; }
 // ── STATE ──
 let activities = [];
 let activityNotes = {};
+let sessionLogs = {}; // keyed by activity_id, array of log entries
 let strengthLog = [];
 let currentStrengthSession = JSON.parse(localStorage.getItem('strength_session_wip') || '{}');
 let chatHistory = [];
@@ -187,6 +188,15 @@ async function loadAllData() {
     const lu = document.getElementById('last-updated');
     if (lu) lu.textContent = `Updated ${new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'})}`;
   } catch(e) { console.warn('Activities load failed:', e.message); }
+
+  try {
+    const logs = await api.get('session_logs', 'select=*&order=created_at.desc&limit=500');
+    sessionLogs = {};
+    (logs || []).forEach(l => {
+      if (!sessionLogs[l.activity_id]) sessionLogs[l.activity_id] = [];
+      sessionLogs[l.activity_id].push(l);
+    });
+  } catch(e) { console.warn('Session logs load failed:', e.message); }
 
   try {
     const notes = await api.get('activity_notes', 'select=*');
@@ -303,12 +313,52 @@ function renderDashboard() {
     todayType = session?.type || 'Rest';
     todayDetail = session?.dot === 'rest' ? 'Recovery is training' : (session?.detail?.split('·')[0].trim() || '');  }
 
-  // Training load chart
+  // ── Training load chart ──
   const maxKm = Math.max(...weeks.map(w=>w.km));
-  const barsHTML = weeks.map(w => {
-    const cls = wkNum && w.num < wkNum ? 'done' : wkNum && w.num === wkNum ? 'current' : '';
-    return `<div class="week-bar-wrap"><div class="week-bar ${cls}" style="height:${(w.km/maxKm*100).toFixed(0)}%" title="Wk ${w.num}: ${w.km}km"></div><div class="week-bar-label">${w.num}</div></div>`;
-  }).join('');
+
+  // Calculate actual km per week
+  const actualKmByWeek = {};
+  weeks.forEach(w => {
+    const ws = getWeekStartDate(w.num);
+    const we = new Date(ws); we.setDate(we.getDate()+6);
+    actualKmByWeek[w.num] = activities.filter(a => {
+      const [y,m,d2] = (a.date||'').split('-');
+      const dt = new Date(y,m-1,d2);
+      return dt >= ws && dt <= we && !a.sport_type?.includes('Weight') && !a.sport_type?.includes('Ride');
+    }).reduce((s,a) => s + parseFloat(a.distance||0), 0);
+  });
+
+  const phaseColours = { base:'load-phase-base', build:'load-phase-build', peak:'load-phase-peak', taper:'load-phase-taper' };
+  const phaseActual = { base:'#1D9E75', build:'#378ADD', peak:'#EF9F27', taper:'#E24B4A' };
+
+  const loadChartHTML = `
+    <div class="load-chart">
+      <div class="load-chart-bars">
+        ${weeks.map(w => {
+          const heightPct = (w.km / maxKm * 100).toFixed(1);
+          const actual = actualKmByWeek[w.num] || 0;
+          const actualPct = (actual / maxKm * 100).toFixed(1);
+          const isCur = wkNum === w.num;
+          const isPast = wkNum && w.num < wkNum;
+          const kmLabel = isCur || isPast ? `${actual.toFixed(0)}` : `${w.km}`;
+          return `<div class="load-bar-wrap ${isCur?'is-current':''}" title="Wk ${w.num}: ${w.km}km planned${actual>0?', '+actual.toFixed(1)+'km done':''}">
+            <div class="load-bar-km">${kmLabel}</div>
+            <div class="load-bar-planned ${phaseColours[w.phase]}" style="height:${heightPct}%;position:relative">
+              ${actual > 0 ? `<div class="load-bar-actual" style="height:${Math.min(100,(actual/w.km*100)).toFixed(0)}%;background:${phaseActual[w.phase]};opacity:0.85"></div>` : ''}
+            </div>
+            <div class="load-bar-label">${w.num}</div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="load-chart-legend" style="margin-top:10px">
+        <div class="load-legend-item"><div class="load-legend-dot load-phase-base"></div>Base</div>
+        <div class="load-legend-item"><div class="load-legend-dot load-phase-build"></div>Build</div>
+        <div class="load-legend-item"><div class="load-legend-dot load-phase-peak"></div>Peak</div>
+        <div class="load-legend-item"><div class="load-legend-dot load-phase-taper"></div>Taper</div>
+        <div class="load-legend-item"><div class="load-legend-dot" style="background:#1D9E75;opacity:0.85"></div>Actual done</div>
+        ${wkNum ? `<div class="load-legend-item"><div class="load-legend-dot" style="outline:2px solid #378ADD;outline-offset:1px;background:var(--surface2)"></div>Current week</div>` : ''}
+      </div>
+    </div>`;
 
   // Trends + HR analysis
   const runs = activities.filter(a => !a.sport_type?.includes('Weight') && !a.sport_type?.includes('Ride'));
@@ -396,13 +446,9 @@ function renderDashboard() {
     </div>` : ''}
 
     <div class="digest-card">
-      <div class="digest-header"><div class="digest-title">Training Load — 13 Weeks</div></div>
-      <div class="week-bars">${barsHTML}</div>
-      <div style="display:flex;gap:14px;font-size:11px;color:var(--text-faint);font-family:var(--mono);margin-top:6px">
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#1D9E75;margin-right:4px"></span>Done</span>
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#378ADD;margin-right:4px"></span>Current</span>
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--surface2);margin-right:4px"></span>Upcoming</span>
-      </div>
+      <div class="digest-header" style="margin-bottom:4px"><div class="digest-title">Training Load — 13 Weeks</div></div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Planned km per week by phase. Solid = actual done, light = planned.</p>
+      ${loadChartHTML}
     </div>
     <div class="digest-card">
       <div class="digest-header">
@@ -940,33 +986,34 @@ async function sendMessage() {
   const wkNum = getCurrentWeekNum();
   const day = getCurrentDayOfWeek();
   const w = wkNum ? weeks[wkNum-1] : null;
-
-  // Most recent run — explicit, not buried in a list
   const runs = activities.filter(a => !a.sport_type?.includes('Weight') && !a.sport_type?.includes('Ride'));
+
+  // Last 6 runs with planned session comparison and all log entries
+  const runHistory = runs.slice(0, 6).map((a, i) => {
+    const match = matchActivityToSession(a);
+    const planned = match?.planned;
+    const actId = String(a.strava_id||a.id);
+    const logs = (sessionLogs[actId] || []).map(l => `"${l.note}"`).join('; ');
+    const vs = planned && planned.dot !== 'rest'
+      ? ` (planned: ${planned.type})` : '';
+    return `  ${i===0?'[MOST RECENT] ':''}${a.date}: ${a.sport_type||'Run'} ${a.distance}km @ ${a.pace||'—'}/km${a.average_heartrate?` ♥${Math.round(a.average_heartrate)}bpm`:''}${vs}${logs?' | notes: '+logs:''}`;
+  }).join('\n') || '  None yet';
+
+  // Most recent run detail with logs
   const mostRecent = runs[0];
   let mostRecentStr = 'None logged yet';
   if (mostRecent) {
     const match = matchActivityToSession(mostRecent);
     const planned = match?.planned;
-    const note = activityNotes[String(mostRecent.strava_id||mostRecent.id)] || '';
+    const actId = String(mostRecent.strava_id||mostRecent.id);
+    const logs = (sessionLogs[actId] || []).map(l => `"${l.note}"`).join('; ');
     const plannedStr = planned && planned.dot !== 'rest'
       ? `Planned was: ${planned.type} — ${planned.detail}`
       : 'No matching planned session';
     mostRecentStr = `${mostRecent.date} (${mostRecent.name||mostRecent.sport_type||'Run'})
   Distance: ${mostRecent.distance}km | Pace: ${mostRecent.pace||'—'}/km | Time: ${mostRecent.elapsed_time?fmtTime(mostRecent.elapsed_time):'—'} | HR: ${mostRecent.average_heartrate?Math.round(mostRecent.average_heartrate)+'bpm':'—'}
   ${plannedStr}
-  Athlete note: "${note||'none left'}"`;
-  }
-
-  // Last 6 runs with planned session comparison
-  const runHistory = runs.slice(0, 6).map((a, i) => {
-    const match = matchActivityToSession(a);
-    const planned = match?.planned;
-    const note = activityNotes[String(a.strava_id||a.id)] || '';
-    const vs = planned && planned.dot !== 'rest'
-      ? ` (planned: ${planned.type})` : '';
-    return `  ${i===0?'[MOST RECENT] ':''}${a.date}: ${a.sport_type||'Run'} ${a.distance}km @ ${a.pace||'—'}/km${a.average_heartrate?` ♥${Math.round(a.average_heartrate)}bpm`:''}${vs}${note?' | note: "'+note+'"':''}`;
-  }).join('\n') || '  None yet';
+  Athlete notes: ${logs||'none left'}`;
 
   // Strength history
   const strengthSummary = strengthLog.slice(0,3).map(e =>
@@ -1225,8 +1272,31 @@ function renderActivitiesPage() {
         </div>
         ${statsHTML}
       </div>
-      <textarea class="run-note-input" rows="1" placeholder="${isStrength?'Add session notes…':'How did this feel? e.g. felt easy, HR high, legs tired…'}" oninput="saveActivityNote('${actId}',this)" onfocus="this.rows=3" onblur="this.rows=this.value?2:1">${note}</textarea>
-      <div class="run-note-saved" id="note-saved-${actId}">Saved ✓</div>
+      ${(() => {
+        const logs = (sessionLogs[actId] || []).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+        const logsHTML = logs.length
+          ? logs.map(l => {
+              const ts = new Date(l.created_at);
+              const timeStr = ts.toLocaleDateString('en-AU',{day:'numeric',month:'short'}) + ' · ' + ts.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'});
+              return `<div class="log-entry">
+                <div class="log-avatar">J</div>
+                <div class="log-body"><div class="log-meta">${timeStr}</div><div class="log-text">${l.note}</div></div>
+                <button class="log-delete" onclick="deleteSessionLog(${l.id},'${actId}',this)" title="Delete">✕</button>
+              </div>`;
+            }).join('')
+          : `<div class="log-empty">No notes yet</div>`;
+        return `<div class="session-log-wrap">
+          <div id="log-feed-${actId}">${logsHTML}</div>
+          <div class="log-input-row">
+            <textarea class="log-textarea" id="log-input-${actId}" rows="1"
+              placeholder="${isStrength ? 'How did it feel? PRs? Any niggles?' : 'How did this feel? e.g. HR was high, legs felt dead, pacing felt easy…'}"
+              oninput="this.style.height=\'auto\';this.style.height=Math.min(this.scrollHeight,100)+\'px\'"
+              onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();submitSessionLog(\'${actId}\',\'${isStrength?'strength':'run'}\',\'${act.date||''}\',this)}"
+            ></textarea>
+            <button class="log-submit" onclick="submitSessionLog(\'${actId}\',\'${isStrength?'strength':'run'}\',\'${act.date||''}\',document.getElementById(\'log-input-${actId}\'))">Post</button>
+          </div>
+        </div>`;
+      })()}
     </div>`;
   }).join('') : '<p style="font-size:13px;color:var(--text-muted)">No activities yet. Connect Strava to start syncing.</p>';
 
@@ -1260,13 +1330,65 @@ function renderActivitiesPage() {
     </div>`;
 }
 
-async function saveActivityNote(actId, textarea) {
-  activityNotes[actId] = textarea.value;
+async function submitSessionLog(actId, actType, actDate, textarea) {
+  const note = textarea.value.trim();
+  if (!note) return;
+  const btn = textarea.nextElementSibling || textarea.closest('.log-input-row')?.querySelector('.log-submit');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
   try {
-    await api.post('activity_notes', { activity_id: actId, note: textarea.value, updated_at: new Date().toISOString() });
-    const indicator = document.getElementById('note-saved-'+actId);
-    if(indicator) { indicator.classList.add('show'); clearTimeout(indicator._t); indicator._t = setTimeout(()=>indicator.classList.remove('show'), 1800); }
-  } catch(e) { console.warn('Note save failed:', e.message); }
+    const result = await api.post('session_logs', {
+      activity_id: actId,
+      activity_type: actType,
+      activity_date: actDate || null,
+      note
+    }, 'return=representation');
+    // Add to local state
+    if (!sessionLogs[actId]) sessionLogs[actId] = [];
+    if (result && result[0]) sessionLogs[actId].unshift(result[0]);
+    textarea.value = '';
+    textarea.style.height = 'auto';
+    // Re-render the feed inline without full page reload
+    const feed = document.getElementById('log-feed-' + actId);
+    if (feed) {
+      const logs = (sessionLogs[actId] || []).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+      feed.innerHTML = logs.map(l => {
+        const ts = new Date(l.created_at);
+        const timeStr = ts.toLocaleDateString('en-AU',{day:'numeric',month:'short'}) + ' · ' + ts.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'});
+        return `<div class="log-entry">
+          <div class="log-avatar">J</div>
+          <div class="log-body"><div class="log-meta">${timeStr}</div><div class="log-text">${l.note}</div></div>
+          <button class="log-delete" onclick="deleteSessionLog(${l.id},'${actId}',this)" title="Delete">✕</button>
+        </div>`;
+      }).join('');
+    }
+  } catch(e) {
+    alert('Could not save note: ' + e.message);
+  }
+  if (btn) { btn.disabled = false; btn.textContent = 'Post'; }
+}
+
+async function deleteSessionLog(logId, actId, btn) {
+  if (!confirm('Delete this note?')) return;
+  try {
+    await api.delete('session_logs', `id=eq.${logId}`);
+    if (sessionLogs[actId]) {
+      sessionLogs[actId] = sessionLogs[actId].filter(l => l.id !== logId);
+    }
+    // Remove the entry from DOM directly
+    btn.closest('.log-entry').remove();
+    // Show empty state if no logs left
+    const feed = document.getElementById('log-feed-' + actId);
+    if (feed && !feed.querySelector('.log-entry')) {
+      feed.innerHTML = '<div class="log-empty">No notes yet</div>';
+    }
+  } catch(e) {
+    alert('Could not delete: ' + e.message);
+  }
+}
+
+async function saveActivityNote(actId, textarea) {
+  // Legacy — redirect to submitSessionLog on Enter
+  activityNotes[actId] = textarea.value;
 }
 
 async function addManualActivity() {
@@ -1472,7 +1594,30 @@ function renderStrengthPage() {
       if(!filled.length&&!ex.notes) return '';
       return `<div class="st-hist-ex"><div class="st-hist-ex-name">${ex.name}</div><div class="st-hist-sets">${filled.map((s,i)=>`<div class="st-hist-set">Set ${i+1}: ${s.kg||'?'}kg×${s.reps||'?'}${s.note?' ('+s.note+')':''}</div>`).join('')}</div>${ex.notes?`<div class="st-hist-note">📝 ${ex.notes}</div>`:''}</div>`;
     }).filter(Boolean).join('');
-    return `<div class="st-hist-entry"><div class="st-hist-header" onclick="toggleStHist(${idx})"><div><div class="st-hist-date">Wk ${entry.week} · ${dateStr}</div><div class="st-hist-summary">${summary}</div></div><div style="display:flex;align-items:center;gap:8px"><button class="st-hist-delete" onclick="event.stopPropagation();deleteStrengthEntry(${idx})">✕</button><span style="font-size:10px;color:var(--text-faint)" id="sth-chev-${idx}">▼</span></div></div><div class="st-hist-body" id="sth-body-${idx}">${detail||'<p style="font-size:12px;color:var(--text-muted);padding-top:8px">No weights recorded.</p>'}</div></div>`;
+    const sId = String(entry.id || `strength-${entry.date}`);
+    const sLogs = (sessionLogs[sId]||[]).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+    const sLogsHTML = sLogs.length
+      ? sLogs.map(l=>{const ts=new Date(l.created_at);const timeStr=ts.toLocaleDateString('en-AU',{day:'numeric',month:'short'})+' · '+ts.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'});return `<div class="log-entry"><div class="log-avatar">J</div><div class="log-body"><div class="log-meta">${timeStr}</div><div class="log-text">${l.note}</div></div><button class="log-delete" onclick="deleteSessionLog(${l.id},'${sId}',this)">✕</button></div>`;}).join('')
+      : `<div class="log-empty">No notes yet</div>`;
+    return `<div class="st-hist-entry">
+      <div class="st-hist-header" onclick="toggleStHist(${idx})">
+        <div><div class="st-hist-date">Wk ${entry.week} · ${dateStr}</div><div class="st-hist-summary">${summary}</div></div>
+        <div style="display:flex;align-items:center;gap:8px"><button class="st-hist-delete" onclick="event.stopPropagation();deleteStrengthEntry(${idx})">✕ Delete</button><span style="font-size:10px;color:var(--text-faint)" id="sth-chev-${idx}">▼</span></div>
+      </div>
+      <div class="st-hist-body" id="sth-body-${idx}">
+        ${detail||'<p style="font-size:12px;color:var(--text-muted);padding-top:8px">No weights recorded.</p>'}
+        <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
+          <div style="font-size:11px;font-family:var(--mono);color:var(--text-faint);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Session Notes</div>
+          <div id="log-feed-${sId}">${sLogsHTML}</div>
+          <div class="log-input-row" style="margin-top:8px">
+            <textarea class="log-textarea" id="log-input-${sId}" rows="1" placeholder="How did this session feel? Any PRs or niggles?"
+              oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitSessionLog('${sId}','strength','${entry.date}',this)}"></textarea>
+            <button class="log-submit" onclick="submitSessionLog('${sId}','strength','${entry.date}',document.getElementById('log-input-${sId}'))">Post</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
   }).join('') : '<p style="font-size:13px;color:var(--text-muted)">No sessions logged yet.</p>';
 
   el.innerHTML = `
