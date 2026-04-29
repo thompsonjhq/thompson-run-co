@@ -1014,6 +1014,7 @@ async function sendMessage() {
   Distance: ${mostRecent.distance}km | Pace: ${mostRecent.pace||'—'}/km | Time: ${mostRecent.elapsed_time?fmtTime(mostRecent.elapsed_time):'—'} | HR: ${mostRecent.average_heartrate?Math.round(mostRecent.average_heartrate)+'bpm':'—'}
   ${plannedStr}
   Athlete notes: ${logs||'none left'}`;
+    }
 
   // Strength history
   const strengthSummary = strengthLog.slice(0,3).map(e =>
