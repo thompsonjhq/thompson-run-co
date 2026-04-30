@@ -1781,9 +1781,7 @@ function renderActivitiesPage() {
         </div>
       `}
 
-      ${(() => {
-        const logs = (sessionLogs[actId] || []).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
-      ${(() => {
+           ${(() => {
         const logs = (sessionLogs[actId] || []).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
         const logsHTML = logs.length
           ? logs.map(l => {
@@ -1796,15 +1794,16 @@ function renderActivitiesPage() {
               </div>`;
             }).join('')
           : `<div class="log-empty">No notes yet</div>`;
+
         return `<div class="session-log-wrap">
           <div id="log-feed-${actId}">${logsHTML}</div>
           <div class="log-input-row">
             <textarea class="log-textarea" id="log-input-${actId}" rows="1"
               placeholder="${isStrength ? 'How did it feel? PRs? Any niggles?' : 'How did this feel? e.g. HR was high, legs felt dead, pacing felt easy…'}"
-              oninput="this.style.height=\'auto\';this.style.height=Math.min(this.scrollHeight,100)+\'px\'"
-              onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();submitSessionLog(\'${actId}\',\'${isStrength?'strength':'run'}\',\'${act.date||''}\',this)}"
+              oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitSessionLog('${actId}','${isStrength?'strength':'run'}','${act.date||''}',this)}"
             ></textarea>
-            <button class="log-submit" onclick="submitSessionLog(\'${actId}\',\'${isStrength?'strength':'run'}\',\'${act.date||''}\',document.getElementById(\'log-input-${actId}\'))">Post</button>
+            <button class="log-submit" onclick="submitSessionLog('${actId}','${isStrength?'strength':'run'}','${act.date||''}',document.getElementById('log-input-${actId}'))">Post</button>
           </div>
         </div>`;
       })()}
