@@ -1769,15 +1769,21 @@ return `<div class="activity-card">
   ${statsHTML}
       </div>
 
-      ${debrief ? `
-        <div class="activity-debrief">
-<div class="ad-header">
-  <span>${debrief.session_label || debrief.session_type || 'Session debrief'}</span>
-  <span style="display:flex;gap:8px;align-items:center">
-    ${debrief.shoes ? `<span>${debrief.shoes}</span>` : ''}
-    <button class="btn-secondary" style="font-size:11px;padding:3px 8px" onclick="openDebriefEditor('${actId}')">Edit</button>
-  </span>
-</div>
+${debrief ? `
+  <div class="activity-debrief ad-confirmed">
+    <div class="ad-header">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span>Session Details</span>
+        <span class="ad-confirmed-badge">Confirmed</span>
+      </div>
+
+      <span style="display:flex;gap:8px;align-items:center">
+        ${debrief.shoes ? `<span>${debrief.shoes}</span>` : ''}
+        <button class="btn-secondary" style="font-size:11px;padding:3px 8px" onclick="openDebriefEditor('${actId}')">Edit</button>
+      </span>
+    </div>
+
+    <div class="ad-session-title">${debrief.session_label || debrief.session_type || 'Completed session'}</div>
 
           ${debrief.structured_summary ? `
             <div class="ad-summary">${debrief.structured_summary}</div>
@@ -1803,17 +1809,17 @@ return `<div class="activity-card">
           </div>
         </div>
       ` : `
-       <div class="activity-debrief ad-empty">
+   <div class="activity-debrief ad-empty">
   <div>
-    <div style="font-weight:500;color:var(--text);margin-bottom:2px">No session interpretation yet</div>
-    <div style="font-size:12px;color:var(--text-muted)">Add what the session actually was so the coach can assess it properly.</div>
+    <div style="font-weight:500;color:var(--text);margin-bottom:2px">No session details yet</div>
+    <div style="font-size:12px;color:var(--text-muted)">Add the actual workout structure, effort, shoes, and notes for this activity.</div>
   </div>
-  <button class="btn-secondary" onclick="openDebriefEditor('${actId}')">Add session detail</button>
+  <button class="btn-secondary" onclick="openDebriefEditor('${actId}')">Add session details</button>
 </div>
       `}
 
       <div class="debrief-editor" id="debrief-editor-${actId}" style="display:none">
-  <div class="debrief-editor-title">Session Detail</div>
+  <div class="debrief-editor-title">Session Details</div>
 
   <textarea
     class="debrief-textarea"
@@ -1870,7 +1876,7 @@ return `<div class="activity-card">
 
   <div class="debrief-actions">
     <button class="btn-secondary" onclick="openDebriefEditor('${actId}')">Cancel</button>
-    <button class="btn-primary" onclick="submitDebriefEditor('${actId}')">Save interpretation</button>
+    <button class="btn-primary" onclick="submitDebriefEditor('${actId}')">Save session details</button>
   </div>
 </div>
 
@@ -1978,7 +1984,13 @@ const soreness = document.getElementById(`debrief-soreness-value-${actId}`)?.val
     soreness !== '' ? `Soreness/niggles: ${soreness}/5` : ''
   ].filter(Boolean).join('\n');
 
-  await saveActivityDebriefFromText(actId, act, enrichedText);
+  const saveBtn = event?.target;
+if (saveBtn) {
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving...';
+}
+
+await saveActivityDebriefFromText(actId, act, enrichedText);
 }
 
 function openDebriefEditor(actId) {
@@ -2028,6 +2040,7 @@ async function saveActivityDebriefFromText(actId, act, detailText) {
     }, 'return=minimal');
 
     await loadAllData();
+renderActivitiesPage();
   } catch(e) {
     alert('Could not save debrief: ' + e.message);
   }
