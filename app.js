@@ -207,6 +207,35 @@ function auditPlanTotals() {
     }
   });
 }
+// ── READINESS / ADAPTATION HELPERS ──
+function getLatestCheckinForWeek(weekNum) {
+  return weeklyCheckins.find(c => Number(c.week_num) === Number(weekNum)) || null;
+}
+
+function getReadinessStatus({ fatigue, hamstring, sleep, completedKmPct }) {
+  if (hamstring >= 4) return 'red';
+  if (fatigue >= 4 && sleep === 'Poor') return 'red';
+  if (hamstring >= 3 || fatigue >= 4 || completedKmPct < 60) return 'amber';
+  return 'green';
+}
+
+function getReadinessLabel(status) {
+  if (status === 'red') return 'High caution';
+  if (status === 'amber') return 'Modify if needed';
+  return 'Ready';
+}
+
+function getReadinessMessage(status) {
+  if (status === 'red') {
+    return 'Reduce load. Replace hard running with easy running until symptoms and fatigue settle.';
+  }
+
+  if (status === 'amber') {
+    return 'Train, but keep the next quality session flexible. Reduce volume or intensity if needed.';
+  }
+
+  return 'Proceed with the plan. Keep easy runs genuinely easy.';
+}
 
 // ── DATE HELPERS ──
 function getLocalMidnight() { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); }
@@ -235,6 +264,7 @@ let mealLog = [];
 let currentMealType = 'Breakfast';
 let currentFilter = 'all';
 let currentPageName = 'dashboard';
+let weeklyCheckins = [];
 
 // ── PAGE NAVIGATION ──
 const pageOrder = ['dashboard','schedule','coach','activities','meals','paces','strength','nutrition','methodology','hamstring'];
@@ -381,7 +411,14 @@ async function loadAllData() {
     const history = await api.get('chat_history', 'select=*&order=created_at.asc&limit=80');
     chatHistory = (history || []).map(h => ({ role: h.role, content: h.content }));
   } catch(e) { console.warn('Chat history load failed:', e.message); }
-
+  
+try {
+  const checkins = await api.get('weekly_checkins', 'select=*&order=created_at.desc&limit=20');
+  weeklyCheckins = checkins || [];
+} catch(e) {
+  console.warn('Weekly check-ins load failed:', e.message);
+}
+  
   // Re-render current page with fresh data
   auditPlanTotals();
   showPage(currentPageName);
@@ -746,6 +783,41 @@ function renderDashboard() {
       </div>
       ${macroHTML}
     </div>
+${wkNum ? `
+<div class="digest-card">
+  <div class="digest-header" style="margin-bottom:8px">
+    <div class="digest-title">Weekly Check-In</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:10px">
+    <div>
+      <label style="font-size:11px;color:var(--text-muted);font-family:var(--mono)">FATIGUE 1–5</label>
+      <input class="text-input" id="checkin-fatigue" type="number" min="1" max="5" style="width:100%" />
+    </div>
+    <div>
+      <label style="font-size:11px;color:var(--text-muted);font-family:var(--mono)">HAMSTRING 0–10</label>
+      <input class="text-input" id="checkin-hamstring" type="number" min="0" max="10" style="width:100%" />
+    </div>
+    <div>
+      <label style="font-size:11px;color:var(--text-muted);font-family:var(--mono)">SLEEP</label>
+      <select class="text-input" id="checkin-sleep" style="width:100%">
+        <option>Good</option>
+        <option>OK</option>
+        <option>Poor</option>
+      </select>
+    </div>
+    <div>
+      <label style="font-size:11px;color:var(--text-muted);font-family:var(--mono)">CONFIDENCE 1–5</label>
+      <input class="text-input" id="checkin-confidence" type="number" min="1" max="5" style="width:100%" />
+    </div>
+  </div>
+
+  <textarea class="text-input" id="checkin-notes" rows="2" style="width:100%;resize:vertical" placeholder="Anything the coach should know? e.g. easing back in, hamstring tight, busy week, missed intervals..."></textarea>
+
+  <button class="btn-primary" style="margin-top:10px" onclick="saveWeeklyCheckin()">Save Check-In</button>
+</div>
+` : ''}
+    
     <div class="digest-card" id="recommendations-card">
       <div class="digest-header">
         <div class="digest-title">Coach Recommendations</div>
@@ -757,6 +829,32 @@ function renderDashboard() {
   // Auto-generate session brief if there's a training session today
   if (wkNum && session && session.dot !== 'rest') {
     generateSessionBrief(session, wkNum, day);
+  }
+}
+
+async function saveWeeklyCheckin() {
+  const wkNum = getCurrentWeekNum() || 1;
+
+  const fatigue = Number(document.getElementById('checkin-fatigue')?.value || 0);
+  const hamstring = Number(document.getElementById('checkin-hamstring')?.value || 0);
+  const sleep = document.getElementById('checkin-sleep')?.value || 'OK';
+  const confidence = Number(document.getElementById('checkin-confidence')?.value || 0);
+  const notes = document.getElementById('checkin-notes')?.value || '';
+
+  try {
+    await api.post('weekly_checkins', {
+      week_num: wkNum,
+      fatigue_score: fatigue,
+      hamstring_score: hamstring,
+      sleep_quality: sleep,
+      confidence_score: confidence,
+      notes
+    }, 'return=minimal');
+
+    await loadAllData();
+    alert('Weekly check-in saved.');
+  } catch(e) {
+    alert('Could not save check-in: ' + e.message);
   }
 }
 
@@ -908,8 +1006,9 @@ async function generateRecommendations() {
     const res = await fetch('/api/recommendations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        activities: activities.slice(0, 10).map(a => ({
+     body: JSON.stringify({
+  weeklyCheckins: weeklyCheckins.slice(0, 5),
+  activities: activities.slice(0, 10).map(a => ({
           date: a.date,
           sport_type: a.sport_type,
           distance: a.distance,
@@ -1182,7 +1281,7 @@ Current issue: Mid-belly hamstring soreness during speed work — overload proto
 
 ZONES: Z1-2 Easy 5:30-6:00/km · Z3 Aerobic 4:50-5:10/km · Z4 Threshold 4:20-4:30/km · Z5a Race 4:05-4:15/km · Z5b VO2max 3:55-4:05/km (reduced to 4:05-4:10 wks 1-3)
 
-PLAN: Base wks 1-4 (28/33/38/32km) · Build wks 5-9 (44/48/51/41/54km) · Peak wks 10-11 (52/50km) · Taper wks 12-13 (35/21km)
+PLAN: Use the live weekly plan, current week, remaining sessions, activities, check-ins, and strength history supplied in the current context below. Do not rely on old hardcoded weekly volumes.
 
 STYLE: Direct, warm, specific. Give actual paces and reps. Reference the athlete's real data. Build on conversation history — don't repeat yourself. Flag patterns proactively.`;
 
@@ -1333,6 +1432,16 @@ async function sendMessage() {
     return s && s.dot !== 'rest' ? `  ${d}: ${s.type} — ${s.detail}` : null;
   }).filter(Boolean).join('\n') : '';
 
+  const latestCheckin = wkNum ? getLatestCheckinForWeek(wkNum) : null;
+
+const checkinStr = latestCheckin
+  ? `Fatigue: ${latestCheckin.fatigue_score || '—'}/5
+Hamstring: ${latestCheckin.hamstring_score || '—'}/10
+Sleep: ${latestCheckin.sleep_quality || '—'}
+Confidence: ${latestCheckin.confidence_score || '—'}/5
+Notes: ${latestCheckin.notes || 'none'}`
+  : 'No weekly check-in logged yet.';
+  
   const contextSystem = COACH_SYSTEM + `
 
 CURRENT STATE (${new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}):
@@ -1342,6 +1451,9 @@ This week: ${weekKm}km of ${getPlannedWeekKm(w)}km planned (${thisWeekRuns.lengt
 Today's session: ${todayStr}
 Days to race: ${Math.ceil((RACE_DATE-new Date())/86400000)}`
   : `Pre-plan — starts in ${daysUntilStart()} days`}
+
+WEEKLY CHECK-IN:
+${checkinStr}
 
 MOST RECENT RUN:
 ${mostRecentStr}
