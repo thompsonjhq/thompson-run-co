@@ -255,6 +255,7 @@ function todayISO() { return new Date().toISOString().split('T')[0]; }
 
 // ── STATE ──
 let activities = [];
+let activityDebriefs = {};
 let activityNotes = {};
 let sessionLogs = {}; // keyed by activity_id, array of log entries
 let strengthLog = [];
@@ -391,6 +392,16 @@ async function loadAllData() {
       exercises: s.exercises || []
     }));
   } catch(e) { console.warn('Strength load failed:', e.message); }
+
+  try {
+  const debriefs = await api.get('activity_debriefs', 'select=*&order=created_at.desc&limit=200');
+  activityDebriefs = {};
+  (debriefs || []).forEach(d => {
+    activityDebriefs[String(d.activity_id)] = d;
+  });
+} catch(e) {
+  console.warn('Activity debriefs load failed:', e.message);
+}
 
   try {
     const meals = await api.get('meal_log', 'select=*&order=created_at.desc&limit=200');
@@ -1676,6 +1687,7 @@ function renderActivitiesPage() {
     const badges = {great:'mb-great',ok:'mb-ok',warn:'mb-ok',miss:'mb-miss',unmatched:'mb-unmatched'};
     const badgeText = {great:'On Target',ok:'Close',warn:'Check Pace',miss:'Off Plan',unmatched:'Unmatched'};
     const actId = String(act.strava_id||act.id);
+    const debrief = activityDebriefs[actId];
     const note = activityNotes[actId] || '';
     const icon = isStrength ? '🏋️' : isCycling ? '🚴' : '🏃';
     const metaLabel = isStrength ? 'Strength session'
@@ -1707,6 +1719,49 @@ function renderActivitiesPage() {
         </div>
         ${statsHTML}
       </div>
+
+              ${statsHTML}
+      </div>
+
+      ${debrief ? `
+        <div class="activity-debrief">
+          <div class="ad-header">
+            <span>${debrief.session_label || debrief.session_type || 'Session debrief'}</span>
+            ${debrief.shoes ? `<span>${debrief.shoes}</span>` : ''}
+          </div>
+
+          ${debrief.structured_summary ? `
+            <div class="ad-summary">${debrief.structured_summary}</div>
+          ` : ''}
+
+          ${Array.isArray(debrief.segments) && debrief.segments.length ? `
+            <div class="ad-segments">
+              ${debrief.segments.map(seg => `
+                <div class="ad-segment">
+                  <div class="ad-seg-label">${seg.label || 'Segment'}</div>
+                  <div class="ad-seg-val">${seg.distance_km || '—'}km</div>
+                  <div class="ad-seg-sub">${seg.pace || ''}</div>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+
+          <div class="ad-metrics">
+            ${debrief.rpe ? `<span>RPE ${debrief.rpe}/10</span>` : ''}
+            ${debrief.soreness_score !== null && debrief.soreness_score !== undefined ? `<span>Soreness ${debrief.soreness_score}/5</span>` : ''}
+            ${debrief.quality_score ? `<span>Quality ${debrief.quality_score}/5</span>` : ''}
+            ${debrief.completed_as_planned ? `<span>${debrief.completed_as_planned}</span>` : ''}
+          </div>
+        </div>
+      ` : `
+        <div class="activity-debrief ad-empty">
+          <div>This activity has not been interpreted yet.</div>
+          <button class="btn-secondary" onclick="openDebriefEditor('${actId}')">Add session detail</button>
+        </div>
+      `}
+
+      ${(() => {
+        const logs = (sessionLogs[actId] || []).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
       ${(() => {
         const logs = (sessionLogs[actId] || []).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
         const logsHTML = logs.length
@@ -1763,6 +1818,65 @@ function renderActivitiesPage() {
         <button class="btn-primary" onclick="addManualActivity()" style="height:38px">Add</button>
       </div>
     </div>`;
+}
+
+function openDebriefEditor(actId) {
+  const act = activities.find(a => String(a.strava_id || a.id) === String(actId));
+  if (!act) return;
+
+  const existing = activityDebriefs[actId] || {};
+
+  const detail = prompt(
+    'Describe what this session actually was. Example: 4km warm-up, 2km at 5:00/km, 4km cool-down. Shoes, RPE, soreness, and anything useful.',
+    existing.notes || ''
+  );
+
+  if (detail === null) return;
+
+  saveActivityDebriefFromText(actId, act, detail);
+}
+
+async function saveActivityDebriefFromText(actId, act, detailText) {
+  try {
+    const res = await fetch('/api/parse-activity-debrief', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        activity: {
+          id: actId,
+          name: act.name,
+          date: act.date,
+          distance: act.distance,
+          pace: act.pace,
+          elapsed_time: act.elapsed_time,
+          average_heartrate: act.average_heartrate
+        },
+        detailText
+      })
+    });
+
+    const parsed = await res.json();
+
+    await api.post('activity_debriefs', {
+      activity_id: actId,
+      activity_date: act.date || null,
+      activity_name: act.name || null,
+      session_label: parsed.session_label || null,
+      session_type: parsed.session_type || null,
+      shoes: parsed.shoes || null,
+      rpe: parsed.rpe || null,
+      soreness_score: parsed.soreness_score || null,
+      quality_score: parsed.quality_score || null,
+      completed_as_planned: parsed.completed_as_planned || null,
+      structured_summary: parsed.structured_summary || detailText,
+      segments: parsed.segments || [],
+      notes: detailText
+    }, 'return=minimal');
+
+    await loadAllData();
+  } catch(e) {
+    alert('Could not save debrief: ' + e.message);
+  }
 }
 
 async function submitSessionLog(actId, actType, actDate, textarea) {
