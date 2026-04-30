@@ -1053,6 +1053,7 @@ async function generateRecommendations() {
       headers: { 'Content-Type': 'application/json' },
      body: JSON.stringify({
   weeklyCheckins: weeklyCheckins.slice(0, 5),
+  activityDebriefs: Object.values(activityDebriefs).slice(0, 20),
   activities: activities.slice(0, 10).map(a => ({
           date: a.date,
           sport_type: a.sport_type,
@@ -1434,19 +1435,36 @@ async function sendMessage() {
   // Most recent run detail with logs
   const mostRecent = runs[0];
   let mostRecentStr = 'None logged yet';
-  if (mostRecent) {
-    const match = matchActivityToSession(mostRecent);
-    const planned = match?.planned;
-    const actId = String(mostRecent.strava_id||mostRecent.id);
-    const logs = (sessionLogs[actId] || []).map(l => `"${l.note}"`).join('; ');
-    const plannedStr = planned && planned.dot !== 'rest'
-      ? `Planned was: ${planned.type} — ${planned.detail}`
+ if (mostRecent) {
+  const match = matchActivityToSession(mostRecent);
+  const planned = match?.planned;
+  const actId = String(mostRecent.strava_id || mostRecent.id);
+  const logs = (sessionLogs[actId] || []).map(l => `"${l.note}"`).join('; ');
+  const debrief = activityDebriefs[actId];
+
+  const plannedStr = planned && planned.dot !== 'rest'
+    ? `Planned was: ${planned.type} — ${planned.detail}`
+    : planned && planned.dot === 'rest'
+      ? `Planned was: Rest day. This activity was unplanned.`
       : 'No matching planned session';
-    mostRecentStr = `${mostRecent.date} (${mostRecent.name||mostRecent.sport_type||'Run'})
-  Distance: ${mostRecent.distance}km | Pace: ${mostRecent.pace||'—'}/km | Time: ${mostRecent.elapsed_time?fmtTime(mostRecent.elapsed_time):'—'} | HR: ${mostRecent.average_heartrate?Math.round(mostRecent.average_heartrate)+'bpm':'—'}
+
+  const debriefStr = debrief
+    ? `Coach-interpreted session:
+  Label: ${debrief.session_label || '—'}
+  Type: ${debrief.session_type || '—'}
+  Summary: ${debrief.structured_summary || '—'}
+  Segments: ${JSON.stringify(debrief.segments || [])}
+  Shoes: ${debrief.shoes || '—'}
+  RPE: ${debrief.rpe || '—'}
+  Soreness/niggles: ${debrief.soreness_score ?? '—'}`
+    : 'No post-run debrief has been added yet. Use Strava metrics only, and ask the athlete for session structure if needed.';
+
+  mostRecentStr = `${mostRecent.date} (${mostRecent.name || mostRecent.sport_type || 'Run'})
+  Distance: ${mostRecent.distance}km | Pace: ${mostRecent.pace || '—'}/km | Time: ${mostRecent.elapsed_time ? fmtTime(mostRecent.elapsed_time) : '—'} | HR: ${mostRecent.average_heartrate ? Math.round(mostRecent.average_heartrate) + 'bpm' : '—'}
   ${plannedStr}
-  Athlete notes: ${logs||'none left'}`;
-    }
+  ${debriefStr}
+  Athlete notes: ${logs || 'none left'}`;
+}
 
   // Strength history
   const strengthSummary = strengthLog.slice(0,3).map(e =>
@@ -1513,8 +1531,11 @@ STRENGTH (last 3 sessions):
 ${strengthSummary}
 
 COACH INSTRUCTIONS:
-- When asked about "my last run" or "my most recent run" — use MOST RECENT RUN above. Do not confuse it with earlier entries.
+- When the athlete asks about "today's session", "the session from today", "my last run", or "my most recent session", prioritise MOST RECENT RUN over the planned schedule.
+- If a completed activity occurred on a planned rest day, say it was an unplanned run and analyse it as completed training, not as a rest day.
 - Always compare actual vs planned when discussing a completed session.
+- If a post-run debrief exists, use it as the primary interpretation of the session. Raw Strava distance and pace are secondary.
+- If no post-run debrief exists, use Strava metrics only and ask the athlete for session structure if needed.
 - If the athlete's notes say they felt hard/easy, factor that into your assessment.
 - To modify a session: clearly state the change as "PROPOSED CHANGE: [Day] from [current] → [proposed]" so it can be actioned.
 - Be specific — use the actual numbers from their data, not generic advice.`;
