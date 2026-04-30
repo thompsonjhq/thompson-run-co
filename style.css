@@ -875,3 +875,40 @@ body { background: var(--bg); font-family: var(--sans); color: var(--text); min-
   border-color: var(--accent);
   color: #fff;
 }
+
+.activity-debrief {
+  margin-top: 14px;
+}
+
+.activity-debrief.ad-confirmed {
+  background: var(--accent-light);
+  border-color: rgba(26,58,42,0.18);
+}
+
+.ad-confirmed-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ad-session-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+.activity-card {
+  position: relative;
+}
+
+.debrief-editor {
+  margin-top: 12px;
+}
