@@ -63,6 +63,151 @@ const pillClass = { base:'pill-base', build:'pill-build', peak:'pill-peak', tape
 const phaseLabel = { base:'Base', build:'Build', peak:'Peak', taper:'Taper' };
 const dayOrder = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
+// ── PLANNED DISTANCE HELPERS ──
+// Single source of truth for planned weekly km.
+// Prefer numeric session.distance_km if present; otherwise parse from session.detail.
+function parseKmFromDetail(detail = '') {
+  const text = String(detail || '');
+
+  // Prefer explicit total, e.g. "total ~10km" or "total 12km"
+  const totalMatch = text.match(/total\s*~?\s*(\d+(?:\.\d+)?)\s*km/i);
+  if (totalMatch) return Number(totalMatch[1]);
+
+  // Interval sessions, e.g. "8×400m @ 4:10/km · 90s standing rest · 2km WU/CD"
+  const intervalMatch = text.match(/(\d+)\s*[×x]\s*(\d+(?:\.\d+)?)\s*(m|km)\b/i);
+  if (intervalMatch) {
+    const reps = Number(intervalMatch[1]);
+    const repDistance = Number(intervalMatch[2]);
+    const unit = intervalMatch[3].toLowerCase();
+
+    const repKm = unit === 'm' ? repDistance / 1000 : repDistance;
+    const workKm = reps * repKm;
+
+    // "2km WU/CD" means 2km warm-up + 2km cool-down.
+    const combinedWarmCoolMatch = text.match(/(\d+(?:\.\d+)?)\s*km\s*WU\/CD/i);
+    const warmCoolKm = combinedWarmCoolMatch ? Number(combinedWarmCoolMatch[1]) * 2 : 0;
+
+    // Or separately: "2km WU ... 2km CD"
+    const warmupMatch = text.match(/(\d+(?:\.\d+)?)\s*km\s*WU/i);
+    const cooldownMatch = text.match(/(\d+(?:\.\d+)?)\s*km\s*CD/i);
+
+    const separateWarmCoolKm =
+      (warmupMatch ? Number(warmupMatch[1]) : 0) +
+      (cooldownMatch ? Number(cooldownMatch[1]) : 0);
+
+    let recoveryKm = 0;
+    const recoveries = Math.max(0, reps - 1);
+
+    const isStandingRest = /standing\s+rest|walk\s+back|full\s+rest/i.test(text);
+    const isActiveRecovery = /jog|active|float|shuffle|recovery/i.test(text);
+
+    // Distance-based recovery, e.g. "200m jog recovery" or "0.2km recovery"
+    const recoveryDistanceMatch = text.match(/(\d+(?:\.\d+)?)\s*(m|km)\s*(?:jog|active|float|shuffle)?\s*(?:recovery|recoveries|rec|rest)/i);
+
+    if (!isStandingRest && recoveryDistanceMatch) {
+      const recoveryDistance = Number(recoveryDistanceMatch[1]);
+      const recoveryUnit = recoveryDistanceMatch[2].toLowerCase();
+      const recoveryEachKm = recoveryUnit === 'm' ? recoveryDistance / 1000 : recoveryDistance;
+
+      recoveryKm = recoveries * recoveryEachKm;
+    }
+
+    // Time-based active recovery, e.g. "90s jog" or "2 min jog recovery"
+    if (!isStandingRest && recoveryKm === 0 && isActiveRecovery) {
+      const secondsMatch = text.match(/(\d+)\s*s\s*(?:jog|active|float|shuffle|recovery)/i);
+      const minutesMatch = text.match(/(\d+(?:\.\d+)?)\s*min\s*(?:jog|active|float|shuffle|recovery)/i);
+
+      let recoverySeconds = 0;
+      if (secondsMatch) recoverySeconds = Number(secondsMatch[1]);
+      if (minutesMatch) recoverySeconds = Number(minutesMatch[1]) * 60;
+
+      if (recoverySeconds > 0) {
+        // Conservative recovery jog assumption: 7:30/km = 2.22 m/s
+        const recoveryKmEach = (recoverySeconds * 2.22) / 1000;
+        recoveryKm = recoveries * recoveryKmEach;
+      }
+    }
+
+    const baseKm = workKm + (warmCoolKm || separateWarmCoolKm);
+
+    return Number((baseKm + recoveryKm).toFixed(1));
+  }
+
+  // Tempo / race simulation style:
+  // "2km WU · 8km @ 4:10/km · 2km CD"
+  const kmMatches = [...text.matchAll(/(\d+(?:\.\d+)?)\s*km\b/gi)]
+    .map(match => Number(match[1]));
+
+  if (kmMatches.length > 1) {
+    return Number(kmMatches.reduce((sum, km) => sum + km, 0).toFixed(1));
+  }
+
+  if (kmMatches.length === 1) {
+    return kmMatches[0];
+  }
+
+  return 0;
+}
+
+function getPlannedSessionKm(session) {
+  if (!session) return 0;
+
+  if (session.distance_km !== undefined && session.distance_km !== null) {
+    return Number(session.distance_km) || 0;
+  }
+
+  if (session.dot === 'rest' || session.dot === 'strength') {
+    return 0;
+  }
+
+  return parseKmFromDetail(session.detail);
+}
+
+function getPlannedWeekKm(week) {
+  if (!week || !week.days) return 0;
+
+  return dayOrder.reduce((sum, day) => {
+    return sum + getPlannedSessionKm(week.days[day]);
+  }, 0);
+}
+
+function getPlannedKmByWeek() {
+  const totals = {};
+
+  weeks.forEach(w => {
+    totals[w.num] = getPlannedWeekKm(w);
+  });
+
+  return totals;
+}
+
+function formatPlannedSessionDetail(session) {
+  if (!session) return '—';
+
+  const km = getPlannedSessionKm(session);
+  const detail = session.detail || '—';
+
+  if (!km) return detail;
+
+  // Avoid duplicating "8km" if the detail already starts with km text.
+  if (/^\s*\d+(?:\.\d+)?\s*km/i.test(detail)) return detail;
+
+  return `${km}km · ${detail}`;
+}
+
+function auditPlanTotals() {
+  weeks.forEach(w => {
+    const calculated = getPlannedWeekKm(w);
+    const declared = Number(w.km || 0);
+
+    if (declared && declared !== calculated) {
+      console.warn(
+        `Week ${w.num} total mismatch: week.km=${declared}, session total=${calculated}`
+      );
+    }
+  });
+}
+
 // ── DATE HELPERS ──
 function getLocalMidnight() { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); }
 function getCurrentWeekNum() {
@@ -235,6 +380,7 @@ async function loadAllData() {
   } catch(e) { console.warn('Chat history load failed:', e.message); }
 
   // Re-render current page with fresh data
+  auditPlanTotals();
   showPage(currentPageName);
 }
 
@@ -308,13 +454,14 @@ function renderDashboard() {
       const dt = new Date(y,m-1,d);
       return dt >= wkStart && dt <= wkEnd && !a.sport_type?.includes('Weight') && !a.sport_type?.includes('Ride');
     }).reduce((s,a) => s + parseFloat(a.distance||0), 0).toFixed(1);
-    kmPlanned = w.km;
+    kmPlanned = getPlannedWeekKm(w);
     session = w.days[day];
     todayType = session?.type || 'Rest';
     todayDetail = session?.dot === 'rest' ? 'Recovery is training' : (session?.detail?.split('·')[0].trim() || '');  }
 
   // ── Training load chart ──
-  const maxKm = Math.max(...weeks.map(w=>w.km));
+  const plannedKmByWeek = getPlannedKmByWeek();
+  const maxKm = Math.max(...Object.values(plannedKmByWeek));
 
   // Calculate actual km per week
   const actualKmByWeek = {};
@@ -331,32 +478,141 @@ function renderDashboard() {
   const phaseColours = { base:'load-phase-base', build:'load-phase-build', peak:'load-phase-peak', taper:'load-phase-taper' };
   const phaseActual = { base:'#1D9E75', build:'#378ADD', peak:'#EF9F27', taper:'#E24B4A' };
 
-  const loadChartHTML = `
-    <div class="load-chart">
-      <div class="load-chart-bars">
+   const loadChartHTML = `
+    <style>
+      .load-chart-v2 {
+        margin-top: 14px;
+      }
+
+      .load-bars-v2 {
+        height: 150px;
+        display: grid;
+        grid-template-columns: repeat(13, minmax(0, 1fr));
+        gap: 8px;
+        align-items: end;
+      }
+
+      .load-week-v2 {
+        height: 100%;
+        display: grid;
+        grid-template-rows: 18px 1fr 16px;
+        align-items: end;
+        text-align: center;
+        min-width: 0;
+      }
+
+      .load-value-v2 {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--text-muted);
+        line-height: 1;
+      }
+
+      .load-column-v2 {
+        height: 100%;
+        display: flex;
+        align-items: end;
+        justify-content: center;
+      }
+
+      .load-planned-v2 {
+        width: 100%;
+        max-width: 20px;
+        min-height: 4px;
+        border-radius: 6px 6px 2px 2px;
+        position: relative;
+        overflow: hidden;
+        opacity: 0.55;
+      }
+
+      .load-actual-v2 {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: var(--accent);
+        border-radius: 6px 6px 2px 2px;
+        opacity: 0.95;
+      }
+
+      .load-label-v2 {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--text-muted);
+        padding-top: 4px;
+      }
+
+      .load-week-v2.is-current .load-planned-v2 {
+        outline: 2px solid var(--blue);
+        outline-offset: 2px;
+        opacity: 0.85;
+      }
+
+      .load-legend-v2 {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 14px;
+        margin-top: 12px;
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+
+      .load-legend-v2 span {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .load-legend-v2 i {
+        width: 9px;
+        height: 9px;
+        border-radius: 2px;
+        display: inline-block;
+      }
+
+      .legend-actual {
+        background: var(--accent);
+      }
+
+      .legend-current {
+        background: transparent;
+        outline: 2px solid var(--blue);
+        outline-offset: 1px;
+      }
+    </style>
+
+    <div class="load-chart-v2">
+      <div class="load-bars-v2">
         ${weeks.map(w => {
-          const heightPct = (w.km / maxKm * 100).toFixed(1);
+          const planned = plannedKmByWeek[w.num] || 0;
           const actual = actualKmByWeek[w.num] || 0;
-          const actualPct = (actual / maxKm * 100).toFixed(1);
+          const plannedPct = maxKm ? Math.max(5, planned / maxKm * 100) : 0;
+          const actualPct = planned ? Math.min(100, actual / planned * 100) : 0;
           const isCur = wkNum === w.num;
           const isPast = wkNum && w.num < wkNum;
-          const kmLabel = isCur || isPast ? `${actual.toFixed(0)}` : `${w.km}`;
-          return `<div class="load-bar-wrap ${isCur?'is-current':''}" title="Wk ${w.num}: ${w.km}km planned${actual>0?', '+actual.toFixed(1)+'km done':''}">
-            <div class="load-bar-km">${kmLabel}</div>
-            <div class="load-bar-planned ${phaseColours[w.phase]}" style="height:${heightPct}%;position:relative">
-              ${actual > 0 ? `<div class="load-bar-actual" style="height:${Math.min(100,(actual/w.km*100)).toFixed(0)}%;background:${phaseActual[w.phase]};opacity:0.85"></div>` : ''}
+          const valueLabel = isCur || isPast ? actual.toFixed(0) : planned;
+
+          return `
+            <div class="load-week-v2 ${isCur ? 'is-current' : ''}" title="Week ${w.num}: ${planned}km planned, ${actual.toFixed(1)}km logged">
+              <div class="load-value-v2">${valueLabel}</div>
+              <div class="load-column-v2">
+                <div class="load-planned-v2 ${phaseColours[w.phase]}" style="height:${plannedPct}%">
+                  ${actual > 0 && planned > 0 ? `<div class="load-actual-v2" style="height:${actualPct}%"></div>` : ''}
+                </div>
+              </div>
+              <div class="load-label-v2">${w.num}</div>
             </div>
-            <div class="load-bar-label">${w.num}</div>
-          </div>`;
+          `;
         }).join('')}
       </div>
-      <div class="load-chart-legend" style="margin-top:10px">
-        <div class="load-legend-item"><div class="load-legend-dot load-phase-base"></div>Base</div>
-        <div class="load-legend-item"><div class="load-legend-dot load-phase-build"></div>Build</div>
-        <div class="load-legend-item"><div class="load-legend-dot load-phase-peak"></div>Peak</div>
-        <div class="load-legend-item"><div class="load-legend-dot load-phase-taper"></div>Taper</div>
-        <div class="load-legend-item"><div class="load-legend-dot" style="background:#1D9E75;opacity:0.85"></div>Actual done</div>
-        ${wkNum ? `<div class="load-legend-item"><div class="load-legend-dot" style="outline:2px solid #378ADD;outline-offset:1px;background:var(--surface2)"></div>Current week</div>` : ''}
+
+      <div class="load-legend-v2">
+        <span><i class="load-phase-base"></i>Base</span>
+        <span><i class="load-phase-build"></i>Build</span>
+        <span><i class="load-phase-peak"></i>Peak</span>
+        <span><i class="load-phase-taper"></i>Taper</span>
+        <span><i class="legend-actual"></i>Actual done</span>
+        ${wkNum ? `<span><i class="legend-current"></i>Current week</span>` : ''}
       </div>
     </div>`;
 
@@ -373,15 +629,34 @@ function renderDashboard() {
   if (runs.length >= 1) {
     const avgPace = easyRuns.length ? easyRuns.reduce((s,a) => { const [m,sec] = (a.pace||'6:00').split(':').map(Number); return s+m*60+(sec||0); },0)/easyRuns.length : null;
     const fmt = s => `${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,'0')}`;
-    const compliance = wkNum > 1 ? (() => {
-      let planned=0,actual=0;
-      for(let w=Math.max(1,wkNum-3);w<wkNum;w++){
-        planned += weeks[w-1].km;
-        const ws=getWeekStartDate(w), we=new Date(ws); we.setDate(we.getDate()+6);
-        actual += activities.filter(a=>{const[y,m,d]=(a.date||'').split('-');const dt=new Date(y,m-1,d);return dt>=ws&&dt<=we&&!a.sport_type?.includes('Weight')&&!a.sport_type?.includes('Ride');}).reduce((s,a)=>s+parseFloat(a.distance||0),0);
-      }
-      return planned>0?Math.round(actual/planned*100):null;
-    })() : null;
+   const compliance = wkNum > 1 ? (() => {
+  let planned = 0;
+  let actual = 0;
+
+  for (let weekNum = Math.max(1, wkNum - 3); weekNum < wkNum; weekNum++) {
+    planned += getPlannedWeekKm(weeks[weekNum - 1]);
+
+    const ws = getWeekStartDate(weekNum);
+    const we = new Date(ws);
+    we.setDate(we.getDate() + 6);
+
+    actual += activities
+      .filter(a => {
+        const [y, m, d] = (a.date || '').split('-');
+        const dt = new Date(y, m - 1, d);
+
+        return (
+          dt >= ws &&
+          dt <= we &&
+          !a.sport_type?.includes('Weight') &&
+          !a.sport_type?.includes('Ride')
+        );
+      })
+      .reduce((s, a) => s + parseFloat(a.distance || 0), 0);
+  }
+
+  return planned > 0 ? Math.round(actual / planned * 100) : null;
+})() : null;
     trendsHTML = `
       ${avgPace ? `<div class="trend-row"><span class="trend-label">Avg easy run pace (last ${easyRuns.length})</span><span class="trend-val">${fmt(avgPace)}/km <span class="trend-flag ${avgPace>=310?'tf-good':'tf-warn'}">${avgPace>=310?'On Target':'Too Fast'}</span></span></div>` : ''}
       ${avgEasyHR ? `<div class="trend-row"><span class="trend-label">Avg HR on easy runs</span><span class="trend-val">${avgEasyHR} bpm <span class="trend-flag ${avgEasyHR<=hrEasyTarget?'tf-good':avgEasyHR<=hrEasyTarget+10?'tf-warn':'tf-warn'}">${avgEasyHR<=hrEasyTarget?'Z2':'Running Hot'}</span></span></div>` : ''}
@@ -505,7 +780,7 @@ async function generateDigest() {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
         system: 'You are a running coach writing a concise weekly digest. Be specific, reference actual data. Use plain text, no markdown. 3-4 short paragraphs max.',
-        messages: [{ role:'user', content:`Write a weekly training digest for Week ${wkNum} of 13 (${w.label}, ${w.phase} phase, ${w.km}km planned).\n\nThis week:\n${runSummary}\n\nRecent strength:\n${strengthSummary}\n\nDays to race: ${Math.ceil((RACE_DATE-new Date())/86400000)}\n\nCover what went well, what needs attention, key focus for next week. Be specific and encouraging.` }],
+       messages: [{ role:'user', content:`Write a weekly training digest for Week ${wkNum} of 13 (${w.label}, ${w.phase} phase, ${getPlannedWeekKm(w)}km planned).\n\nThis week:\n${runSummary}\n\nRecent strength:\n${strengthSummary}\n\nDays to race: ${Math.ceil((RACE_DATE-new Date())/86400000)}\n\nCover what went well, what needs attention, key focus for next week. Be specific and encouraging.` }],
         max_tokens: 600
       })
     });
@@ -646,7 +921,7 @@ async function generateRecommendations() {
         weeks: weeks.map(w => ({
           num: w.num,
           phase: w.phase,
-          km: w.km,
+          km: getPlannedWeekKm(w),
           days: w.days
         }))
       })
@@ -797,6 +1072,9 @@ function renderWeeks() {
     const dateStr = wkStart.toLocaleDateString('en-AU',{day:'numeric',month:'short'}) + ' – ' + wkEnd.toLocaleDateString('en-AU',{day:'numeric',month:'short'});
     let actualKm = 0;
     dayOrder.forEach(day => { const key=`${w.num}-${day}`; if(actIdx[key]) actIdx[key].forEach(a=>{ actualKm+=parseFloat(a.distance||0); }); });
+    const plannedKm = getPlannedWeekKm(w);
+    const declaredKm = Number(w.km || 0);
+    const totalMismatch = declaredKm && declaredKm !== plannedKm;
 
     const daysHTML = dayOrder.map(day => {
       const d = w.days[day];
@@ -815,14 +1093,20 @@ function renderWeeks() {
       return `<div class="day-card ${isRest?'rest-card':''}" style="${isTodayCard?'border:2px solid #1D9E75;':''}">
         <div class="day-name">${day}${isTodayCard?' · TODAY':''}</div>
         <div class="day-type"><span class="dot d-${d.dot}"></span>${d.type}</div>
-        <div class="day-detail">${d.detail||'—'}</div>
+        <div class="day-detail">${formatPlannedSessionDetail(d)}</div>
         ${modifiedBadge}
         ${overlayHTML}
         ${!isRest?`<button class="brief-btn" onclick="briefSession(${w.num},'${day}',event)">Brief this session</button>`:''}
       </div>`;
     }).join('');
 
-    const summaryBar = actualKm > 0 ? `<div class="week-summary-bar"><div class="wsb-item">Planned: <span class="wsb-val">${w.km}km</span></div><div class="wsb-item">Logged: <span class="wsb-val" style="color:${actualKm>=w.km*0.9?'#1D9E75':'#EF9F27'}">${actualKm.toFixed(1)}km</span></div><div class="wsb-item">${Math.round(actualKm/w.km*100)}%</div></div>` : '';
+    const summaryBar = actualKm > 0
+  ? `<div class="week-summary-bar">
+      <div class="wsb-item">Planned: <span class="wsb-val">${plannedKm}km</span></div>
+      <div class="wsb-item">Logged: <span class="wsb-val" style="color:${plannedKm && actualKm >= plannedKm * 0.9 ? '#1D9E75' : '#EF9F27'}">${actualKm.toFixed(1)}km</span></div>
+      <div class="wsb-item">${plannedKm ? Math.round(actualKm / plannedKm * 100) : 0}%</div>
+    </div>`
+  : '';
     const hamAlert = w.hamstring ? `<div class="hamstring-alert"><strong>Hamstring Protocol Active</strong> — Speed sessions at 4:05–4:10/km. RDL + Nordics prioritised. Dynamic warm-up before every run.</div>` : '';
 
   // Check for accepted coach modifications this week
@@ -845,12 +1129,13 @@ function renderWeeks() {
         </div>
         <div class="week-right">
           <span class="week-km" style="font-size:11px;color:var(--text-faint)">${dateStr}</span>
-          <span class="week-km">${w.km} km</span>
+          <span class="week-km">${plannedKm} km</span>
           <span class="week-chevron" id="chev-${w.num}">▼</span>
         </div>
       </div>
       <div class="week-body" id="wb-${w.num}">
         <div class="week-note">${w.note}</div>
+        ${totalMismatch ? `<div class="alert alert-amber">Plan total mismatch: week target says ${declaredKm}km, sessions add to ${plannedKm}km. Using session total.</div>` : ''}
         ${modsHTML}
         ${hamAlert}
         <div class="day-grid">${daysHTML}</div>
@@ -1050,7 +1335,7 @@ async function sendMessage() {
 CURRENT STATE (${new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}):
 ${wkNum
   ? `Week ${wkNum}/13 · ${w.label} · ${phaseLabel[w.phase]} phase
-This week: ${weekKm}km of ${w.km}km planned (${thisWeekRuns.length} sessions done)
+This week: ${weekKm}km of ${getPlannedWeekKm(w)}km planned (${thisWeekRuns.length} sessions done)
 Today's session: ${todayStr}
 Days to race: ${Math.ceil((RACE_DATE-new Date())/86400000)}`
   : `Pre-plan — starts in ${daysUntilStart()} days`}
@@ -1230,7 +1515,7 @@ function renderActivitiesPage() {
   const thisWeekCycles = activities.filter(a=>{const[y,m,d]=(a.date||'').split('-');const dt=new Date(y,m-1,d);return dt>=wkStart&&dt<=wkEnd&&(a.sport_type?.includes('Ride')||a.sport_type?.includes('Cycling'));});
   const thisWeekKm = thisWeekRuns.reduce((s,a)=>s+parseFloat(a.distance||0),0);
   const thisWeekCycleKm = thisWeekCycles.reduce((s,a)=>s+parseFloat(a.distance||0),0);
-  const planned = wkNum ? weeks[wkNum-1].km : 0;
+  const planned = wkNum ? getPlannedWeekKm(weeks[wkNum-1]) : 0;
   const pct = planned > 0 ? Math.min(100, Math.round(thisWeekKm/planned*100)) : 0;
 
   const activitiesHTML = activities.length ? activities.slice(0,40).map(act => {
