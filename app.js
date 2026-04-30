@@ -1837,16 +1837,36 @@ return `<div class="activity-card">
 
     <input class="debrief-input" id="debrief-shoes-${actId}" placeholder="Shoes" value="${debrief?.shoes || ''}" />
 
-    <select class="debrief-input" id="debrief-rpe-${actId}">
-      <option value="">RPE</option>
-      ${[1,2,3,4,5,6,7,8,9,10].map(n => `<option value="${n}" ${Number(debrief?.rpe) === n ? 'selected' : ''}>RPE ${n}</option>`).join('')}
-    </select>
-
-    <select class="debrief-input" id="debrief-soreness-${actId}">
-      <option value="">Niggles</option>
-      ${[0,1,2,3,4,5].map(n => `<option value="${n}" ${Number(debrief?.soreness_score) === n ? 'selected' : ''}>Niggles ${n}/5</option>`).join('')}
-    </select>
+<div class="debrief-scale">
+  <div class="debrief-scale-label">RPE</div>
+  <div class="debrief-scale-buttons" id="debrief-rpe-${actId}">
+    ${[1,2,3,4,5,6,7,8,9,10].map(n => `
+      <button
+        type="button"
+        class="debrief-scale-btn ${Number(debrief?.rpe) === n ? 'active' : ''}"
+        data-value="${n}"
+        onclick="setDebriefScale('${actId}', 'rpe', ${n}, this)"
+      >${n}</button>
+    `).join('')}
   </div>
+</div>
+
+<div class="debrief-scale">
+  <div class="debrief-scale-label">Niggles</div>
+  <div class="debrief-scale-buttons" id="debrief-soreness-${actId}">
+    ${[0,1,2,3,4,5].map(n => `
+      <button
+        type="button"
+        class="debrief-scale-btn ${Number(debrief?.soreness_score) === n ? 'active' : ''}"
+        data-value="${n}"
+        onclick="setDebriefScale('${actId}', 'soreness', ${n}, this)"
+      >${n}</button>
+    `).join('')}
+  </div>
+</div>
+
+<input type="hidden" id="debrief-rpe-value-${actId}" value="${debrief?.rpe || ''}">
+<input type="hidden" id="debrief-soreness-value-${actId}" value="${debrief?.soreness_score ?? ''}">
 
   <div class="debrief-actions">
     <button class="btn-secondary" onclick="openDebriefEditor('${actId}')">Cancel</button>
@@ -1913,6 +1933,28 @@ return `<div class="activity-card">
     </div>`;
 }
 
+function setDebriefScale(actId, field, value, button) {
+  const groupId = field === 'rpe'
+    ? `debrief-rpe-${actId}`
+    : `debrief-soreness-${actId}`;
+
+  const hiddenId = field === 'rpe'
+    ? `debrief-rpe-value-${actId}`
+    : `debrief-soreness-value-${actId}`;
+
+  const group = document.getElementById(groupId);
+  if (group) {
+    group.querySelectorAll('.debrief-scale-btn').forEach(btn => {
+      btn.classList.remove('active');
+    });
+  }
+
+  button.classList.add('active');
+
+  const hidden = document.getElementById(hiddenId);
+  if (hidden) hidden.value = value;
+}
+
 async function submitDebriefEditor(actId) {
   const act = activities.find(a => String(a.strava_id || a.id) === String(actId));
   if (!act) return;
@@ -1920,8 +1962,8 @@ async function submitDebriefEditor(actId) {
   const detailText = document.getElementById(`debrief-text-${actId}`)?.value.trim() || '';
   const sessionType = document.getElementById(`debrief-type-${actId}`)?.value || '';
   const shoes = document.getElementById(`debrief-shoes-${actId}`)?.value.trim() || '';
-  const rpe = document.getElementById(`debrief-rpe-${actId}`)?.value || '';
-  const soreness = document.getElementById(`debrief-soreness-${actId}`)?.value || '';
+  const rpe = document.getElementById(`debrief-rpe-value-${actId}`)?.value || '';
+const soreness = document.getElementById(`debrief-soreness-value-${actId}`)?.value || '';
 
   if (!detailText) {
     alert('Add a short description of what the session actually was.');
