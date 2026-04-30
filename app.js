@@ -1721,24 +1721,46 @@ function renderActivitiesPage() {
       : `<span class="match-badge ${badges[quality]}">${badgeText[quality]}</span>`;
     // Show speed for cycling instead of pace, add HR if available
     const hrBadge = act.average_heartrate ? `<span style="font-size:11px;font-family:var(--mono);color:${act.average_heartrate>160?'#EF9F27':act.average_heartrate>148?'var(--text-muted)':'#1D9E75'};margin-left:4px">♥ ${Math.round(act.average_heartrate)} bpm</span>` : '';
-    const statsHTML = isStrength ? '' : `<div class="act-stats">
-      <div class="act-stat"><div class="act-stat-val">${act.distance}km</div><div class="act-stat-label">Distance</div></div>
-      <div class="act-stat"><div class="act-stat-val">${isCycling && act.average_speed ? (act.average_speed*3.6).toFixed(1)+'km/h' : (act.pace||'—')}</div><div class="act-stat-label">${isCycling?'Avg Speed':'Pace'}</div></div>
-      ${act.elapsed_time?`<div class="act-stat"><div class="act-stat-val">${fmtTime(act.elapsed_time)}</div><div class="act-stat-label">Time</div></div>`:''}
-    </div>`;
+    const statsHTML = isStrength ? '' : `
+  <div class="activity-metrics">
+    <div class="activity-metric">
+      <div class="activity-metric-label">Distance</div>
+      <div class="activity-metric-value">${act.distance}km</div>
+    </div>
+
+    <div class="activity-metric">
+      <div class="activity-metric-label">${isCycling ? 'Avg Speed' : 'Avg Pace'}</div>
+      <div class="activity-metric-value">${isCycling && act.average_speed ? (act.average_speed * 3.6).toFixed(1) + 'km/h' : (act.pace || '—')}${isCycling ? '' : '/km'}</div>
+    </div>
+
+    ${act.elapsed_time ? `
+      <div class="activity-metric">
+        <div class="activity-metric-label">Elapsed Time</div>
+        <div class="activity-metric-value">${fmtTime(act.elapsed_time)}</div>
+      </div>
+    ` : ''}
+
+    ${act.average_heartrate ? `
+      <div class="activity-metric">
+        <div class="activity-metric-label">Avg HR</div>
+        <div class="activity-metric-value">${Math.round(act.average_heartrate)} bpm</div>
+      </div>
+    ` : ''}
+  </div>
+`;
     return `<div class="activity-card">
-      <div style="display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center">
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center">
         <div class="act-icon" style="${isCycling?'background:#E3EAF5':''}">${icon}</div>
         <div>
-          <div class="act-name">${act.name||act.sport_type||'Activity'}</div>
-          <div class="act-meta">${fmtDate(act.date)} · ${metaLabel}</div>
-          <div style="margin-top:5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            ${badgeHTML}
-            <span style="font-size:11px;color:var(--strava);font-family:var(--mono);font-weight:500">STRAVA</span>
-            ${hrBadge}
-          </div>
-        </div>
-        ${statsHTML}
+        <div>
+  <div class="act-name">${act.name||act.sport_type||'Activity'}</div>
+  <div class="act-meta">${fmtDate(act.date)} · ${metaLabel}</div>
+  <div style="margin-top:5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    ${badgeHTML}
+    <span style="font-size:11px;color:var(--strava);font-family:var(--mono);font-weight:500">STRAVA</span>
+    ${hrBadge}
+  </div>
+</div>
       </div>
 
               ${statsHTML}
