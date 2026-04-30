@@ -593,7 +593,7 @@ function renderDashboard() {
           const actualPct = planned ? Math.min(100, actual / planned * 100) : 0;
           const isCur = wkNum === w.num;
           const isPast = wkNum && w.num < wkNum;
-          const valueLabel = isCur || isPast ? actual.toFixed(0) : planned;
+          const valueLabel = planned;
 
           return `
             <div class="load-week-v2 ${isCur ? 'is-current' : ''}" title="Week ${w.num}: ${planned}km planned, ${actual.toFixed(1)}km logged">
