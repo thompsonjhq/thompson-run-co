@@ -1775,11 +1775,56 @@ function renderActivitiesPage() {
           </div>
         </div>
       ` : `
-        <div class="activity-debrief ad-empty">
-          <div>This activity has not been interpreted yet.</div>
-          <button class="btn-secondary" onclick="openDebriefEditor('${actId}')">Add session detail</button>
-        </div>
+       <div class="activity-debrief ad-empty">
+  <div>
+    <div style="font-weight:500;color:var(--text);margin-bottom:2px">No session interpretation yet</div>
+    <div style="font-size:12px;color:var(--text-muted)">Add what the session actually was so the coach can assess it properly.</div>
+  </div>
+  <button class="btn-secondary" onclick="openDebriefEditor('${actId}')">Add session detail</button>
+</div>
       `}
+
+      <div class="debrief-editor" id="debrief-editor-${actId}" style="display:none">
+  <div class="debrief-editor-title">Session Detail</div>
+
+  <textarea
+    class="debrief-textarea"
+    id="debrief-text-${actId}"
+    rows="4"
+    placeholder="Example: 4km warm-up, 2km steady at 5:00/km, 4km cool-down. Shoes: Novablast. RPE 5. Felt controlled."
+  >${debrief?.notes || ''}</textarea>
+
+  <div class="debrief-quick-grid">
+    <select class="debrief-input" id="debrief-type-${actId}">
+      <option value="">Session type</option>
+      <option value="easy">Easy</option>
+      <option value="steady">Steady</option>
+      <option value="tempo">Tempo</option>
+      <option value="intervals">Intervals</option>
+      <option value="long_run">Long run</option>
+      <option value="recovery">Recovery</option>
+      <option value="race">Race</option>
+      <option value="other">Other</option>
+    </select>
+
+    <input class="debrief-input" id="debrief-shoes-${actId}" placeholder="Shoes" value="${debrief?.shoes || ''}" />
+
+    <select class="debrief-input" id="debrief-rpe-${actId}">
+      <option value="">RPE</option>
+      ${[1,2,3,4,5,6,7,8,9,10].map(n => `<option value="${n}" ${Number(debrief?.rpe) === n ? 'selected' : ''}>RPE ${n}</option>`).join('')}
+    </select>
+
+    <select class="debrief-input" id="debrief-soreness-${actId}">
+      <option value="">Niggles</option>
+      ${[0,1,2,3,4,5].map(n => `<option value="${n}" ${Number(debrief?.soreness_score) === n ? 'selected' : ''}>Niggles ${n}/5</option>`).join('')}
+    </select>
+  </div>
+
+  <div class="debrief-actions">
+    <button class="btn-secondary" onclick="openDebriefEditor('${actId}')">Cancel</button>
+    <button class="btn-primary" onclick="submitDebriefEditor('${actId}')">Save interpretation</button>
+  </div>
+</div>
 
            ${(() => {
         const logs = (sessionLogs[actId] || []).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
@@ -1840,20 +1885,39 @@ function renderActivitiesPage() {
     </div>`;
 }
 
-function openDebriefEditor(actId) {
+async function submitDebriefEditor(actId) {
   const act = activities.find(a => String(a.strava_id || a.id) === String(actId));
   if (!act) return;
 
-  const existing = activityDebriefs[actId] || {};
+  const detailText = document.getElementById(`debrief-text-${actId}`)?.value.trim() || '';
+  const sessionType = document.getElementById(`debrief-type-${actId}`)?.value || '';
+  const shoes = document.getElementById(`debrief-shoes-${actId}`)?.value.trim() || '';
+  const rpe = document.getElementById(`debrief-rpe-${actId}`)?.value || '';
+  const soreness = document.getElementById(`debrief-soreness-${actId}`)?.value || '';
 
-  const detail = prompt(
-    'Describe what this session actually was. Example: 4km warm-up, 2km at 5:00/km, 4km cool-down. Shoes, RPE, soreness, and anything useful.',
-    existing.notes || ''
-  );
+  if (!detailText) {
+    alert('Add a short description of what the session actually was.');
+    return;
+  }
 
-  if (detail === null) return;
+  const enrichedText = [
+    detailText,
+    sessionType ? `Session type: ${sessionType}` : '',
+    shoes ? `Shoes: ${shoes}` : '',
+    rpe ? `RPE: ${rpe}` : '',
+    soreness !== '' ? `Soreness/niggles: ${soreness}/5` : ''
+  ].filter(Boolean).join('\n');
 
-  saveActivityDebriefFromText(actId, act, detail);
+  await saveActivityDebriefFromText(actId, act, enrichedText);
+}
+
+function openDebriefEditor(actId) {
+  const editor = document.getElementById(`debrief-editor-${actId}`);
+  if (!editor) return;
+
+  editor.style.display = editor.style.display === 'none' || !editor.style.display
+    ? 'block'
+    : 'none';
 }
 
 async function saveActivityDebriefFromText(actId, act, detailText) {
