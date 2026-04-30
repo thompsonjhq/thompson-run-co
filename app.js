@@ -212,10 +212,10 @@ function getLatestCheckinForWeek(weekNum) {
   return weeklyCheckins.find(c => Number(c.week_num) === Number(weekNum)) || null;
 }
 
-function getReadinessStatus({ fatigue, hamstring, sleep, completedKmPct }) {
-  if (hamstring >= 4) return 'red';
+function getReadinessStatus({ fatigue, niggle, sleep, completedKmPct }) {
+  if (niggle >= 4) return 'red';
   if (fatigue >= 4 && sleep === 'Poor') return 'red';
-  if (hamstring >= 3 || fatigue >= 4 || completedKmPct < 60) return 'amber';
+  if (niggle >= 3 || fatigue >= 4 || completedKmPct < 60) return 'amber';
   return 'green';
 }
 
@@ -870,7 +870,7 @@ async function saveWeeklyCheckin() {
   const wkNum = getCurrentWeekNum() || 1;
 
   const fatigue = Number(document.getElementById('checkin-fatigue')?.value || 0);
-  const hamstring = Number(document.getElementById('checkin-hamstring')?.value || 0);
+  const niggle = Number(document.getElementById('checkin-niggle')?.value || 0);
   const sleep = document.getElementById('checkin-sleep')?.value || 'OK';
   const confidence = Number(document.getElementById('checkin-confidence')?.value || 0);
   const notes = document.getElementById('checkin-notes')?.value || '';
@@ -879,7 +879,7 @@ async function saveWeeklyCheckin() {
     await api.post('weekly_checkins', {
       week_num: wkNum,
       fatigue_score: fatigue,
-      hamstring_score: hamstring,
+      hamstring_score: niggle,
       sleep_quality: sleep,
       confidence_score: confidence,
       notes
@@ -1470,7 +1470,7 @@ async function sendMessage() {
 
 const checkinStr = latestCheckin
   ? `Fatigue: ${latestCheckin.fatigue_score || '—'}/5
-Hamstring: ${latestCheckin.hamstring_score || '—'}/10
+Soreness / niggles: ${latestCheckin.hamstring_score ?? '—'}/5
 Sleep: ${latestCheckin.sleep_quality || '—'}
 Confidence: ${latestCheckin.confidence_score || '—'}/5
 Notes: ${latestCheckin.notes || 'none'}`
