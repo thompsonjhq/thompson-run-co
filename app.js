@@ -717,9 +717,12 @@ function renderDashboard() {
       </div><div style="font-size:12px;color:var(--text-muted);text-align:center">${Math.round(macroTotals.k)} kcal · ${todayMeals.length} item${todayMeals.length!==1?'s':''} logged</div>`
     : '<div style="font-size:13px;color:var(--text-muted)">No food logged today. <button class="btn-secondary" style="font-size:12px;padding:4px 10px;margin-left:6px" onclick="showPage(\'meals\')">Log food →</button></div>';
 
-  el.innerHTML = `
-    <div class="page-title">Dashboard</div>
-    <p class="page-sub" style="margin-bottom:1.5rem">${greeting}</p>
+el.innerHTML = `
+  <div class="dashboard-stack">
+    <div>
+      <div class="page-title">Dashboard</div>
+      <p class="page-sub">${greeting}</p>
+    </div>
 
     <!-- Race countdown -->
     <div class="digest-card" style="margin-bottom:16px;background:linear-gradient(135deg,#1A3A2A 0%,#0F2318 100%);border:none">
@@ -785,46 +788,77 @@ function renderDashboard() {
     </div>
 ${wkNum ? `
 <div class="digest-card">
-  <div class="digest-header" style="margin-bottom:8px">
-    <div class="digest-title">Weekly Check-In</div>
+  <div class="digest-header" style="margin-bottom:12px">
+    <div>
+      <div class="digest-title">Weekly Check-In</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:2px">A quick status check so the coach can adjust the week intelligently.</div>
+    </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:10px">
-    <div>
-      <label style="font-size:11px;color:var(--text-muted);font-family:var(--mono)">FATIGUE 1–5</label>
-      <input class="text-input" id="checkin-fatigue" type="number" min="1" max="5" style="width:100%" />
+  <div class="checkin-grid">
+    <div class="checkin-field">
+      <label>Fatigue</label>
+      <select class="checkin-input" id="checkin-fatigue">
+        <option value="">Select</option>
+        <option value="1">1 · Fresh</option>
+        <option value="2">2 · Good</option>
+        <option value="3">3 · Normal</option>
+        <option value="4">4 · Tired</option>
+        <option value="5">5 · Very tired</option>
+      </select>
     </div>
-    <div>
-      <label style="font-size:11px;color:var(--text-muted);font-family:var(--mono)">HAMSTRING 0–10</label>
-      <input class="text-input" id="checkin-hamstring" type="number" min="0" max="10" style="width:100%" />
+
+    <div class="checkin-field">
+      <label>Soreness / niggles</label>
+      <select class="checkin-input" id="checkin-niggle">
+        <option value="">Select</option>
+        <option value="0">0 · None</option>
+        <option value="1">1 · Mild awareness</option>
+        <option value="2">2 · Manageable</option>
+        <option value="3">3 · Needs caution</option>
+        <option value="4">4 · Modify training</option>
+        <option value="5">5 · Do not run hard</option>
+      </select>
     </div>
-    <div>
-      <label style="font-size:11px;color:var(--text-muted);font-family:var(--mono)">SLEEP</label>
-      <select class="text-input" id="checkin-sleep" style="width:100%">
+
+    <div class="checkin-field">
+      <label>Sleep</label>
+      <select class="checkin-input" id="checkin-sleep">
         <option>Good</option>
         <option>OK</option>
         <option>Poor</option>
       </select>
     </div>
-    <div>
-      <label style="font-size:11px;color:var(--text-muted);font-family:var(--mono)">CONFIDENCE 1–5</label>
-      <input class="text-input" id="checkin-confidence" type="number" min="1" max="5" style="width:100%" />
+
+    <div class="checkin-field">
+      <label>Confidence</label>
+      <select class="checkin-input" id="checkin-confidence">
+        <option value="">Select</option>
+        <option value="1">1 · Low</option>
+        <option value="2">2 · Unsure</option>
+        <option value="3">3 · OK</option>
+        <option value="4">4 · Good</option>
+        <option value="5">5 · High</option>
+      </select>
     </div>
   </div>
 
-  <textarea class="text-input" id="checkin-notes" rows="2" style="width:100%;resize:vertical" placeholder="Anything the coach should know? e.g. easing back in, hamstring tight, busy week, missed intervals..."></textarea>
+  <textarea class="checkin-notes" id="checkin-notes" rows="2" placeholder="Anything the coach should know? e.g. easing back in, busy week, tight calf, missed session..."></textarea>
 
-  <button class="btn-primary" style="margin-top:10px" onclick="saveWeeklyCheckin()">Save Check-In</button>
+  <div style="display:flex;justify-content:flex-end;margin-top:10px">
+    <button class="btn-primary" onclick="saveWeeklyCheckin()">Save Check-In</button>
+  </div>
 </div>
 ` : ''}
-    
-    <div class="digest-card" id="recommendations-card">
-      <div class="digest-header">
-        <div class="digest-title">Coach Recommendations</div>
-        <button class="digest-btn" id="rec-btn" onclick="generateRecommendations()"><span>✦</span> Analyse</button>
-      </div>
-      <div id="rec-content" style="font-size:13px;color:var(--text-faint);font-style:italic">Click Analyse — the coach will review your recent training data and suggest any changes to upcoming sessions.</div>
-    </div>`;
+
+<div class="digest-card" id="recommendations-card">
+  <div class="digest-header">
+    <div class="digest-title">Coach Recommendations</div>
+    <button class="digest-btn" id="rec-btn" onclick="generateRecommendations()"><span>✦</span> Analyse</button>
+  </div>
+  <div id="rec-content" style="font-size:13px;color:var(--text-faint);font-style:italic">Click Analyse — the coach will review your recent training data and suggest any changes to upcoming sessions.</div>
+</div>
+</div>`;
 
   // Auto-generate session brief if there's a training session today
   if (wkNum && session && session.dot !== 'rest') {
