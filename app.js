@@ -1753,10 +1753,10 @@ const statsHTML = isStrength ? '' : `
 `;
 return `<div class="activity-card">
   <div class="activity-card-header">
-    <div class="act-icon" style="${isCycling?'background:#E3EAF5':''}">${icon}</div>
+    <div class="act-icon" style="${isCycling ? 'background:#E3EAF5' : ''}">${icon}</div>
 
     <div class="activity-card-main">
-      <div class="act-name">${act.name||act.sport_type||'Activity'}</div>
+      <div class="act-name">${act.name || act.sport_type || 'Activity'}</div>
       <div class="act-meta">${fmtDate(act.date)} · ${metaLabel}</div>
       <div class="activity-badges">
         ${badgeHTML}
@@ -1767,146 +1767,146 @@ return `<div class="activity-card">
   </div>
 
   ${statsHTML}
+
+  ${debrief ? `
+    <div class="activity-debrief ad-confirmed">
+      <div class="ad-header">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span>Session Details</span>
+          <span class="ad-confirmed-badge">Confirmed</span>
+        </div>
+
+        <span style="display:flex;gap:8px;align-items:center">
+          ${debrief.shoes ? `<span>${debrief.shoes}</span>` : ''}
+          <button class="btn-secondary" style="font-size:11px;padding:3px 8px" onclick="openDebriefEditor('${actId}')">Edit</button>
+        </span>
       </div>
 
-${debrief ? `
-  <div class="activity-debrief ad-confirmed">
-    <div class="ad-header">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <span>Session Details</span>
-        <span class="ad-confirmed-badge">Confirmed</span>
-      </div>
+      <div class="ad-session-title">${debrief.session_label || debrief.session_type || 'Completed session'}</div>
 
-      <span style="display:flex;gap:8px;align-items:center">
-        ${debrief.shoes ? `<span>${debrief.shoes}</span>` : ''}
-        <button class="btn-secondary" style="font-size:11px;padding:3px 8px" onclick="openDebriefEditor('${actId}')">Edit</button>
-      </span>
+      ${debrief.structured_summary ? `
+        <div class="ad-summary">${debrief.structured_summary}</div>
+      ` : ''}
+
+      ${Array.isArray(debrief.segments) && debrief.segments.length ? `
+        <div class="ad-segments">
+          ${debrief.segments.map(seg => `
+            <div class="ad-segment">
+              <div class="ad-seg-label">${seg.label || 'Segment'}</div>
+              <div class="ad-seg-val">${seg.distance_km || '—'}km</div>
+              <div class="ad-seg-sub">${seg.pace || ''}</div>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+
+      <div class="ad-metrics">
+        ${debrief.rpe ? `<span>RPE ${debrief.rpe}/10</span>` : ''}
+        ${debrief.soreness_score !== null && debrief.soreness_score !== undefined ? `<span>Soreness ${debrief.soreness_score}/5</span>` : ''}
+        ${debrief.quality_score ? `<span>Quality ${debrief.quality_score}/5</span>` : ''}
+        ${debrief.completed_as_planned ? `<span>${debrief.completed_as_planned}</span>` : ''}
+      </div>
+    </div>
+  ` : `
+    <div class="activity-debrief ad-empty">
+      <div>
+        <div style="font-weight:500;color:var(--text);margin-bottom:2px">No session details yet</div>
+        <div style="font-size:12px;color:var(--text-muted)">Add the actual workout structure, effort, shoes, and notes for this activity.</div>
+      </div>
+      <button class="btn-secondary" onclick="openDebriefEditor('${actId}')">Add session details</button>
+    </div>
+  `}
+
+  <div class="debrief-editor" id="debrief-editor-${actId}" style="display:none">
+    <div class="debrief-editor-title">Session Details</div>
+
+    <textarea
+      class="debrief-textarea"
+      id="debrief-text-${actId}"
+      rows="4"
+      placeholder="Example: 4km warm-up, 2km steady at 5:00/km, 4km cool-down. Shoes: Novablast. RPE 5. Felt controlled."
+    >${debrief?.notes || ''}</textarea>
+
+    <div class="debrief-meta-grid">
+      <select class="debrief-input" id="debrief-type-${actId}">
+        <option value="">Session type</option>
+        <option value="easy">Easy</option>
+        <option value="steady">Steady</option>
+        <option value="tempo">Tempo</option>
+        <option value="intervals">Intervals</option>
+        <option value="long_run">Long run</option>
+        <option value="recovery">Recovery</option>
+        <option value="race">Race</option>
+        <option value="other">Other</option>
+      </select>
+
+      <input class="debrief-input" id="debrief-shoes-${actId}" placeholder="Shoes" value="${debrief?.shoes || ''}" />
     </div>
 
-    <div class="ad-session-title">${debrief.session_label || debrief.session_type || 'Completed session'}</div>
+    <div class="debrief-scale-row">
+      <div class="debrief-scale-label">RPE <span>How hard it felt, 1 easy → 10 maximal</span></div>
+      <div class="debrief-scale-buttons" id="debrief-rpe-${actId}">
+        ${[1,2,3,4,5,6,7,8,9,10].map(n => `
+          <button
+            type="button"
+            class="debrief-scale-btn ${Number(debrief?.rpe) === n ? 'active' : ''}"
+            data-value="${n}"
+            onclick="setDebriefScale('${actId}', 'rpe', ${n}, this)"
+          >${n}</button>
+        `).join('')}
+      </div>
+    </div>
 
-          ${debrief.structured_summary ? `
-            <div class="ad-summary">${debrief.structured_summary}</div>
-          ` : ''}
+    <div class="debrief-scale-row">
+      <div class="debrief-scale-label">Soreness <span>0 none → 5 do not run hard</span></div>
+      <div class="debrief-scale-buttons" id="debrief-soreness-${actId}">
+        ${[0,1,2,3,4,5].map(n => `
+          <button
+            type="button"
+            class="debrief-scale-btn ${Number(debrief?.soreness_score) === n ? 'active' : ''}"
+            data-value="${n}"
+            onclick="setDebriefScale('${actId}', 'soreness', ${n}, this)"
+          >${n}</button>
+        `).join('')}
+      </div>
+    </div>
 
-          ${Array.isArray(debrief.segments) && debrief.segments.length ? `
-            <div class="ad-segments">
-              ${debrief.segments.map(seg => `
-                <div class="ad-segment">
-                  <div class="ad-seg-label">${seg.label || 'Segment'}</div>
-                  <div class="ad-seg-val">${seg.distance_km || '—'}km</div>
-                  <div class="ad-seg-sub">${seg.pace || ''}</div>
-                </div>
-              `).join('')}
-            </div>
-          ` : ''}
+    <input type="hidden" id="debrief-rpe-value-${actId}" value="${debrief?.rpe || ''}">
+    <input type="hidden" id="debrief-soreness-value-${actId}" value="${debrief?.soreness_score ?? ''}">
 
-          <div class="ad-metrics">
-            ${debrief.rpe ? `<span>RPE ${debrief.rpe}/10</span>` : ''}
-            ${debrief.soreness_score !== null && debrief.soreness_score !== undefined ? `<span>Soreness ${debrief.soreness_score}/5</span>` : ''}
-            ${debrief.quality_score ? `<span>Quality ${debrief.quality_score}/5</span>` : ''}
-            ${debrief.completed_as_planned ? `<span>${debrief.completed_as_planned}</span>` : ''}
-          </div>
-        </div>
-      ` : `
-   <div class="activity-debrief ad-empty">
-  <div>
-    <div style="font-weight:500;color:var(--text);margin-bottom:2px">No session details yet</div>
-    <div style="font-size:12px;color:var(--text-muted)">Add the actual workout structure, effort, shoes, and notes for this activity.</div>
+    <div class="debrief-actions">
+      <button class="btn-secondary" onclick="openDebriefEditor('${actId}')">Cancel</button>
+      <button class="btn-primary" onclick="submitDebriefEditor('${actId}')">Save session details</button>
+    </div>
   </div>
-  <button class="btn-secondary" onclick="openDebriefEditor('${actId}')">Add session details</button>
-</div>
-      `}
 
-      <div class="debrief-editor" id="debrief-editor-${actId}" style="display:none">
-  <div class="debrief-editor-title">Session Details</div>
+  ${(() => {
+    const logs = (sessionLogs[actId] || []).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+    const logsHTML = logs.length
+      ? logs.map(l => {
+          const ts = new Date(l.created_at);
+          const timeStr = ts.toLocaleDateString('en-AU',{day:'numeric',month:'short'}) + ' · ' + ts.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'});
+          return `<div class="log-entry">
+            <div class="log-avatar">J</div>
+            <div class="log-body"><div class="log-meta">${timeStr}</div><div class="log-text">${l.note}</div></div>
+            <button class="log-delete" onclick="deleteSessionLog(${l.id},'${actId}',this)" title="Delete">✕</button>
+          </div>`;
+        }).join('')
+      : `<div class="log-empty">No notes yet</div>`;
 
-  <textarea
-    class="debrief-textarea"
-    id="debrief-text-${actId}"
-    rows="4"
-    placeholder="Example: 4km warm-up, 2km steady at 5:00/km, 4km cool-down. Shoes: Novablast. RPE 5. Felt controlled."
-  >${debrief?.notes || ''}</textarea>
-
-  <div class="debrief-quick-grid">
-    <select class="debrief-input" id="debrief-type-${actId}">
-      <option value="">Session type</option>
-      <option value="easy">Easy</option>
-      <option value="steady">Steady</option>
-      <option value="tempo">Tempo</option>
-      <option value="intervals">Intervals</option>
-      <option value="long_run">Long run</option>
-      <option value="recovery">Recovery</option>
-      <option value="race">Race</option>
-      <option value="other">Other</option>
-    </select>
-
-    <input class="debrief-input" id="debrief-shoes-${actId}" placeholder="Shoes" value="${debrief?.shoes || ''}" />
-
-<div class="debrief-scale">
-  <div class="debrief-scale-label">RPE</div>
-  <div class="debrief-scale-buttons" id="debrief-rpe-${actId}">
-    ${[1,2,3,4,5,6,7,8,9,10].map(n => `
-      <button
-        type="button"
-        class="debrief-scale-btn ${Number(debrief?.rpe) === n ? 'active' : ''}"
-        data-value="${n}"
-        onclick="setDebriefScale('${actId}', 'rpe', ${n}, this)"
-      >${n}</button>
-    `).join('')}
-  </div>
-</div>
-
-<div class="debrief-scale">
-  <div class="debrief-scale-label">Niggles</div>
-  <div class="debrief-scale-buttons" id="debrief-soreness-${actId}">
-    ${[0,1,2,3,4,5].map(n => `
-      <button
-        type="button"
-        class="debrief-scale-btn ${Number(debrief?.soreness_score) === n ? 'active' : ''}"
-        data-value="${n}"
-        onclick="setDebriefScale('${actId}', 'soreness', ${n}, this)"
-      >${n}</button>
-    `).join('')}
-  </div>
-</div>
-
-<input type="hidden" id="debrief-rpe-value-${actId}" value="${debrief?.rpe || ''}">
-<input type="hidden" id="debrief-soreness-value-${actId}" value="${debrief?.soreness_score ?? ''}">
-
-  <div class="debrief-actions">
-    <button class="btn-secondary" onclick="openDebriefEditor('${actId}')">Cancel</button>
-    <button class="btn-primary" onclick="submitDebriefEditor('${actId}')">Save session details</button>
-  </div>
-</div>
-
-           ${(() => {
-        const logs = (sessionLogs[actId] || []).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
-        const logsHTML = logs.length
-          ? logs.map(l => {
-              const ts = new Date(l.created_at);
-              const timeStr = ts.toLocaleDateString('en-AU',{day:'numeric',month:'short'}) + ' · ' + ts.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'});
-              return `<div class="log-entry">
-                <div class="log-avatar">J</div>
-                <div class="log-body"><div class="log-meta">${timeStr}</div><div class="log-text">${l.note}</div></div>
-                <button class="log-delete" onclick="deleteSessionLog(${l.id},'${actId}',this)" title="Delete">✕</button>
-              </div>`;
-            }).join('')
-          : `<div class="log-empty">No notes yet</div>`;
-
-        return `<div class="session-log-wrap">
-          <div id="log-feed-${actId}">${logsHTML}</div>
-          <div class="log-input-row">
-            <textarea class="log-textarea" id="log-input-${actId}" rows="1"
-              placeholder="${isStrength ? 'How did it feel? PRs? Any niggles?' : 'How did this feel? e.g. HR was high, legs felt dead, pacing felt easy…'}"
-              oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"
-              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitSessionLog('${actId}','${isStrength?'strength':'run'}','${act.date||''}',this)}"
-            ></textarea>
-            <button class="log-submit" onclick="submitSessionLog('${actId}','${isStrength?'strength':'run'}','${act.date||''}',document.getElementById('log-input-${actId}'))">Post</button>
-          </div>
-        </div>`;
-      })()}
+    return `<div class="session-log-wrap">
+      <div id="log-feed-${actId}">${logsHTML}</div>
+      <div class="log-input-row">
+        <textarea class="log-textarea" id="log-input-${actId}" rows="1"
+          placeholder="${isStrength ? 'How did it feel? PRs? Any niggles?' : 'How did this feel? e.g. HR was high, legs felt dead, pacing felt easy…'}"
+          oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitSessionLog('${actId}','${isStrength?'strength':'run'}','${act.date || ''}',this)}"
+        ></textarea>
+        <button class="log-submit" onclick="submitSessionLog('${actId}','${isStrength ? 'strength' : 'run'}','${act.date || ''}',document.getElementById('log-input-${actId}'))">Post</button>
+      </div>
     </div>`;
+  })()}
+</div>`;
   }).join('') : '<p style="font-size:13px;color:var(--text-muted)">No activities yet. Connect Strava to start syncing.</p>';
 
   el.innerHTML = `
