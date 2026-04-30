@@ -1387,7 +1387,7 @@ function renderCoachPage() {
           <div style="display:flex;flex-direction:column;gap:6px">
             <button class="btn-secondary" style="width:100%;text-align:left" onclick="sendQuick('Give me a full brief for today\\'s session including warm-up, paces, and what to watch for')">📋 Brief today's session</button>
             <button class="btn-secondary" style="width:100%;text-align:left" onclick="sendQuick('Give me an overview of this week — theme, key sessions, what to focus on')">📅 This week overview</button>
-            <button class="btn-secondary" style="width:100%;text-align:left" onclick="sendQuick('Help me debrief my last run — ask me what I did')">🏃 Debrief last run</button>
+            <button class="btn-secondary" style="width:100%;text-align:left" onclick="sendQuick('Debrief my most recent completed activity. Use the actual uploaded activity first, then compare it to the plan. If a post-run debrief exists, use it. If not, ask me what the session structure was.')">📝 Debrief latest activity</button>
             <button class="btn-secondary" style="width:100%;text-align:left" onclick="sendQuick('Check in on my hamstring protocol — week ${wkNum||1}, what should I be noticing?')">🦵 Hamstring check-in</button>
             <button class="btn-secondary" style="width:100%;text-align:left" onclick="sendQuick('Full race day strategy for sub-42 — pacing, warm-up, fuelling, mindset')">🏁 Race day strategy</button>
             <button class="btn-secondary" style="width:100%;text-align:left;border-color:var(--red-light);color:var(--red);margin-top:4px" onclick="clearChatHistory()">🗑 Clear chat history</button>
