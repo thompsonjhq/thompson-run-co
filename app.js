@@ -1706,7 +1706,7 @@ function renderActivitiesPage() {
     const match = isRun ? matchActivityToSession(act) : null;
     const quality = match ? getMatchQuality(act, match.planned) : 'unmatched';
     const badges = {great:'mb-great',ok:'mb-ok',warn:'mb-ok',miss:'mb-miss',unmatched:'mb-unmatched'};
-    const badgeText = {great:'On Target',ok:'Close',warn:'Check Pace',miss:'Off Plan',unmatched:'Unmatched'};
+    const badgeText = {great:'On Target',ok:'Close',warn:'Check Pace',miss:'Off Plan',unmatched:'Unplanned'};
     const actId = String(act.strava_id||act.id);
     const debrief = activityDebriefs[actId];
     const note = activityNotes[actId] || '';
