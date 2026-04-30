@@ -1746,10 +1746,13 @@ function renderActivitiesPage() {
 
       ${debrief ? `
         <div class="activity-debrief">
-          <div class="ad-header">
-            <span>${debrief.session_label || debrief.session_type || 'Session debrief'}</span>
-            ${debrief.shoes ? `<span>${debrief.shoes}</span>` : ''}
-          </div>
+<div class="ad-header">
+  <span>${debrief.session_label || debrief.session_type || 'Session debrief'}</span>
+  <span style="display:flex;gap:8px;align-items:center">
+    ${debrief.shoes ? `<span>${debrief.shoes}</span>` : ''}
+    <button class="btn-secondary" style="font-size:11px;padding:3px 8px" onclick="openDebriefEditor('${actId}')">Edit</button>
+  </span>
+</div>
 
           ${debrief.structured_summary ? `
             <div class="ad-summary">${debrief.structured_summary}</div>
