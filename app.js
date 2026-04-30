@@ -725,7 +725,7 @@ function renderDashboard() {
 
     <div class="digest-card">
       <div class="digest-header" style="margin-bottom:4px"><div class="digest-title">Training Load — 13 Weeks</div></div>
-      <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Planned km per week by phase. Solid = actual done, light = planned.</p>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Bar height = planned weekly load. Dark fill = actual completed.</p>
       ${loadChartHTML}
     </div>
     <div class="digest-card">
