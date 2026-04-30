@@ -1721,16 +1721,19 @@ function renderActivitiesPage() {
       : `<span class="match-badge ${badges[quality]}">${badgeText[quality]}</span>`;
     // Show speed for cycling instead of pace, add HR if available
     const hrBadge = act.average_heartrate ? `<span style="font-size:11px;font-family:var(--mono);color:${act.average_heartrate>160?'#EF9F27':act.average_heartrate>148?'var(--text-muted)':'#1D9E75'};margin-left:4px">♥ ${Math.round(act.average_heartrate)} bpm</span>` : '';
-    const statsHTML = isStrength ? '' : `
+const statsHTML = isStrength ? '' : `
   <div class="activity-metrics">
     <div class="activity-metric">
       <div class="activity-metric-label">Distance</div>
-      <div class="activity-metric-value">${act.distance}km</div>
+      <div class="activity-metric-value">${act.distance}<span>km</span></div>
     </div>
 
     <div class="activity-metric">
       <div class="activity-metric-label">${isCycling ? 'Avg Speed' : 'Avg Pace'}</div>
-      <div class="activity-metric-value">${isCycling && act.average_speed ? (act.average_speed * 3.6).toFixed(1) + 'km/h' : (act.pace || '—')}${isCycling ? '' : '/km'}</div>
+      <div class="activity-metric-value">
+        ${isCycling && act.average_speed ? (act.average_speed * 3.6).toFixed(1) : (act.pace || '—')}
+        <span>${isCycling ? 'km/h' : '/km'}</span>
+      </div>
     </div>
 
     ${act.elapsed_time ? `
@@ -1743,27 +1746,27 @@ function renderActivitiesPage() {
     ${act.average_heartrate ? `
       <div class="activity-metric">
         <div class="activity-metric-label">Avg HR</div>
-        <div class="activity-metric-value">${Math.round(act.average_heartrate)} bpm</div>
+        <div class="activity-metric-value">${Math.round(act.average_heartrate)}<span>bpm</span></div>
       </div>
     ` : ''}
   </div>
 `;
-    return `<div class="activity-card">
-      <div style="display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center">
-        <div class="act-icon" style="${isCycling?'background:#E3EAF5':''}">${icon}</div>
-        <div>
-        <div>
-  <div class="act-name">${act.name||act.sport_type||'Activity'}</div>
-  <div class="act-meta">${fmtDate(act.date)} · ${metaLabel}</div>
-  <div style="margin-top:5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-    ${badgeHTML}
-    <span style="font-size:11px;color:var(--strava);font-family:var(--mono);font-weight:500">STRAVA</span>
-    ${hrBadge}
-  </div>
-</div>
-      </div>
+return `<div class="activity-card">
+  <div class="activity-card-header">
+    <div class="act-icon" style="${isCycling?'background:#E3EAF5':''}">${icon}</div>
 
-              ${statsHTML}
+    <div class="activity-card-main">
+      <div class="act-name">${act.name||act.sport_type||'Activity'}</div>
+      <div class="act-meta">${fmtDate(act.date)} · ${metaLabel}</div>
+      <div class="activity-badges">
+        ${badgeHTML}
+        <span style="font-size:11px;color:var(--strava);font-family:var(--mono);font-weight:500">STRAVA</span>
+        ${hrBadge}
+      </div>
+    </div>
+  </div>
+
+  ${statsHTML}
       </div>
 
       ${debrief ? `
