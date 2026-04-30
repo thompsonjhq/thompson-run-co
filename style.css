@@ -830,3 +830,48 @@ body { background: var(--bg); font-family: var(--sans); color: var(--text); min-
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.debrief-scale {
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--surface);
+}
+
+.debrief-scale-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 7px;
+}
+
+.debrief-scale-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.debrief-scale-btn {
+  min-width: 30px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.debrief-scale-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.debrief-scale-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
