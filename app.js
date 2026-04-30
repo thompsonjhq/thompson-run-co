@@ -1818,36 +1818,53 @@ async function deleteMeal(id) {
 
 // ── STRENGTH PAGE ──
 const STRENGTH_P1 = [
-  {id:'rdl',name:'Romanian Deadlift (RDL)',target:'3×10 · slow eccentric',sets:3},
-  {id:'nordic',name:'Nordic Hamstring Curl',target:'3×5 (assisted)',sets:3},
-  {id:'hip',name:'Hip Thrust / Glute Bridge',target:'3×12',sets:3},
-  {id:'bss',name:'Bulgarian Split Squat',target:'3×8 each',sets:3},
-  {id:'calf',name:'Single-Leg Calf Raise',target:'3×15 each',sets:3},
-  {id:'cope',name:'Copenhagen Plank',target:'3×20s each',sets:3},
-  {id:'bug',name:'Dead Bug',target:'3×8 each',sets:3}
+  {id:'rdl',name:'Romanian Deadlift (RDL)',target:'3×8 · 3 sec eccentric · controlled',sets:3},
+  {id:'bss',name:'Bulgarian Split Squat',target:'3×8 each · smooth control',sets:3},
+  {id:'hip',name:'Hip Thrust / Glute Bridge',target:'3×10 · strong lockout',sets:3},
+  {id:'curl',name:'Seated or Lying Hamstring Curl',target:'3×10 · controlled return',sets:3},
+  {id:'calf',name:'Single-Leg Calf Raise',target:'3×12 each',sets:3},
+  {id:'cope',name:'Copenhagen Plank',target:'2×20s each',sets:2},
+  {id:'nordic',name:'Assisted Nordic Hamstring Curl',target:'Optional · 2×3 only if no soreness',sets:2}
 ];
+
 const STRENGTH_P2 = [
-  {id:'rdl',name:'Romanian Deadlift',target:'4×8 · heavier',sets:4},
-  {id:'nordic',name:'Nordic Hamstring Curl',target:'3×6–8',sets:3},
-  {id:'bss',name:'Bulgarian Split Squat',target:'4×8 each · heavier',sets:4},
-  {id:'hip',name:'Hip Thrust',target:'4×10 · heavier',sets:4},
-  {id:'calf',name:'Single-Leg Calf Raise',target:'3×15 · weighted',sets:3},
-  {id:'cope',name:'Copenhagen Plank',target:'3×30s each',sets:3}
+  {id:'rdl',name:'Romanian Deadlift (RDL)',target:'4×6–8 · moderate-heavy · controlled eccentric',sets:4},
+  {id:'bss',name:'Bulgarian Split Squat',target:'3×8 each · progressive load',sets:3},
+  {id:'hip',name:'Hip Thrust',target:'3×8–10 · progressive load',sets:3},
+  {id:'curl',name:'Seated or Lying Hamstring Curl',target:'3×8–10 · controlled return',sets:3},
+  {id:'calf',name:'Single-Leg Calf Raise',target:'3×12–15 · weighted if tolerated',sets:3},
+  {id:'cope',name:'Copenhagen Plank',target:'2–3×30s each',sets:3}
+];
+
+const STRENGTH_TAPER = [
+  {id:'rdl',name:'Romanian Deadlift (RDL)',target:'2×6 · light/moderate · no soreness',sets:2},
+  {id:'bss',name:'Bulgarian Split Squat',target:'2×6 each · light/moderate',sets:2},
+  {id:'curl',name:'Hamstring Curl',target:'2×8 · smooth and easy',sets:2},
+  {id:'calf',name:'Single-Leg Calf Raise',target:'2×12 each',sets:2},
+  {id:'mobility',name:'Mobility / Activation',target:'8–10 min · hips, glutes, calves',sets:1}
 ];
 
 function getStrengthExercises() {
   const wk = getCurrentWeekNum() || 1;
-  if(wk<=4) return STRENGTH_P1;
-  const exercises = STRENGTH_P2;
-  if(wk>=10) return exercises.map(e=>({...e,sets:Math.max(2,e.sets-1)}));
-  return exercises;
+
+  if (wk <= 4) return STRENGTH_P1;
+  if (wk <= 9) return STRENGTH_P2;
+  if (wk <= 12) return STRENGTH_TAPER;
+
+  return [];
 }
 
 function renderStrengthPage() {
   const el = document.getElementById('page-strength');
   const exercises = getStrengthExercises();
   const wk = getCurrentWeekNum() || 1;
-  const phase = wk<=4?'Phase 1 · Base':wk<=9?'Phase 2 · Build':wk<=11?'Phase 3 · Peak':'Phase 4 · Taper';
+   const phase = wk<=4
+  ? 'Phase 1 · Foundation / Hamstring Capacity'
+  : wk<=9
+    ? 'Phase 2 · Build / Maintain Strength'
+    : wk<=12
+      ? 'Phase 3 · Taper / Reduce Soreness'
+      : 'Race Week · No Heavy Strength';
 
   const exerciseInputs = exercises.map(ex => {
     const saved = currentStrengthSession[ex.id] || {};
@@ -1912,14 +1929,17 @@ function renderStrengthPage() {
   el.innerHTML = `
     <div class="page-title">Strength Plan</div>
     <p class="page-sub">Wednesday sessions, 45–50 minutes. Log each session below — saved to your database automatically.</p>
-    <div class="alert alert-amber">Weeks 1–4 hamstring modification: RDL first (3–4s eccentric). Nordic curls added. Reduce load if any sharp pain.</div>
+    <div class="alert alert-amber">Strength is once per week, ideally Tuesday. RDLs and hamstring curls are the main hamstring work. Assisted Nordics are optional only if they do not create soreness. In weeks 10–13, reduce load and avoid heavy eccentric soreness.</div>
     <div class="strength-tracker">
       <div class="st-header">
         <div style="font-size:15px;font-weight:500">📋 Log Today's Session <span style="font-size:12px;color:var(--text-muted);font-weight:400">· ${phase}</span></div>
         <span class="st-saved" id="st-saved-msg">Saved ✓</span>
       </div>
       ${exerciseInputs}
-      <button class="st-complete-btn" onclick="completeStrengthSession()">Mark Session Complete</button>
+      ${exercises.length
+  ? `<button class="st-complete-btn" onclick="completeStrengthSession()">Mark Session Complete</button>`
+  : `<div class="alert alert-green">Race week: no heavy strength. Keep this week to light mobility, activation, and walking only.</div>`
+}
     </div>
     <div class="sec-title">Session History</div>
     <div id="st-history-list">${histHTML}</div>
