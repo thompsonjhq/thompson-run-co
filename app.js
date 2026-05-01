@@ -2553,6 +2553,119 @@ function renderHamstringPage() {
     </div>`;
 }
 
+function renderSharePage() {
+  const el = document.getElementById('share-content');
+  if (!el) return;
+
+  const wkNum = getCurrentWeekNum();
+  const daysToRace = Math.ceil((RACE_DATE - new Date()) / 86400000);
+
+  const plannedKmByWeek = getPlannedKmByWeek();
+  const maxKm = Math.max(...Object.values(plannedKmByWeek));
+
+  const recentRuns = activities
+    .filter(a =>
+      !a.sport_type?.includes('Weight') &&
+      !a.sport_type?.includes('Strength') &&
+      !a.sport_type?.includes('Ride') &&
+      !a.sport_type?.includes('Cycling')
+    )
+    .slice(0, 8);
+
+  el.innerHTML = `
+    <div class="page-title">Training App Preview</div>
+    <p class="page-sub">
+      Read-only view of my running coach app: 13-week 10km plan, training load, and recent runs.
+    </p>
+
+    <div class="dash-grid">
+      <div class="dash-stat-card">
+        <div class="dsc-label">Race Countdown</div>
+        <div class="dsc-value">${daysToRace}</div>
+        <div class="dsc-sub">days to race day</div>
+      </div>
+
+      <div class="dash-stat-card">
+        <div class="dsc-label">Current Week</div>
+        <div class="dsc-value">${wkNum || '—'}</div>
+        <div class="dsc-sub">${wkNum ? 'of 13' : 'pre-plan'}</div>
+      </div>
+
+      <div class="dash-stat-card">
+        <div class="dsc-label">Goal</div>
+        <div class="dsc-value" style="font-size:22px">Sub-42</div>
+        <div class="dsc-sub">10km target</div>
+      </div>
+    </div>
+
+    <div class="digest-card">
+      <div class="digest-header">
+        <div class="digest-title">Training Load</div>
+      </div>
+
+      <div class="load-chart-v2">
+        <div class="load-bars-v2">
+          ${weeks.map(w => {
+            const planned = plannedKmByWeek[w.num] || 0;
+            const plannedPct = maxKm ? Math.max(5, planned / maxKm * 100) : 0;
+            const isCur = wkNum === w.num;
+            const phaseClass = {
+              base: 'load-phase-base',
+              build: 'load-phase-build',
+              peak: 'load-phase-peak',
+              taper: 'load-phase-taper'
+            }[w.phase];
+
+            return `
+              <div class="load-week-v2 ${isCur ? 'is-current' : ''}" title="Week ${w.num}: ${planned}km">
+                <div class="load-value-v2">${planned}</div>
+                <div class="load-column-v2">
+                  <div class="load-planned-v2 ${phaseClass}" style="height:${plannedPct}%"></div>
+                </div>
+                <div class="load-label-v2">${w.num}</div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="digest-card">
+      <div class="digest-header">
+        <div class="digest-title">Plan Overview</div>
+      </div>
+
+      <div class="day-grid">
+        ${weeks.map(w => `
+          <div class="day-card">
+            <div class="day-name">Week ${w.num}</div>
+            <div class="day-type">
+              <span class="dot d-${w.phase === 'peak' ? 'race' : w.phase === 'build' ? 'moderate' : 'easy'}"></span>
+              ${w.label}
+            </div>
+            <div class="day-detail">${phaseLabel[w.phase]} · ${getPlannedWeekKm(w)}km</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="digest-card">
+      <div class="digest-header">
+        <div class="digest-title">Recent Runs</div>
+      </div>
+
+      ${recentRuns.length ? recentRuns.map(a => `
+        <div class="trend-row">
+          <span class="trend-label">${fmtDate(a.date)} · ${a.name || 'Run'}</span>
+          <span class="trend-val">${a.distance}km · ${a.pace || '—'}/km</span>
+        </div>
+      `).join('') : `
+        <div style="font-size:13px;color:var(--text-muted)">No public runs to show yet.</div>
+      `}
+    </div>
+  `;
+}
+
 // ── PWA SERVICE WORKER ──
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
