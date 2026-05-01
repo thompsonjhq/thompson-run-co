@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shared Training View</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="share-lock" class="share-lock">
+    <div class="share-lock-card">
+      <div class="share-lock-title">Training App Preview</div>
+      <p class="share-lock-sub">Enter the PIN to view the read-only version.</p>
+
+      <input
+        id="share-pin"
+        class="share-pin-input"
+        type="password"
+        inputmode="numeric"
+        maxlength="8"
+        placeholder="••••••"
+        autocomplete="off"
+      />
+
+      <button class="btn-primary" onclick="unlockShare()">Unlock</button>
+
+      <div id="share-error" class="share-error"></div>
+    </div>
+  </div>
+
+  <div id="share-app" style="display:none">
+    <main class="main share-main">
+      <div id="share-content"></div>
+    </main>
+  </div>
+
+  <script src="/app.js"></script>
+  <script>
+    async function unlockShare() {
+      const pin = document.getElementById('share-pin').value.trim();
+      const error = document.getElementById('share-error');
+
+      error.textContent = '';
+
+      try {
+        const res = await fetch('/api/share-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin })
+        });
+
+        if (!res.ok) {
+          error.textContent = 'Incorrect PIN.';
+          return;
+        }
+
+        document.getElementById('share-lock').style.display = 'none';
+        document.getElementById('share-app').style.display = 'block';
+
+        await loadAllData();
+        renderSharePage();
+      } catch (e) {
+        error.textContent = 'Could not unlock. Try again.';
+      }
+    }
+
+    document.getElementById('share-pin').addEventListener('keydown', event => {
+      if (event.key === 'Enter') unlockShare();
+    });
+  </script>
+</body>
+</html>
