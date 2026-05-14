@@ -97,3 +97,9 @@ end $$;
 
 -- Add pace column to existing strava_activities if missing
 alter table strava_activities add column if not exists pace text;
+
+-- Add new analysis columns to strava_activities
+alter table strava_activities add column if not exists auto_analysis text;
+alter table strava_activities add column if not exists completion_pct int;
+alter table strava_activities add column if not exists suffer_score int;
+alter table strava_activities add column if not exists perceived_exertion float;
