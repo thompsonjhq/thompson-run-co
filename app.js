@@ -357,8 +357,8 @@ async function loadAllData() {
     const acts = await api.get('strava_activities', 'select=*&order=start_date.desc&limit=200');
     activities = (acts || []).map(a => ({
       ...a,
-      date: a.start_date ? a.start_date.split('T')[0] : a.date,
-      distance: a.distance ? (a.distance / 1000).toFixed(2) : '0',
+      date: (a.start_date_local || a.start_date || '').slice(0, 10),
+      distance: a.distance != null ? parseFloat(a.distance).toFixed(2) : '0',
       pace: a.pace || fmtPace(a.average_speed),
       source: 'strava'
     }));
@@ -1750,6 +1750,34 @@ function renderActivitiesPage() {
       : `<span class="match-badge ${badges[quality]}">${badgeText[quality]}</span>`;
     // Show speed for cycling instead of pace, add HR if available
     const hrBadge = act.average_heartrate ? `<span style="font-size:11px;font-family:var(--mono);color:${act.average_heartrate>160?'#EF9F27':act.average_heartrate>148?'var(--text-muted)':'#1D9E75'};margin-left:4px">♥ ${Math.round(act.average_heartrate)} bpm</span>` : '';
+    const detectedBadge = act.session_type_detected ? `<span style="font-size:11px;font-family:var(--mono);background:rgba(55,138,221,0.12);color:#378ADD;border-radius:4px;padding:1px 6px;margin-left:4px">${act.session_type_detected}</span>` : '';
+
+    // Splits table for runs
+    const splits = Array.isArray(act.splits_metric) ? act.splits_metric : [];
+    const splitsHTML = (!isStrength && !isCycling && splits.length) ? `
+      <div class="act-splits" id="splits-${actId}" style="display:none">
+        <div class="act-splits-header">
+          <span>km</span><span>Pace</span><span>HR</span><span>Elev</span>
+        </div>
+        ${splits.map(s => {
+          const paceColor = !s.pace ? '' : (() => {
+            const [m,sec] = s.pace.split(':').map(Number); const secs = m*60+sec;
+            return secs < 265 ? 'color:#E05252' : secs < 310 ? 'color:#EF9F27' : 'color:#1D9E75';
+          })();
+          return `<div class="act-splits-row">
+            <span>${s.km}</span>
+            <span style="font-family:var(--mono);${paceColor}">${s.pace||'—'}/km</span>
+            <span>${s.hr ? s.hr+'bpm' : '—'}</span>
+            <span>${s.elevation != null ? (s.elevation > 0 ? '+' : '')+s.elevation+'m' : '—'}</span>
+          </div>`;
+        }).join('')}
+      </div>
+      <button class="act-splits-toggle" onclick="toggleSplits('${actId}')">Show splits ▾</button>
+    ` : '';
+
+    const gearBadge = act.gear_name ? `<span style="font-size:11px;color:var(--text-muted);font-family:var(--mono)">👟 ${act.gear_name}</span>` : '';
+    const autoAnalysisHTML = act.auto_analysis ? `<div class="act-auto-analysis">${act.auto_analysis}</div>` : '';
+
 const statsHTML = isStrength ? '' : `
   <div class="activity-metrics">
     <div class="activity-metric">
@@ -1767,7 +1795,7 @@ const statsHTML = isStrength ? '' : `
 
     ${act.elapsed_time ? `
       <div class="activity-metric">
-        <div class="activity-metric-label">Elapsed Time</div>
+        <div class="activity-metric-label">Time</div>
         <div class="activity-metric-value">${fmtTime(act.elapsed_time)}</div>
       </div>
     ` : ''}
@@ -1778,7 +1806,38 @@ const statsHTML = isStrength ? '' : `
         <div class="activity-metric-value">${Math.round(act.average_heartrate)}<span>bpm</span></div>
       </div>
     ` : ''}
+
+    ${act.average_cadence ? `
+      <div class="activity-metric">
+        <div class="activity-metric-label">Cadence</div>
+        <div class="activity-metric-value">${Math.round(act.average_cadence * 2)}<span>spm</span></div>
+      </div>
+    ` : ''}
+
+    ${act.total_elevation_gain ? `
+      <div class="activity-metric">
+        <div class="activity-metric-label">Elevation</div>
+        <div class="activity-metric-value">${Math.round(act.total_elevation_gain)}<span>m</span></div>
+      </div>
+    ` : ''}
+
+    ${act.calories ? `
+      <div class="activity-metric">
+        <div class="activity-metric-label">Calories</div>
+        <div class="activity-metric-value">${act.calories}<span>kcal</span></div>
+      </div>
+    ` : ''}
+
+    ${act.suffer_score ? `
+      <div class="activity-metric">
+        <div class="activity-metric-label">Suffer Score</div>
+        <div class="activity-metric-value">${act.suffer_score}</div>
+      </div>
+    ` : ''}
   </div>
+  ${autoAnalysisHTML}
+  ${splitsHTML}
+  ${gearBadge ? `<div style="margin-top:6px;padding:0 2px">${gearBadge}</div>` : ''}
 `;
 return `<div class="activity-card">
   <div class="activity-card-header">
@@ -1791,8 +1850,10 @@ return `<div class="activity-card">
         ${badgeHTML}
         <span style="font-size:11px;color:var(--strava);font-family:var(--mono);font-weight:500">STRAVA</span>
         ${hrBadge}
+        ${detectedBadge}
       </div>
     </div>
+    <button class="act-refresh-btn" onclick="refreshActivity('${act.strava_id}',this)" title="Re-fetch from Strava">↻</button>
   </div>
 
   ${statsHTML}
@@ -2020,6 +2081,42 @@ if (saveBtn) {
 }
 
 await saveActivityDebriefFromText(actId, act, enrichedText);
+}
+
+function toggleSplits(actId) {
+  const el = document.getElementById('splits-' + actId);
+  const btn = el?.nextElementSibling;
+  if (!el) return;
+  const open = el.style.display === 'none' || !el.style.display;
+  el.style.display = open ? 'block' : 'none';
+  if (btn) btn.textContent = open ? 'Hide splits ▴' : 'Show splits ▾';
+}
+
+async function refreshActivity(stravaId, btn) {
+  if (!stravaId) return;
+  const orig = btn.textContent;
+  btn.textContent = '…';
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/strava-refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ strava_id: stravaId })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Refresh failed');
+    // Reload activities from Supabase and re-render
+    const acts = await api.get('strava_activities', 'select=*&order=start_date.desc&limit=200');
+    activities = (acts || []).map(a => ({
+      ...a,
+      date: (a.start_date_local || a.start_date || '').slice(0, 10),
+    }));
+    renderActivitiesPage();
+  } catch (e) {
+    alert('Refresh failed: ' + e.message);
+    btn.textContent = orig;
+    btn.disabled = false;
+  }
 }
 
 function openDebriefEditor(actId) {
