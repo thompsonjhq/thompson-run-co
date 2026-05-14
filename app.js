@@ -32,29 +32,29 @@ const RACE_DATE  = new Date(2026, 6, 19);
 
 const weeks = [
   { num:1, phase:'base', label:'Return To Running', km:21, note:'Maintenance week transitioning into the plan. All easy aerobic running — no intervals, no tempo. Re-establish the habit, wake the legs up, introduce strength without digging a hole.', hamstring:true,
-    days:{ Mon:{type:'Easy Run',detail:'5km easy Z2 · 5:50/km · genuinely conversational',dot:'easy'}, Tue:{type:'Rest',detail:'Full rest day — resist the urge to run',dot:'rest'}, Wed:{type:'Strength',detail:'40 min · RDL first + Nordics · 3×10 light',dot:'strength'}, Thu:{type:'Easy Run',detail:'6km easy Z2 · 5:45/km · relaxed',dot:'easy'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'10km easy Z2 · 5:50/km · flat route, no watch pressure',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
-  { num:2, phase:'base', label:'Building The Habit', km:26, note:'+5km on week 1. Still no hard sessions — introduce strides on Thursday. Keep long run easy.', hamstring:true,
-    days:{ Mon:{type:'Easy Run',detail:'7km easy Z2 · 5:45/km',dot:'easy'}, Tue:{type:'Rest',detail:'Full rest day',dot:'rest'}, Wed:{type:'Strength',detail:'40 min · RDL + Nordics · 3×10 · start adding light load',dot:'strength'}, Thu:{type:'Strides',detail:'7km easy + 6×80m strides · relaxed, not sprinting',dot:'easy'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'12km easy Z2 · 5:50/km · focus on time on feet',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+    days:{ Mon:{type:'Easy Run',detail:'5km easy Z2 · 5:50/km · genuinely conversational',dot:'easy'}, Tue:{type:'Easy Run',detail:'6km easy Z2 · 5:45/km · relaxed',dot:'easy'}, Wed:{type:'Strength',detail:'40 min · RDL first + Nordics · 3×10 light',dot:'strength'}, Thu:{type:'Rest',detail:'Full rest day — resist the urge to run',dot:'rest'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'10km easy Z2 · 5:50/km · flat route, no watch pressure',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+  { num:2, phase:'base', label:'Building The Habit', km:26, note:'+5km on week 1. Still no hard sessions — introduce strides on Tuesday. Keep long run easy.', hamstring:true,
+    days:{ Mon:{type:'Strides',detail:'7km easy + 6×80m strides · relaxed, not sprinting',dot:'easy'}, Tue:{type:'Easy Run',detail:'7km easy Z2 · 5:45/km',dot:'easy'}, Wed:{type:'Strength',detail:'40 min · RDL + Nordics · 3×10 · start adding light load',dot:'strength'}, Thu:{type:'Rest',detail:'Full rest day',dot:'rest'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'12km easy Z2 · 5:50/km · focus on time on feet',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:3, phase:'base', label:'First Quality Work', km:34, note:'First intervals of the plan — kept short and conservative. Tempo introduced at the lower end. Hamstring protocol active on all speed work.', hamstring:true,
-    days:{ Mon:{type:'Easy Run',detail:'8km easy Z2 · 5:45/km',dot:'easy'}, Tue:{type:'Intervals',detail:'8×400m @ 4:10/km · 90s rest · 2km WU/CD · conservative pace',dot:'hard'}, Wed:{type:'Strength',detail:'45 min · RDL + Nordics priority · 3×10',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 12 min @ Z4 (4:25/km) · 2km CD · total ~7km',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'13km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+    days:{ Mon:{type:'Intervals',detail:'8×400m @ 4:10/km · 90s rest · 2km WU/CD · conservative pace',dot:'hard'}, Tue:{type:'Easy Run',detail:'8km easy Z2 · 5:45/km',dot:'easy'}, Wed:{type:'Strength',detail:'45 min · RDL + Nordics priority · 3×10',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 12 min @ Z4 (4:25/km) · 2km CD · total ~7km',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'13km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:4, phase:'base', label:'Deload — Consolidate', km:29, note:'Planned deload after 3 progressive weeks. Volume drops ~15%. Quality maintained but sessions shorter. Body adapts during recovery weeks.', hamstring:true,
-    days:{ Mon:{type:'Easy Run',detail:'6km easy Z2 · full recovery feel',dot:'easy'}, Tue:{type:'Strides',detail:'7km easy + 6×100m strides · relaxed turnover',dot:'easy'}, Wed:{type:'Strength',detail:'40 min · reduced load, focus on form · 3×8',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 10 min @ Z4 · 2km CD · total ~6km',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'11km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+    days:{ Mon:{type:'Strides',detail:'7km easy + 6×100m strides · relaxed turnover',dot:'easy'}, Tue:{type:'Easy Run',detail:'6km easy Z2 · full recovery feel',dot:'easy'}, Wed:{type:'Strength',detail:'40 min · reduced load, focus on form · 3×8',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 10 min @ Z4 · 2km CD · total ~6km',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'11km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:5, phase:'build', label:'Threshold Introduction', km:40, note:'Phase 2 begins. A proper base is now under you. Longer intervals at race pace, longer tempo blocks. Resume full Z5b if hamstring soreness has resolved.', hamstring:false,
-    days:{ Mon:{type:'Easy Run',detail:'9km easy Z2',dot:'easy'}, Tue:{type:'Intervals',detail:'6×1000m @ 10km RP (4:10–4:15) · 2 min rest · 2km WU/CD · total ~10km',dot:'hard'}, Wed:{type:'Strength',detail:'50 min · Phase 2 load · 4×8',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 20 min Z4 continuous · 2km CD · total ~8km',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'15km easy Z2 + 2km Z3 finish · total 17km',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+    days:{ Mon:{type:'Intervals',detail:'6×1000m @ 10km RP (4:10–4:15) · 2 min rest · 2km WU/CD · total ~10km',dot:'hard'}, Tue:{type:'Easy Run',detail:'9km easy Z2',dot:'easy'}, Wed:{type:'Strength',detail:'50 min · Phase 2 load · 4×8',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 20 min Z4 continuous · 2km CD · total ~8km',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'15km easy Z2 + 2km Z3 finish · total 17km',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:6, phase:'build', label:'Volume Increase', km:44, note:'Longer intervals and tempo. Long run adds progression finish. Keep Monday genuinely easy.', hamstring:false,
-    days:{ Mon:{type:'Easy Run',detail:'10km easy Z2',dot:'easy'}, Tue:{type:'Intervals',detail:'5×1200m @ 10km RP · 2.5 min rest · 2km WU/CD · total ~10km',dot:'hard'}, Wed:{type:'Strength',detail:'50 min · Progressive load · 3×8',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 2×15 min Z4 (3 min jog) · 2km CD · total ~9km',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'16km · last 4km @ Z3 progression',dot:'moderate'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+    days:{ Mon:{type:'Intervals',detail:'5×1200m @ 10km RP · 2.5 min rest · 2km WU/CD · total ~10km',dot:'hard'}, Tue:{type:'Easy Run',detail:'10km easy Z2',dot:'easy'}, Wed:{type:'Strength',detail:'50 min · Progressive load · 3×8',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 2×15 min Z4 (3 min jog) · 2km CD · total ~9km',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'16km · last 4km @ Z3 progression',dot:'moderate'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:7, phase:'build', label:'Aerobic Push', km:47, note:'Highest aerobic volume of the build. Thursday 30 min tempo is the key session — protect it.', hamstring:false,
-    days:{ Mon:{type:'Easy Run',detail:'11km easy Z2',dot:'easy'}, Tue:{type:'Intervals',detail:'10×400m @ Z5b (3:58/km) · 75s rest · 2km WU/CD · total ~8km',dot:'hard'}, Wed:{type:'Strength',detail:'50 min · Heavy phase · 4×6–8',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 30 min Z4 continuous · 2km CD · total ~10km',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'17km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+    days:{ Mon:{type:'Intervals',detail:'10×400m @ Z5b (3:58/km) · 75s rest · 2km WU/CD · total ~8km',dot:'hard'}, Tue:{type:'Easy Run',detail:'11km easy Z2',dot:'easy'}, Wed:{type:'Strength',detail:'50 min · Heavy phase · 4×6–8',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 30 min Z4 continuous · 2km CD · total ~10km',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'17km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:8, phase:'build', label:'Deload — Consolidate', km:37, note:'Second deload. Volume drops, two quality sessions maintained at shorter duration. Legs should feel fresher by Saturday.', hamstring:false,
-    days:{ Mon:{type:'Easy Run',detail:'8km easy Z2',dot:'easy'}, Tue:{type:'Intervals',detail:'6×800m @ 10km RP · 90s rest · 2km WU/CD · total ~9km',dot:'hard'}, Wed:{type:'Strength',detail:'45 min · Reduced load, maintain form',dot:'strength'}, Thu:{type:'Easy Run',detail:'8km easy Z2 + 4×100m strides',dot:'easy'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'13km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+    days:{ Mon:{type:'Intervals',detail:'6×800m @ 10km RP · 90s rest · 2km WU/CD · total ~9km',dot:'hard'}, Tue:{type:'Easy Run',detail:'8km easy Z2 + 4×100m strides',dot:'easy'}, Wed:{type:'Strength',detail:'45 min · Reduced load, maintain form',dot:'strength'}, Thu:{type:'Easy Run',detail:'8km easy Z2',dot:'easy'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'13km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:9, phase:'build', label:'Peak Volume', km:50, note:'Highest weekly volume in the plan. 4×2km at race pace is the centrepiece — all other sessions exist to enable that one.', hamstring:false,
-    days:{ Mon:{type:'Easy Run',detail:'11km easy Z2',dot:'easy'}, Tue:{type:'Intervals',detail:'4×2000m @ 10km RP (4:10) · 3 min rest · 2km WU/CD · total ~12km',dot:'hard'}, Wed:{type:'Strength',detail:'55 min · Peak strength block · 4×6–8',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 35 min Z4 · 2km CD · total ~11km',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'18km · last 5km @ Z3',dot:'moderate'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+    days:{ Mon:{type:'Intervals',detail:'4×2000m @ 10km RP (4:10) · 3 min rest · 2km WU/CD · total ~12km',dot:'hard'}, Tue:{type:'Easy Run',detail:'11km easy Z2',dot:'easy'}, Wed:{type:'Strength',detail:'55 min · Peak strength block · 4×6–8',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 35 min Z4 · 2km CD · total ~11km',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'18km · last 5km @ Z3',dot:'moderate'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:10, phase:'peak', label:'Race-Specific Sharpening', km:46, note:'Volume slightly reduced, intensity at exact race pace. The 3×3km at race pace should feel controlled.', hamstring:false,
-    days:{ Mon:{type:'Easy Run',detail:'10km easy Z2',dot:'easy'}, Tue:{type:'Race Pace',detail:'3×3km @ exact race pace (4:11/km) · 3 min rest · 2km WU/CD · total ~11km',dot:'hard'}, Wed:{type:'Strength',detail:'45 min · Maintain strength, reduce volume',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 25 min Z4 · 2km CD · total ~9km',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'17km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+    days:{ Mon:{type:'Race Pace',detail:'3×3km @ exact race pace (4:11/km) · 3 min rest · 2km WU/CD · total ~11km',dot:'hard'}, Tue:{type:'Easy Run',detail:'10km easy Z2',dot:'easy'}, Wed:{type:'Strength',detail:'45 min · Maintain strength, reduce volume',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 25 min Z4 · 2km CD · total ~9km',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'17km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:11, phase:'peak', label:'Race Simulation', km:44, note:'8km race simulation Saturday. Treat it like race day — warm up properly, execute the pace, don\'t blow up.', hamstring:false,
-    days:{ Mon:{type:'Easy Run',detail:'10km easy Z2',dot:'easy'}, Tue:{type:'Intervals',detail:'12×400m @ Z5b (3:55/km) · 60s rest · 2km WU/CD · total ~8km',dot:'hard'}, Wed:{type:'Strength',detail:'40 min · Reduced intensity, keep form',dot:'strength'}, Thu:{type:'Easy Run',detail:'8km easy Z2 · fresh legs for Sat',dot:'easy'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Race Simulation',detail:'2km WU · 8km @ 4:10–4:12/km · 2km CD · total 12km',dot:'race'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+    days:{ Mon:{type:'Intervals',detail:'12×400m @ Z5b (3:55/km) · 60s rest · 2km WU/CD · total ~8km',dot:'hard'}, Tue:{type:'Easy Run',detail:'10km easy Z2',dot:'easy'}, Wed:{type:'Strength',detail:'40 min · Reduced intensity, keep form',dot:'strength'}, Thu:{type:'Easy Run',detail:'8km easy Z2 · fresh legs for Sat',dot:'easy'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Race Simulation',detail:'2km WU · 8km @ 4:10–4:12/km · 2km CD · total 12km',dot:'race'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:12, phase:'taper', label:'Freshen Up', km:30, note:'Volume drops 30–35%. Keep two quality sessions but shorten them. The fitness is banked — trust the taper.', hamstring:false,
-    days:{ Mon:{type:'Easy Run',detail:'7km easy Z2',dot:'easy'}, Tue:{type:'Intervals',detail:'6×600m @ race pace · 2 min rest · 2km WU/CD · total ~6km',dot:'hard'}, Wed:{type:'Strength',detail:'25 min · Bodyweight + activation only',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 12 min Z4 · 2km CD · total ~6km',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Easy Run',detail:'9km easy Z2 · no long run',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+    days:{ Mon:{type:'Intervals',detail:'6×600m @ race pace · 2 min rest · 2km WU/CD · total ~6km',dot:'hard'}, Tue:{type:'Easy Run',detail:'7km easy Z2',dot:'easy'}, Wed:{type:'Strength',detail:'25 min · Bodyweight + activation only',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 12 min Z4 · 2km CD · total ~6km',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Easy Run',detail:'9km easy Z2 · no long run',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:13, phase:'taper', label:'Race Week', km:24, note:'19 July race day. Everything this week is activation. Short, sharp, easy. Sleep is your biggest performance lever.', hamstring:false,
     days:{ Mon:{type:'Easy Run',detail:'5km very easy Z1 · shake out legs',dot:'easy'}, Tue:{type:'Shakeout',detail:'4km easy + 4×100m race pace strides · feel sharp',dot:'easy'}, Wed:{type:'Rest',detail:'Full rest day',dot:'rest'}, Thu:{type:'Shakeout',detail:'3km easy + 4×100m strides · keep very short',dot:'easy'}, Fri:{type:'Rest',detail:'Prep kit, finalise nutrition plan, early night',dot:'rest'}, Sat:{type:'RACE DAY',detail:'10km · Target: sub-42:00 (4:11/km) · 2km WU · trust the training',dot:'race'}, Sun:{type:'Rest',detail:'',dot:'rest'} }}
 ];
@@ -448,9 +448,31 @@ function matchActivityToSession(act) {
   return { week: weekNum, day: dayName, planned: weeks[weekNum-1].days[dayName] };
 }
 
+function getPlannedDistanceKm(planned) {
+  if (!planned || !planned.detail) return null;
+  // Extract distance hints like "13km", "10km", "~8km", "total ~7km"
+  const m = planned.detail.match(/(?:total\s*~?|^)(\d+(?:\.\d+)?)km/i);
+  if (m) return parseFloat(m[1]);
+  // Fallback: first standalone number followed by km
+  const m2 = planned.detail.match(/(\d+(?:\.\d+)?)\s*km/i);
+  return m2 ? parseFloat(m2[1]) : null;
+}
+
 function getMatchQuality(act, planned) {
   if (!planned || planned.dot === 'rest') return 'unmatched';
-  if (!act.pace) return 'ok';
+
+  const actualKm = parseFloat(act.distance || 0);
+  const plannedKm = getPlannedDistanceKm(planned);
+
+  // Distance completion check — if we know the planned distance, enforce it
+  if (plannedKm && plannedKm > 0) {
+    const completionPct = actualKm / plannedKm;
+    if (completionPct < 0.75) return 'miss';   // <75% of planned distance → Off Plan
+    if (completionPct < 0.90) return 'warn';   // 75–90% → Check
+  }
+
+  // Pace check (secondary, only if pace is available)
+  if (!act.pace) return plannedKm ? 'ok' : 'ok';
   const [m,s] = act.pace.split(':').map(Number);
   const secs = m*60 + (s||0);
   if (planned.dot === 'easy') return (secs >= 310 && secs <= 390) ? 'great' : secs < 310 ? 'warn' : 'miss';
@@ -1234,8 +1256,15 @@ function renderWeeks() {
       dayActs.forEach(act => {
         const quality = getMatchQuality(act, d);
         const qClass = quality==='great'?'match-great':quality==='warn'?'match-warn':quality==='miss'?'match-miss':'';
-        const labelText = quality==='great'?'✓ On Target':quality==='warn'?'⚠ Check Pace':quality==='miss'?'✗ Off Plan':'↗ Strava';
-        overlayHTML += `<div class="activity-overlay ${qClass}"><div class="ao-label">${labelText}</div><div style="font-size:11px;color:var(--text-muted)">${act.distance}km · ${act.pace||'—'}/km${act.elapsed_time?' · '+fmtTime(act.elapsed_time):''}</div></div>`;
+        const plannedKm = getPlannedDistanceKm(d);
+        const actualKm = parseFloat(act.distance || 0);
+        const completionPct = plannedKm ? Math.round(actualKm / plannedKm * 100) : null;
+        const labelText = quality==='great'?'✓ On Target':quality==='warn'?'⚠ Short / Check Pace':quality==='miss'?'✗ Incomplete / Off Plan':'↗ Strava';
+        const distLine = plannedKm
+          ? `${act.distance}km of ${plannedKm}km planned (${completionPct}%)`
+          : `${act.distance}km`;
+        const hrLine = act.average_heartrate ? ` · ❤ ${Math.round(act.average_heartrate)}bpm avg` : '';
+        overlayHTML += `<div class="activity-overlay ${qClass}"><div class="ao-label">${labelText}</div><div style="font-size:11px;color:var(--text-muted)">${distLine} · ${act.pace||'—'}/km${act.elapsed_time?' · '+fmtTime(act.elapsed_time):''}${hrLine}</div></div>`;
       });
       const modifiedBadge = d._modified ? `<div style="font-size:10px;font-family:var(--mono);color:#378ADD;margin-top:4px">✎ Coach modified${d._reason ? ` — ${d._reason}` : ''}</div>` : '';
       return `<div class="day-card ${isRest?'rest-card':''}" style="${isTodayCard?'border:2px solid #1D9E75;':''}">
@@ -2245,30 +2274,48 @@ async function deleteMeal(id) {
 
 // ── STRENGTH PAGE ──
 const STRENGTH_P1 = [
-  {id:'rdl',name:'Romanian Deadlift (RDL)',target:'3×8 · 3 sec eccentric · controlled',sets:3},
-  {id:'bss',name:'Bulgarian Split Squat',target:'3×8 each · smooth control',sets:3},
-  {id:'hip',name:'Hip Thrust / Glute Bridge',target:'3×10 · strong lockout',sets:3},
-  {id:'curl',name:'Seated or Lying Hamstring Curl',target:'3×10 · controlled return',sets:3},
-  {id:'calf',name:'Single-Leg Calf Raise',target:'3×12 each',sets:3},
-  {id:'cope',name:'Copenhagen Plank',target:'2×20s each',sets:2},
-  {id:'nordic',name:'Assisted Nordic Hamstring Curl',target:'Optional · 2×3 only if no soreness',sets:2}
+  {id:'rdl',name:'Romanian Deadlift (RDL)',target:'3×8 · 3 sec eccentric · controlled',sets:3, why:'Primary hamstring loading. Most important exercise.', tag:'hamstring',
+    alts:['Dumbbell RDL (if no barbell)', 'Single-leg RDL (balance focus)', 'Good Morning (if no weights)']},
+  {id:'bss',name:'Bulgarian Split Squat',target:'3×8 each · smooth control',sets:3, why:'Single-leg quad + glute strength, mimics running gait.', tag:'',
+    alts:['Reverse Lunge (if no bench/box)', 'Step-Up (if no bench)', 'Goblet Squat (if balance is a problem)']},
+  {id:'hip',name:'Hip Thrust / Glute Bridge',target:'3×10 · strong lockout',sets:3, why:'Glute activation — powers propulsion, reduces hamstring load.', tag:'',
+    alts:['Glute Bridge on floor (if no bench)', 'Single-leg Glute Bridge', 'Cable Pull-Through (if cable available)']},
+  {id:'curl',name:'Seated or Lying Hamstring Curl',target:'3×10 · controlled return',sets:3, why:'Direct hamstring work under load.', tag:'hamstring',
+    alts:['Swiss Ball Leg Curl (if no machine)', 'Dumbbell Hamstring Curl (lying)', 'Slider Leg Curl (if sliders available)']},
+  {id:'calf',name:'Single-Leg Calf Raise',target:'3×12 each',sets:3, why:'Achilles and calf resilience for running impact.', tag:'',
+    alts:['Seated Calf Raise machine', 'Bodyweight (both legs if injury)', 'Step calf raise (use a step)']},
+  {id:'cope',name:'Copenhagen Plank',target:'2×20s each',sets:2, why:'Hip adductor strength — often neglected.', tag:'',
+    alts:['Side-lying hip adduction (if no bench)', 'Lateral band walk (activation substitute)', 'Inner thigh squeeze with ball']},
+  {id:'nordic',name:'Assisted Nordic Hamstring Curl',target:'Optional · 2×3 only if no soreness',sets:2, why:'Best evidence-based hamstring prevention. Eccentric focus.', tag:'hamstring',
+    alts:['Slow eccentric RDL (if no partner/anchor)', 'Swiss ball rollout (partial substitute)', 'Skip this week if sore']}
 ];
 
 const STRENGTH_P2 = [
-  {id:'rdl',name:'Romanian Deadlift (RDL)',target:'4×6–8 · moderate-heavy · controlled eccentric',sets:4},
-  {id:'bss',name:'Bulgarian Split Squat',target:'3×8 each · progressive load',sets:3},
-  {id:'hip',name:'Hip Thrust',target:'3×8–10 · progressive load',sets:3},
-  {id:'curl',name:'Seated or Lying Hamstring Curl',target:'3×8–10 · controlled return',sets:3},
-  {id:'calf',name:'Single-Leg Calf Raise',target:'3×12–15 · weighted if tolerated',sets:3},
-  {id:'cope',name:'Copenhagen Plank',target:'2–3×30s each',sets:3}
+  {id:'rdl',name:'Romanian Deadlift (RDL)',target:'4×6–8 · moderate-heavy · controlled eccentric',sets:4, why:'Progressive overload on hamstrings. 3–4s lowering.', tag:'hamstring',
+    alts:['Trap Bar Deadlift (if available)', 'Dumbbell RDL', 'Single-leg RDL (load each side)']},
+  {id:'bss',name:'Bulgarian Split Squat',target:'3×8 each · progressive load',sets:3, why:'Add load with dumbbells or barbell.', tag:'',
+    alts:['Barbell Rear-Foot Elevated Split Squat', 'Walking Lunge (if no bench)', 'Step-Up with dumbbells']},
+  {id:'hip',name:'Hip Thrust',target:'3×8–10 · progressive load',sets:3, why:'Load the glutes progressively — barbell preferred.', tag:'',
+    alts:['Dumbbell Hip Thrust', 'Machine Hip Thrust', 'Cable Pull-Through']},
+  {id:'curl',name:'Seated or Lying Hamstring Curl',target:'3×8–10 · controlled return',sets:3, why:'Direct hamstring machine work — add load each week.', tag:'hamstring',
+    alts:['Swiss Ball Leg Curl', 'Dumbbell Hamstring Curl', 'Nordic (if no machine)']},
+  {id:'calf',name:'Single-Leg Calf Raise',target:'3×12–15 · weighted if tolerated',sets:3, why:'Hold dumbbell or use seated calf raise machine.', tag:'',
+    alts:['Seated calf raise machine (heavy)', 'Smith machine calf raise', 'Bodyweight (increase reps to 20+)']},
+  {id:'cope',name:'Copenhagen Plank',target:'2–3×30s each',sets:3, why:'Extend duration as adductor strength improves.', tag:'',
+    alts:['Side plank with leg lift', 'Adductor machine', 'Lateral band walk (3×20 steps)']}
 ];
 
 const STRENGTH_TAPER = [
-  {id:'rdl',name:'Romanian Deadlift (RDL)',target:'2×6 · light/moderate · no soreness',sets:2},
-  {id:'bss',name:'Bulgarian Split Squat',target:'2×6 each · light/moderate',sets:2},
-  {id:'curl',name:'Hamstring Curl',target:'2×8 · smooth and easy',sets:2},
-  {id:'calf',name:'Single-Leg Calf Raise',target:'2×12 each',sets:2},
-  {id:'mobility',name:'Mobility / Activation',target:'8–10 min · hips, glutes, calves',sets:1}
+  {id:'rdl',name:'Romanian Deadlift (RDL)',target:'2×6 · light/moderate · no soreness',sets:2, why:'Maintain movement pattern — reduce load by 20%.', tag:'hamstring',
+    alts:['Dumbbell RDL (lighter)', 'Single-leg RDL (bodyweight only)']},
+  {id:'bss',name:'Bulgarian Split Squat',target:'2×6 each · light/moderate',sets:2, why:'Keep the pattern, drop the intensity.', tag:'',
+    alts:['Bodyweight Split Squat', 'Reverse Lunge (bodyweight)']},
+  {id:'curl',name:'Hamstring Curl',target:'2×8 · smooth and easy',sets:2, why:'Light stimulus only — no fatigue chasing.', tag:'hamstring',
+    alts:['Dumbbell hamstring curl', 'Swiss Ball curl (easier)']},
+  {id:'calf',name:'Single-Leg Calf Raise',target:'2×12 each',sets:2, why:'Maintain Achilles load tolerance.', tag:'',
+    alts:['Seated calf raise', 'Bodyweight (both legs)']},
+  {id:'mobility',name:'Mobility / Activation',target:'8–10 min · hips, glutes, calves',sets:1, why:'Glute bridges, leg swings, hip 90/90, calf stretch.', tag:'',
+    alts:['Yoga flow (10 min)', 'Foam rolling + stretching']}
 ];
 
 function getStrengthExercises() {
@@ -2285,34 +2332,76 @@ function renderStrengthPage() {
   const el = document.getElementById('page-strength');
   const exercises = getStrengthExercises();
   const wk = getCurrentWeekNum() || 1;
-   const phase = wk<=4
-  ? 'Phase 1 · Foundation / Hamstring Capacity'
-  : wk<=9
-    ? 'Phase 2 · Build / Maintain Strength'
-    : wk<=12
-      ? 'Phase 3 · Taper / Reduce Soreness'
-      : 'Race Week · No Heavy Strength';
+  const phase = wk<=4
+    ? 'Phase 1 · Foundation'
+    : wk<=9
+      ? 'Phase 2 · Build'
+      : wk<=12
+        ? 'Phase 3 · Taper'
+        : 'Race Week';
 
-  const exerciseInputs = exercises.map(ex => {
+  // Build exercise cards with alternatives toggle
+  const exerciseCards = exercises.map((ex, exIdx) => {
     const saved = currentStrengthSession[ex.id] || {};
-    const setsHTML = Array.from({length:ex.sets},(_,i)=>{
+    const sets = Array.from({length: ex.sets}, (_, i) => {
       const s = saved.sets?.[i] || {};
-      return `<div class="st-set-row">
-        <div class="st-set-label">${i+1}</div>
-        <input class="st-input" type="number" placeholder="kg" step="2.5" value="${s.kg||''}" oninput="saveSetData('${ex.id}',${i},'kg',this.value)">
-        <input class="st-input" type="number" placeholder="reps" step="1" value="${s.reps||''}" oninput="saveSetData('${ex.id}',${i},'reps',this.value)">
-        <input class="st-input" type="text" placeholder="note" value="${s.note||''}" oninput="saveSetData('${ex.id}',${i},'note',this.value)">
+      const isComplete = s.kg || s.reps;
+      return `<div class="gym-set-row ${isComplete ? 'gym-set-done' : ''}" id="set-row-${ex.id}-${i}">
+        <div class="gym-set-num">${i + 1}</div>
+        <div class="gym-set-prev">${getPrevSetData(ex.id, i)}</div>
+        <input class="gym-input gym-input-kg" type="number" inputmode="decimal" placeholder="kg" step="2.5" value="${s.kg||''}"
+          oninput="saveSetData('${ex.id}',${i},'kg',this.value);updateSetRow('${ex.id}',${i})">
+        <input class="gym-input gym-input-reps" type="number" inputmode="numeric" placeholder="reps" step="1" value="${s.reps||''}"
+          oninput="saveSetData('${ex.id}',${i},'reps',this.value);updateSetRow('${ex.id}',${i})">
+        <button class="gym-set-tick ${isComplete?'ticked':''}" onclick="tickSet('${ex.id}',${i},this)">✓</button>
       </div>`;
     }).join('');
-    return `<div class="st-exercise">
-      <div class="st-ex-header" onclick="this.nextElementSibling.classList.toggle('open')">
-        <div><div class="st-ex-name">${ex.name}</div><div class="st-ex-target">${ex.target}</div></div>
-        <span style="font-size:10px;color:var(--text-faint)">▼</span>
+
+    const altsHTML = ex.alts && ex.alts.length ? `
+      <div class="gym-alts" id="alts-${ex.id}" style="display:none">
+        <div class="gym-alts-label">Alternatives</div>
+        ${ex.alts.map(a => '<div class="gym-alt-item" onclick="swapExercise(\''+ex.id+'\',\''+a.replace(/'/g,'&#39;')+'\',this)">↔ '+a+'</div>').join('')}
+      </div>` : '';
+
+    const tagHTML = ex.tag === 'hamstring' ? `<span class="gym-tag gym-tag-hs">hamstring priority</span>` : '';
+    const completedSets = Object.keys(saved.sets || {}).filter(i => saved.sets[i]?.kg || saved.sets[i]?.reps).length;
+    const progressPct = ex.sets > 0 ? Math.round(completedSets / ex.sets * 100) : 0;
+
+    return `<div class="gym-card ${completedSets >= ex.sets ? 'gym-card-complete' : ''}" id="gymcard-${ex.id}">
+      <div class="gym-card-header" onclick="toggleGymCard('${ex.id}')">
+        <div class="gym-card-left">
+          <div class="gym-card-progress-ring">
+            <svg viewBox="0 0 36 36" class="gym-ring-svg">
+              <circle cx="18" cy="18" r="15" fill="none" stroke="var(--border)" stroke-width="3"/>
+              <circle cx="18" cy="18" r="15" fill="none" stroke="${completedSets>=ex.sets?'#1D9E75':'#378ADD'}" stroke-width="3"
+                stroke-dasharray="${Math.round(94.2*progressPct/100)} 94.2" stroke-linecap="round"
+                transform="rotate(-90 18 18)"/>
+            </svg>
+            <span class="gym-ring-label">${completedSets}/${ex.sets}</span>
+          </div>
+          <div>
+            <div class="gym-card-name">${saved._swapped || ex.name} ${tagHTML}</div>
+            <div class="gym-card-target">${ex.target}</div>
+          </div>
+        </div>
+        <div class="gym-card-right">
+          ${ex.alts?.length ? `<button class="gym-alt-btn" onclick="event.stopPropagation();toggleAlts('${ex.id}')">Alt</button>` : ''}
+          <span class="gym-chevron" id="gymchev-${ex.id}">›</span>
+        </div>
       </div>
-      <div class="st-ex-body">
-        <div class="st-set-row" style="margin-bottom:4px"><div></div><div class="st-col-label">Weight (kg)</div><div class="st-col-label">Reps</div><div class="st-col-label">Note</div></div>
-        ${setsHTML}
-        <textarea class="st-notes" rows="2" placeholder="Notes for this exercise…" oninput="saveExNotes('${ex.id}',this.value)">${saved.notes||''}</textarea>
+      ${altsHTML}
+      <div class="gym-card-body" id="gymbody-${ex.id}">
+        <div class="gym-why">${ex.why||''}</div>
+        <div class="gym-set-header">
+          <div class="gym-set-num">#</div>
+          <div class="gym-set-prev">Previous</div>
+          <div style="font-size:11px;color:var(--text-faint);font-family:var(--mono)">kg</div>
+          <div style="font-size:11px;color:var(--text-faint);font-family:var(--mono)">reps</div>
+          <div></div>
+        </div>
+        ${sets}
+        <textarea class="gym-notes" rows="2" placeholder="Notes for this exercise…"
+          oninput="saveExNotes('${ex.id}',this.value)">${saved.notes||''}</textarea>
       </div>
     </div>`;
   }).join('');
@@ -2335,7 +2424,7 @@ function renderStrengthPage() {
     return `<div class="st-hist-entry">
       <div class="st-hist-header" onclick="toggleStHist(${idx})">
         <div><div class="st-hist-date">Wk ${entry.week} · ${dateStr}</div><div class="st-hist-summary">${summary}</div></div>
-        <div style="display:flex;align-items:center;gap:8px"><button class="st-hist-delete" onclick="event.stopPropagation();deleteStrengthEntry(${idx})">✕ Delete</button><span style="font-size:10px;color:var(--text-faint)" id="sth-chev-${idx}">▼</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><button class="st-hist-delete" onclick="event.stopPropagation();deleteStrengthEntry(${idx})">✕</button><span style="font-size:10px;color:var(--text-faint)" id="sth-chev-${idx}">▼</span></div>
       </div>
       <div class="st-hist-body" id="sth-body-${idx}">
         ${detail||'<p style="font-size:12px;color:var(--text-muted);padding-top:8px">No weights recorded.</p>'}
@@ -2343,7 +2432,7 @@ function renderStrengthPage() {
           <div style="font-size:11px;font-family:var(--mono);color:var(--text-faint);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Session Notes</div>
           <div id="log-feed-${sId}">${sLogsHTML}</div>
           <div class="log-input-row" style="margin-top:8px">
-            <textarea class="log-textarea" id="log-input-${sId}" rows="1" placeholder="How did this session feel? Any PRs or niggles?"
+            <textarea class="log-textarea" id="log-input-${sId}" rows="1" placeholder="How did this session feel?"
               oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"
               onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitSessionLog('${sId}','strength','${entry.date}',this)}"></textarea>
             <button class="log-submit" onclick="submitSessionLog('${sId}','strength','${entry.date}',document.getElementById('log-input-${sId}'))">Post</button>
@@ -2354,98 +2443,27 @@ function renderStrengthPage() {
   }).join('') : '<p style="font-size:13px;color:var(--text-muted)">No sessions logged yet.</p>';
 
   el.innerHTML = `
-    <div class="page-title">Strength Plan</div>
-    <p class="page-sub">Wednesday sessions, 45–50 minutes. Log each session below — saved to your database automatically.</p>
-    <div class="alert alert-amber">Strength is once per week, ideally Tuesday. RDLs and hamstring curls are the main hamstring work. Assisted Nordics are optional only if they do not create soreness. In weeks 10–13, reduce load and avoid heavy eccentric soreness.</div>
-    <div class="strength-tracker">
-      <div class="st-header">
-        <div style="font-size:15px;font-weight:500">📋 Log Today's Session <span style="font-size:12px;color:var(--text-muted);font-weight:400">· ${phase}</span></div>
-        <span class="st-saved" id="st-saved-msg">Saved ✓</span>
-      </div>
-      ${exerciseInputs}
-      ${exercises.length
-  ? `<button class="st-complete-btn" onclick="completeStrengthSession()">Mark Session Complete</button>`
-  : `<div class="alert alert-green">Race week: no heavy strength. Keep this week to light mobility, activation, and walking only.</div>`
-}
+    <div class="page-title">Strength</div>
+    <div class="gym-session-meta">
+      <div class="gym-meta-pill">${phase}</div>
+      <div class="gym-meta-pill">Week ${wk} of 13</div>
+      <div class="gym-meta-pill">Wednesday · 45–55 min</div>
+      <span class="st-saved" id="st-saved-msg">Saved ✓</span>
     </div>
-    <div class="sec-title">Session History</div>
-    <div id="st-history-list">${histHTML}</div>
-    <div class="sec-title">Phase 1 — Base (Weeks 1–4) · Learn + Rehab</div>
-    <p class="sec-sub">3×10–12 reps, moderate weight. Master the movements.</p>
-    <div class="exercise-list">
-      <div class="exercise-row"><div><div class="exercise-name">Romanian Deadlift (RDL)<span class="hsring-badge">hamstring priority</span></div></div><div class="exercise-sets">3×10 · slow eccentric</div><div class="exercise-why">Most important exercise. 3–4s lowering. Start light.</div></div>
-      <div class="exercise-row"><div><div class="exercise-name">Nordic Hamstring Curl<span class="hsring-badge">hamstring priority</span></div></div><div class="exercise-sets">3×5 (assisted)</div><div class="exercise-why">Best evidence-based hamstring prevention. Anchor feet, assist lowering.</div></div>
-      <div class="exercise-row"><div><div class="exercise-name">Hip Thrust / Glute Bridge</div></div><div class="exercise-sets">3×12</div><div class="exercise-why">Glute activation. Powers propulsion, reduces hamstring compensation.</div></div>
-      <div class="exercise-row"><div><div class="exercise-name">Bulgarian Split Squat</div></div><div class="exercise-sets">3×8 each</div><div class="exercise-why">Single-leg quad + glute. Mimics running gait.</div></div>
-      <div class="exercise-row"><div><div class="exercise-name">Single-Leg Calf Raise</div></div><div class="exercise-sets">3×15 each</div><div class="exercise-why">Achilles and calf resilience.</div></div>
-      <div class="exercise-row"><div><div class="exercise-name">Copenhagen Plank</div></div><div class="exercise-sets">3×20s each</div><div class="exercise-why">Hip adductor strength.</div></div>
-      <div class="exercise-row"><div><div class="exercise-name">Dead Bug</div></div><div class="exercise-sets">3×8 each</div><div class="exercise-why">Core stability at speed.</div></div>
-    </div>
-    <div class="sec-title">Phase 2 — Build (Weeks 5–9) · Load Increase</div>
-    <p class="sec-sub">3–4×8 reps, increase load progressively.</p>
-    <div class="exercise-list">
-      <div class="exercise-row"><div><div class="exercise-name">Romanian Deadlift</div></div><div class="exercise-sets">4×8 · heavier</div><div class="exercise-why">Progressive overload. Controlled eccentric.</div></div>
-      <div class="exercise-row"><div><div class="exercise-name">Nordic Hamstring Curl</div></div><div class="exercise-sets">3×6–8</div><div class="exercise-why">Build to unassisted reps.</div></div>
-      <div class="exercise-row"><div><div class="exercise-name">Bulgarian Split Squat</div></div><div class="exercise-sets">4×8 each · heavier</div><div class="exercise-why">Add load with dumbbells or barbell.</div></div>
-      <div class="exercise-row"><div><div class="exercise-name">Hip Thrust</div></div><div class="exercise-sets">4×10 · heavier</div><div class="exercise-why">Load the glutes progressively.</div></div>
-      <div class="exercise-row"><div><div class="exercise-name">Single-Leg Calf Raise</div></div><div class="exercise-sets">3×15 · weighted</div><div class="exercise-why">Hold a dumbbell or use the machine.</div></div>
-      <div class="exercise-row"><div><div class="exercise-name">Copenhagen Plank</div></div><div class="exercise-sets">3×30s each</div><div class="exercise-why">Extend duration as strength improves.</div></div>
-    </div>
-    <div class="alert alert-green"><strong>Warm-Up (10 min):</strong> Glute bridges ×15, leg swings ×10 each, lateral band walks ×15, hip 90/90 ×5 each side. <strong>Cool-Down:</strong> Hip flexor stretch, pigeon pose, calf stretch. 60 seconds each.</div>`;
+    ${wk <= 9 ? '<div class="alert alert-amber" style="margin-bottom:16px">RDL and hamstring curls are the priority exercises. Protect these — everything else is secondary.</div>' : ''}
+    ${exercises.length
+      ? `<div class="gym-exercise-list">${exerciseCards}</div>
+         <button class="gym-complete-btn" onclick="completeStrengthSession()">✓ Complete Session</button>`
+      : `<div class="alert alert-green">Race week: no heavy strength. Light mobility and activation only.</div>`
+    }
+    <div class="sec-title" style="margin-top:28px">Session History</div>
+    <div id="st-history-list">${histHTML}</div>`;
+
+  // Auto-open first incomplete card
+  const firstEx = exercises[0];
+  if (firstEx) toggleGymCard(firstEx.id, true);
 }
 
-function saveSetData(exId, setIdx, field, value) {
-  if(!currentStrengthSession[exId]) currentStrengthSession[exId]={sets:[]};
-  if(!currentStrengthSession[exId].sets) currentStrengthSession[exId].sets=[];
-  if(!currentStrengthSession[exId].sets[setIdx]) currentStrengthSession[exId].sets[setIdx]={};
-  currentStrengthSession[exId].sets[setIdx][field]=value;
-  localStorage.setItem('strength_session_wip', JSON.stringify(currentStrengthSession));
-  flashSaved();
-}
-function saveExNotes(exId, value) {
-  if(!currentStrengthSession[exId]) currentStrengthSession[exId]={};
-  currentStrengthSession[exId].notes=value;
-  localStorage.setItem('strength_session_wip', JSON.stringify(currentStrengthSession));
-  flashSaved();
-}
-function flashSaved() {
-  const el = document.getElementById('st-saved-msg');
-  if(!el) return;
-  el.classList.add('show');
-  clearTimeout(window._savedTimer);
-  window._savedTimer = setTimeout(()=>el.classList.remove('show'), 1800);
-}
-
-async function completeStrengthSession() {
-  const wkNum = getCurrentWeekNum() || 1;
-  const exercises = getStrengthExercises().map(ex => ({
-    name: ex.name,
-    sets: currentStrengthSession[ex.id]?.sets || [],
-    notes: currentStrengthSession[ex.id]?.notes || ''
-  }));
-  try {
-    await api.post('strength_sessions', {
-      session_date: todayISO(),
-      week_num: wkNum,
-      exercises
-    }, 'return=minimal');
-    currentStrengthSession = {};
-    localStorage.removeItem('strength_session_wip');
-    // Reload strength data
-    const sessions = await api.get('strength_sessions','select=*&order=session_date.desc&limit=30');
-    strengthLog = (sessions||[]).map(s=>({id:s.id,date:s.session_date,week:s.week_num,exercises:s.exercises||[]}));
-    renderStrengthPage();
-    alert(`Session logged ✓ — Week ${wkNum} strength session saved.`);
-  } catch(e) { alert('Error saving session: '+e.message); }
-}
-
-function toggleStHist(idx) {
-  const body=document.getElementById('sth-body-'+idx);
-  const chev=document.getElementById('sth-chev-'+idx);
-  if(!body) return;
-  body.classList.toggle('open');
-  if(chev) chev.textContent=body.classList.contains('open')?'▲':'▼';
-}
 
 async function deleteStrengthEntry(idx) {
   if(!confirm('Delete this strength session?')) return;
