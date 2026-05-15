@@ -358,7 +358,10 @@ async function loadAllData() {
     activities = (acts || []).map(a => ({
       ...a,
       date: (a.start_date_local || a.start_date || '').slice(0, 10),
-      distance: a.distance != null ? parseFloat(a.distance).toFixed(2) : '0',
+      // Legacy records stored metres; new records store km. Heuristic: >500 = metres.
+      distance: a.distance != null
+        ? (parseFloat(a.distance) > 500 ? (parseFloat(a.distance) / 1000).toFixed(2) : parseFloat(a.distance).toFixed(2))
+        : '0',
       pace: a.pace || fmtPace(a.average_speed),
       source: 'strava'
     }));
@@ -445,7 +448,58 @@ function matchActivityToSession(act) {
   const weekNum = Math.floor(diffDays / 7) + 1;
   const dayName = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()];
   if (weekNum < 1 || weekNum > 13) return null;
-  return { week: weekNum, day: dayName, planned: weeks[weekNum-1].days[dayName] };
+
+  const week = weeks[weekNum - 1];
+  const exactDay = week.days[dayName];
+
+  // 1. Exact day match (not a rest day)
+  if (exactDay && exactDay.dot !== 'rest') {
+    return { week: weekNum, day: dayName, planned: exactDay };
+  }
+
+  // 2. Flexible match — find a session type in the week that fits this activity type
+  // and hasn't already been claimed by an activity on its own day
+  const actKm = parseFloat(act.distance || 0);
+  const actDot = (() => {
+    if (!act.pace) return null;
+    const [pm, ps] = act.pace.split(':').map(Number);
+    const secs = pm * 60 + (ps || 0);
+    if (secs < 275) return 'hard';
+    if (secs < 315) return 'moderate';
+    return 'easy';
+  })();
+
+  // Find days in this week with matching type that don't have an exact-day activity
+  const actIdx = buildActivityIndex();
+  for (const day of dayOrder) {
+    const session = week.days[day];
+    if (!session || session.dot === 'rest') continue;
+    if (day === dayName) continue; // already checked above
+
+    // Skip if another activity already matches this day exactly
+    const key = `${weekNum}-${day}`;
+    const existing = actIdx[key] || [];
+    const hasExactMatch = existing.some(a => {
+      const [ay,am,ad] = (a.date||'').split('-');
+      const adt = new Date(ay,am-1,ad);
+      return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][adt.getDay()] === day;
+    });
+    if (hasExactMatch) continue;
+
+    // Match by dot type similarity
+    if (actDot && session.dot === actDot) {
+      return { week: weekNum, day, planned: session, flexible: true };
+    }
+
+    // Fallback: match by distance proximity if we can parse a target
+    const targetKm = getPlannedDistanceKm(session);
+    if (targetKm && actKm > 0 && Math.abs(actKm - targetKm) / targetKm < 0.3) {
+      return { week: weekNum, day, planned: session, flexible: true };
+    }
+  }
+
+  // 3. Still no match — return day with rest/unmatched so at least week is known
+  return { week: weekNum, day: dayName, planned: exactDay || null };
 }
 
 function getPlannedDistanceKm(planned) {
@@ -750,6 +804,64 @@ function renderDashboard() {
       </div><div style="font-size:12px;color:var(--text-muted);text-align:center">${Math.round(macroTotals.k)} kcal · ${todayMeals.length} item${todayMeals.length!==1?'s':''} logged</div>`
     : '<div style="font-size:13px;color:var(--text-muted)">No food logged today. <button class="btn-secondary" style="font-size:12px;padding:4px 10px;margin-left:6px" onclick="showPage(\'meals\')">Log food →</button></div>';
 
+  // Build week snapshot HTML outside template literal to avoid nesting issues
+  const weekSnapshotHTML = (() => {
+    if (!wkNum) return '';
+    const actI = buildActivityIndex();
+    const todayDay = getCurrentDayOfWeek();
+    const todayIdx = dayOrder.indexOf(todayDay);
+    const completionPctWk = Math.min(100, Math.round(parseFloat(kmLogged) / (parseFloat(kmPlanned) || 1) * 100));
+    const ringDash = Math.round(94.2 * completionPctWk / 100);
+    const dotCols = { easy:'#1D9E75', hard:'#378ADD', moderate:'#EF9F27', rest:'var(--border)', strength:'#9B7DE8', race:'#E05252' };
+
+    const daysHTML = dayOrder.map(day => {
+      const s = weeks[wkNum-1].days[day];
+      if (!s) return '';
+      const isToday = day === todayDay;
+      const isPast = dayOrder.indexOf(day) < todayIdx;
+      const dotCol = dotCols[s.dot] || 'var(--border)';
+      const dayActs = actI[wkNum + '-' + day] || [];
+      const act = dayActs[0];
+      const actLine = act
+        ? '<div class="dwday-act">' + act.distance + 'km &middot; ' + (act.pace || '—') + '/km' + (act.average_heartrate ? ' &hearts;' + Math.round(act.average_heartrate) : '') + '</div>'
+        : '';
+      const doneIcon = act ? '&#10003; ' : '';
+      const detailText = s.dot !== 'rest' ? '<div class="dwday-detail">' + (s.detail || '').split('·')[0].trim() + '</div>' : '';
+      const classes = 'dwday' + (isToday ? ' dwday-today' : '') + (isPast && !act && s.dot !== 'rest' ? ' dwday-missed' : '') + (act ? ' dwday-done' : '');
+      return '<div class="' + classes + '">' +
+        '<div class="dwday-dot" style="background:' + dotCol + '"></div>' +
+        '<div class="dwday-info">' +
+          '<div class="dwday-label">' + day + (isToday ? ' &middot; Today' : '') + '</div>' +
+          '<div class="dwday-type">' + doneIcon + s.type + '</div>' +
+          detailText + actLine +
+        '</div></div>';
+    }).join('');
+
+    const hrBanner = avgHR
+      ? '<div class="dash-hr-banner ' + (avgEasyHR && avgEasyHR > hrEasyTarget ? 'dash-hr-hot' : 'dash-hr-ok') + '">' +
+        '<span>&#9829; HR on easy runs: ' + (avgEasyHR || avgHR) + 'bpm avg</span>' +
+        '<span class="dash-hr-flag">' + (avgEasyHR && avgEasyHR > hrEasyTarget ? '&#9888; Running Hot &mdash; slow down' : 'On Target') + '</span>' +
+        '</div>'
+      : '';
+
+    return '<div class="dash-week-snapshot">' +
+      '<div class="dash-week-header">' +
+        '<div>' +
+          '<div class="dash-week-title">Week ' + weekLabel + ' &middot; ' + phaseText + '</div>' +
+          '<div class="dash-week-sub">' + kmLogged + ' of ' + kmPlanned + 'km logged</div>' +
+        '</div>' +
+        '<div class="dash-week-progress-wrap">' +
+          '<svg viewBox="0 0 36 36" class="dash-ring-svg">' +
+            '<circle cx="18" cy="18" r="15" fill="none" stroke="var(--border)" stroke-width="3"/>' +
+            '<circle cx="18" cy="18" r="15" fill="none" stroke="#1D9E75" stroke-width="3" stroke-dasharray="' + ringDash + ' 94.2" stroke-linecap="round" transform="rotate(-90 18 18)"/>' +
+          '</svg>' +
+          '<span class="dash-ring-pct">' + completionPctWk + '%</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="dash-week-days">' + daysHTML + '</div>' +
+    '</div>' + hrBanner;
+  })();
+
 el.innerHTML = `
   <div class="dashboard-stack">
     <div>
@@ -777,12 +889,7 @@ el.innerHTML = `
       </div>
     </div>
 
-    <div class="dash-grid">
-      <div class="dash-stat-card"><div class="dsc-label">Current Week</div><div class="dsc-value">${weekLabel}</div><div class="dsc-sub">${phaseText}</div></div>
-      <div class="dash-stat-card"><div class="dsc-label">This Week</div><div class="dsc-value">${kmLogged}</div><div class="dsc-sub">of ${kmPlanned} km planned</div></div>
-      <div class="dash-stat-card"><div class="dsc-label">Today</div><div class="dsc-value" style="font-size:16px;padding-top:6px">${todayType}</div><div class="dsc-sub">${todayDetail}</div></div>
-      ${avgHR ? `<div class="dash-stat-card"><div class="dsc-label">Avg Heart Rate</div><div class="dsc-value" style="color:${avgEasyHR&&avgEasyHR>hrEasyTarget?'#EF9F27':'var(--text)'}">${avgHR}</div><div class="dsc-sub">bpm avg · ${avgEasyHR?avgEasyHR+' bpm easy runs':''}</div></div>` : ''}
-    </div>
+    ${weekSnapshotHTML}
 
     ${wkNum && session && session.dot !== 'rest' ? `
     <div class="digest-card" style="margin-bottom:16px;border-left:3px solid var(--accent)">
@@ -1742,7 +1849,7 @@ function renderActivitiesPage() {
     const icon = isStrength ? '🏋️' : isCycling ? '🚴' : '🏃';
     const metaLabel = isStrength ? 'Strength session'
       : isCycling ? 'Cycling'
-      : match ? `Wk${match.week} ${match.day} · ${match.planned?.type||'—'}` : 'Outside plan dates';
+      : match?.planned ? `Wk${match.week} ${match.day} · ${match.planned?.type||'—'}${match.flexible ? ' ↔' : ''}` : 'Outside plan dates';
     const badgeHTML = isStrength
       ? '<span class="match-badge mb-unmatched">🏋️ Strength</span>'
       : isCycling
@@ -1755,27 +1862,30 @@ function renderActivitiesPage() {
     // Splits table for runs
     const splits = Array.isArray(act.splits_metric) ? act.splits_metric : [];
     const splitsHTML = (!isStrength && !isCycling && splits.length) ? `
-      <div class="act-splits" id="splits-${actId}" style="display:none">
-        <div class="act-splits-header">
-          <span>km</span><span>Pace</span><span>HR</span><span>Elev</span>
+      <div class="act-splits-wrap">
+        <button class="act-splits-toggle" onclick="toggleSplits('${actId}')">
+          <span>Splits</span> <span class="act-splits-toggle-icon" id="splits-icon-${actId}">▾</span>
+        </button>
+        <div class="act-splits" id="splits-${actId}" style="display:none">
+          <div class="act-splits-header">
+            <span>KM</span><span>Pace</span><span>HR</span><span>Elev</span>
+          </div>
+          ${splits.map(s => {
+            const paceSecs = !s.pace ? null : (() => { const [m,sec] = s.pace.split(':').map(Number); return m*60+sec; })();
+            const paceColor = !paceSecs ? '' : paceSecs < 265 ? 'color:#E05252' : paceSecs < 310 ? 'color:#EF9F27' : 'color:var(--text)';
+            const hrColor = !s.hr ? '' : s.hr > 170 ? 'color:#E05252' : s.hr > 155 ? 'color:#EF9F27' : 'color:#1D9E75';
+            return `<div class="act-splits-row">
+              <span class="split-km">${s.km}</span>
+              <span class="split-pace" style="${paceColor}">${s.pace||'—'}</span>
+              <span class="split-hr" style="${hrColor}">${s.hr ? s.hr : '—'}</span>
+              <span class="split-elev">${s.elevation != null ? (s.elevation > 0 ? '+' : '')+s.elevation+'m' : '—'}</span>
+            </div>`;
+          }).join('')}
         </div>
-        ${splits.map(s => {
-          const paceColor = !s.pace ? '' : (() => {
-            const [m,sec] = s.pace.split(':').map(Number); const secs = m*60+sec;
-            return secs < 265 ? 'color:#E05252' : secs < 310 ? 'color:#EF9F27' : 'color:#1D9E75';
-          })();
-          return `<div class="act-splits-row">
-            <span>${s.km}</span>
-            <span style="font-family:var(--mono);${paceColor}">${s.pace||'—'}/km</span>
-            <span>${s.hr ? s.hr+'bpm' : '—'}</span>
-            <span>${s.elevation != null ? (s.elevation > 0 ? '+' : '')+s.elevation+'m' : '—'}</span>
-          </div>`;
-        }).join('')}
       </div>
-      <button class="act-splits-toggle" onclick="toggleSplits('${actId}')">Show splits ▾</button>
     ` : '';
 
-    const gearBadge = act.gear_name ? `<span style="font-size:11px;color:var(--text-muted);font-family:var(--mono)">👟 ${act.gear_name}</span>` : '';
+    const gearLine = act.gear_name ? `<div class="act-gear-line">👟 ${act.gear_name}</div>` : '';
     const autoAnalysisHTML = act.auto_analysis ? `<div class="act-auto-analysis">${act.auto_analysis}</div>` : '';
 
 const statsHTML = isStrength ? '' : `
@@ -1837,7 +1947,7 @@ const statsHTML = isStrength ? '' : `
   </div>
   ${autoAnalysisHTML}
   ${splitsHTML}
-  ${gearBadge ? `<div style="margin-top:6px;padding:0 2px">${gearBadge}</div>` : ''}
+  ${gearLine}
 `;
 return `<div class="activity-card">
   <div class="activity-card-header">
@@ -2085,11 +2195,11 @@ await saveActivityDebriefFromText(actId, act, enrichedText);
 
 function toggleSplits(actId) {
   const el = document.getElementById('splits-' + actId);
-  const btn = el?.nextElementSibling;
+  const icon = document.getElementById('splits-icon-' + actId);
   if (!el) return;
   const open = el.style.display === 'none' || !el.style.display;
   el.style.display = open ? 'block' : 'none';
-  if (btn) btn.textContent = open ? 'Hide splits ▴' : 'Show splits ▾';
+  if (icon) icon.textContent = open ? '▴' : '▾';
 }
 
 async function refreshActivity(stravaId, btn) {
@@ -2247,7 +2357,8 @@ async function addManualActivity() {
       name: type,
       sport_type: type,
       start_date: date + 'T00:00:00Z',
-      distance: dist * 1000,
+      start_date_local: date + 'T00:00:00Z',
+      distance: dist,   // store in km, consistent with webhook
       pace,
       average_speed: speed,
       elapsed_time: Math.round((m*60+(s||0))*dist),
@@ -2561,6 +2672,121 @@ function renderStrengthPage() {
   if (firstEx) toggleGymCard(firstEx.id, true);
 }
 
+
+
+function getPrevSetData(exId, setIdx) {
+  const prev = strengthLog[0];
+  if (!prev) return '—';
+  const ex = (prev.exercises || []).find(e => e.name && e.name.toLowerCase().includes(exId.toLowerCase().replace('rdl','romanian').replace('bss','bulgarian').replace('hip','hip').replace('curl','hamstring').replace('calf','calf').replace('cope','copenhagen').replace('nordic','nordic').replace('mobility','mobility')));
+  if (!ex || !ex.sets?.[setIdx]) return '—';
+  const s = ex.sets[setIdx];
+  return s.kg ? s.kg + 'kg×' + (s.reps || '?') : '—';
+}
+
+function toggleGymCard(exId, forceOpen) {
+  const body = document.getElementById('gymbody-' + exId);
+  const chev = document.getElementById('gymchev-' + exId);
+  if (!body) return;
+  const shouldOpen = forceOpen !== undefined ? forceOpen : !body.classList.contains('open');
+  body.classList.toggle('open', shouldOpen);
+  if (chev) chev.textContent = shouldOpen ? '⌄' : '›';
+}
+
+function toggleAlts(exId) {
+  const el = document.getElementById('alts-' + exId);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function swapExercise(exId, altName) {
+  if (!currentStrengthSession[exId]) currentStrengthSession[exId] = {};
+  currentStrengthSession[exId]._swapped = altName;
+  localStorage.setItem('strength_session_wip', JSON.stringify(currentStrengthSession));
+  const card = document.getElementById('gymcard-' + exId);
+  if (card) {
+    const nameEl = card.querySelector('.gym-card-name');
+    if (nameEl) nameEl.firstChild.textContent = altName + ' ';
+  }
+  toggleAlts(exId);
+}
+
+function updateSetRow(exId, setIdx) {
+  const saved = currentStrengthSession[exId];
+  const s = saved?.sets?.[setIdx];
+  const row = document.getElementById('set-row-' + exId + '-' + setIdx);
+  if (row && (s?.kg || s?.reps)) row.classList.add('gym-set-done');
+  const ex = getStrengthExercises().find(e => e.id === exId);
+  if (!ex) return;
+  const completedSets = Object.keys(saved?.sets || {}).filter(i => saved.sets[i]?.kg || saved.sets[i]?.reps).length;
+  const progressPct = Math.round(completedSets / ex.sets * 100);
+  const card = document.getElementById('gymcard-' + exId);
+  if (!card) return;
+  const ringCircle = card.querySelectorAll('.gym-ring-svg circle')[1];
+  if (ringCircle) ringCircle.setAttribute('stroke-dasharray', Math.round(94.2 * progressPct / 100) + ' 94.2');
+  const ringLabel = card.querySelector('.gym-ring-label');
+  if (ringLabel) ringLabel.textContent = completedSets + '/' + ex.sets;
+  if (completedSets >= ex.sets) card.classList.add('gym-card-complete');
+}
+
+function tickSet(exId, setIdx, btn) {
+  const row = document.getElementById('set-row-' + exId + '-' + setIdx);
+  if (!row) return;
+  row.classList.toggle('gym-set-done');
+  btn.classList.toggle('ticked');
+}
+
+function saveSetData(exId, setIdx, field, value) {
+  if (!currentStrengthSession[exId]) currentStrengthSession[exId] = { sets: [] };
+  if (!currentStrengthSession[exId].sets) currentStrengthSession[exId].sets = [];
+  if (!currentStrengthSession[exId].sets[setIdx]) currentStrengthSession[exId].sets[setIdx] = {};
+  currentStrengthSession[exId].sets[setIdx][field] = value;
+  localStorage.setItem('strength_session_wip', JSON.stringify(currentStrengthSession));
+  flashSaved();
+}
+
+function saveExNotes(exId, value) {
+  if (!currentStrengthSession[exId]) currentStrengthSession[exId] = {};
+  currentStrengthSession[exId].notes = value;
+  localStorage.setItem('strength_session_wip', JSON.stringify(currentStrengthSession));
+  flashSaved();
+}
+
+function flashSaved() {
+  const el = document.getElementById('st-saved-msg');
+  if (!el) return;
+  el.classList.add('show');
+  clearTimeout(window._savedTimer);
+  window._savedTimer = setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+function toggleStHist(idx) {
+  const body = document.getElementById('sth-body-' + idx);
+  const chev = document.getElementById('sth-chev-' + idx);
+  if (!body) return;
+  body.classList.toggle('open');
+  if (chev) chev.textContent = body.classList.contains('open') ? '▲' : '▼';
+}
+
+async function completeStrengthSession() {
+  const wkNum = getCurrentWeekNum() || 1;
+  const exercises = getStrengthExercises().map(ex => ({
+    name: currentStrengthSession[ex.id]?._swapped || ex.name,
+    sets: currentStrengthSession[ex.id]?.sets || [],
+    notes: currentStrengthSession[ex.id]?.notes || ''
+  }));
+  try {
+    await api.post('strength_sessions', {
+      session_date: todayISO(),
+      week_num: wkNum,
+      exercises
+    }, 'return=minimal');
+    currentStrengthSession = {};
+    localStorage.removeItem('strength_session_wip');
+    const sessions = await api.get('strength_sessions', 'select=*&order=session_date.desc&limit=30');
+    strengthLog = (sessions || []).map(s => ({ id: s.id, date: s.session_date, week: s.week_num, exercises: s.exercises || [] }));
+    renderStrengthPage();
+    alert('Session logged ✓ — Week ' + wkNum + ' strength session saved.');
+  } catch(e) { alert('Error saving session: ' + e.message); }
+}
 
 async function deleteStrengthEntry(idx) {
   if(!confirm('Delete this strength session?')) return;
