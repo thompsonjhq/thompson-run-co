@@ -30,6 +30,10 @@
       <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       Coach
     </button>
+    <button class="nav-item" onclick="showPage('strength',this)">
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5h11M6.5 17.5h11M3 12h18M7 3v18M17 3v18"/></svg>
+      Strength
+    </button>
     <button class="nav-item" onclick="showPage('activities',this)">
       <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
       Activity
@@ -45,7 +49,6 @@
     </button>
     <div class="nav-section">Reference</div>
     <button class="nav-item" onclick="showPage('paces',this)"><span class="nav-dot" style="background:#378ADD"></span>Training Paces</button>
-    <button class="nav-item" onclick="showPage('strength',this)"><span class="nav-dot" style="background:#7F77DD"></span>Strength Plan</button>
     <button class="nav-item" onclick="showPage('nutrition',this)"><span class="nav-dot" style="background:#EF9F27"></span>Nutrition</button>
     <button class="nav-item" onclick="showPage('methodology',this)"><span class="nav-dot" style="background:#888780"></span>Methodology</button>
     <button class="nav-item" onclick="showPage('hamstring',this)"><span class="nav-dot" style="background:#E24B4A"></span>Injury Management</button>
@@ -81,7 +84,6 @@
       <div style="font-size:11px;font-family:var(--mono);color:var(--text-faint);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)">Reference</div>
       <div style="display:flex;flex-direction:column;gap:6px">
         <button class="more-drawer-btn" onclick="showPageFromDrawer('paces')">Training Paces</button>
-        <button class="more-drawer-btn" onclick="showPageFromDrawer('strength')">Strength Plan</button>
         <button class="more-drawer-btn" onclick="showPageFromDrawer('nutrition')">Nutrition</button>
         <button class="more-drawer-btn" onclick="showPageFromDrawer('methodology')">Methodology</button>
         <button class="more-drawer-btn" onclick="showPageFromDrawer('hamstring')">Injury Management</button>
