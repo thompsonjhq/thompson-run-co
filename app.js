@@ -452,13 +452,13 @@ function matchActivityToSession(act) {
   const week = weeks[weekNum - 1];
   const exactDay = week.days[dayName];
 
-  // 1. Exact day match (not a rest day)
+  // Exact day match on a non-rest day — primary path
   if (exactDay && exactDay.dot !== 'rest') {
     return { week: weekNum, day: dayName, planned: exactDay };
   }
 
-  // 2. Flexible match — find a session type in the week that fits this activity type
-  // and hasn't already been claimed by an activity on its own day
+  // Flexible match — find session in week matching this activity's type/distance
+  // (no buildActivityIndex call here — that would cause infinite recursion)
   const actKm = parseFloat(act.distance || 0);
   const actDot = (() => {
     if (!act.pace) return null;
@@ -469,36 +469,19 @@ function matchActivityToSession(act) {
     return 'easy';
   })();
 
-  // Find days in this week with matching type that don't have an exact-day activity
-  const actIdx = buildActivityIndex();
   for (const day of dayOrder) {
+    if (day === dayName) continue;
     const session = week.days[day];
     if (!session || session.dot === 'rest') continue;
-    if (day === dayName) continue; // already checked above
-
-    // Skip if another activity already matches this day exactly
-    const key = `${weekNum}-${day}`;
-    const existing = actIdx[key] || [];
-    const hasExactMatch = existing.some(a => {
-      const [ay,am,ad] = (a.date||'').split('-');
-      const adt = new Date(ay,am-1,ad);
-      return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][adt.getDay()] === day;
-    });
-    if (hasExactMatch) continue;
-
-    // Match by dot type similarity
     if (actDot && session.dot === actDot) {
       return { week: weekNum, day, planned: session, flexible: true };
     }
-
-    // Fallback: match by distance proximity if we can parse a target
     const targetKm = getPlannedDistanceKm(session);
     if (targetKm && actKm > 0 && Math.abs(actKm - targetKm) / targetKm < 0.3) {
       return { week: weekNum, day, planned: session, flexible: true };
     }
   }
 
-  // 3. Still no match — return day with rest/unmatched so at least week is known
   return { week: weekNum, day: dayName, planned: exactDay || null };
 }
 
