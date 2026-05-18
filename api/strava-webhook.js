@@ -63,7 +63,7 @@ async function fetchAndStore(stravaId, access_token) {
   const weekPlan = {
     1: { Mon:{dot:'easy',type:'Easy Run',km:5}, Tue:{dot:'easy',type:'Easy Run',km:6}, Sat:{dot:'easy',type:'Long Run',km:10} },
     2: { Mon:{dot:'easy',type:'Strides',km:7}, Tue:{dot:'easy',type:'Easy Run',km:7}, Sat:{dot:'easy',type:'Long Run',km:12} },
-    3: { Mon:{dot:'hard',type:'Intervals',km:10,intervals:{reps:8,dist:400,targetPace:'4:10'}}, Tue:{dot:'easy',type:'Easy Run',km:8}, Thu:{dot:'moderate',type:'Tempo',km:7,tempo:{duration_min:12,targetPace:'4:25'}}, Sat:{dot:'easy',type:'Long Run',km:13} },
+    3: { Mon:{dot:'hard',type:'Intervals',km:10,intervals:{reps:8,dist:400,targetPace:'4:10'}}, Tue:{dot:'easy',type:'Easy Run',km:8}, Wed:{dot:'moderate',type:'Tempo',km:7,tempo:{duration_min:12,targetPace:'4:25'}}, Thu:{dot:'strength',type:'Strength'}, Sat:{dot:'easy',type:'Long Run',km:13} },
     4: { Mon:{dot:'easy',type:'Strides',km:7}, Tue:{dot:'easy',type:'Easy Run',km:6}, Thu:{dot:'moderate',type:'Tempo',km:6,tempo:{duration_min:10,targetPace:'4:25'}}, Sat:{dot:'easy',type:'Long Run',km:11} },
     5: { Mon:{dot:'hard',type:'Intervals',km:10,intervals:{reps:6,dist:1000,targetPace:'4:12'}}, Tue:{dot:'easy',type:'Easy Run',km:9}, Thu:{dot:'moderate',type:'Tempo',km:8,tempo:{duration_min:20,targetPace:'4:25'}}, Sat:{dot:'easy',type:'Long Run',km:17} },
     6: { Mon:{dot:'hard',type:'Intervals',km:10,intervals:{reps:5,dist:1200,targetPace:'4:12'}}, Tue:{dot:'easy',type:'Easy Run',km:10}, Thu:{dot:'moderate',type:'Tempo',km:9,tempo:{duration_min:30,targetPace:'4:25'}}, Sat:{dot:'moderate',type:'Long Run',km:16} },
