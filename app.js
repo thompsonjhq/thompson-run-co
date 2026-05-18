@@ -32,29 +32,29 @@ const RACE_DATE  = new Date(2026, 6, 19);
 
 const weeks = [
   { num:1, phase:'base', label:'Return To Running', km:21, note:'Maintenance week transitioning into the plan. All easy aerobic running — no intervals, no tempo. Re-establish the habit, wake the legs up, introduce strength without digging a hole.', hamstring:true,
-    days:{ Mon:{type:'Easy Run',detail:'5km easy Z2 · 5:50/km · genuinely conversational',dot:'easy'}, Tue:{type:'Easy Run',detail:'6km easy Z2 · 5:45/km · relaxed',dot:'easy'}, Wed:{type:'Strength',detail:'40 min · RDL first + Nordics · 3×10 light',dot:'strength'}, Thu:{type:'Rest',detail:'Full rest day — resist the urge to run',dot:'rest'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'10km easy Z2 · 5:50/km · flat route, no watch pressure',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+    days:{ Mon:{type:'Easy Run',detail:'5km easy Z2 · 5:50/km · genuinely conversational',dot:'easy'}, Tue:{type:'Easy Run',detail:'6km easy Z2 · 5:45/km · relaxed',dot:'easy'}, Wed:{type:'Easy Run',detail:'4km very easy · shake the legs out',dot:'easy'}, Thu:{type:'Strength',detail:'40 min · RDL first + Nordics · 3×10 light',dot:'strength'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'10km easy Z2 · 5:50/km · flat route, no watch pressure',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:2, phase:'base', label:'Building The Habit', km:26, note:'+5km on week 1. Still no hard sessions — introduce strides on Tuesday. Keep long run easy.', hamstring:true,
-    days:{ Mon:{type:'Strides',detail:'7km easy + 6×80m strides · relaxed, not sprinting',dot:'easy'}, Tue:{type:'Easy Run',detail:'7km easy Z2 · 5:45/km',dot:'easy'}, Wed:{type:'Strength',detail:'40 min · RDL + Nordics · 3×10 · start adding light load',dot:'strength'}, Thu:{type:'Rest',detail:'Full rest day',dot:'rest'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'12km easy Z2 · 5:50/km · focus on time on feet',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+    days:{ Mon:{type:'Strides',detail:'7km easy + 6×80m strides · relaxed, not sprinting',dot:'easy'}, Tue:{type:'Easy Run',detail:'7km easy Z2 · 5:45/km',dot:'easy'}, Wed:{type:'Easy Run',detail:'5km easy · keep it relaxed',dot:'easy'}, Thu:{type:'Strength',detail:'40 min · RDL + Nordics · 3×10 · start adding light load',dot:'strength'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'12km easy Z2 · 5:50/km · focus on time on feet',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:3, phase:'base', label:'First Quality Work', km:34, note:'First intervals of the plan — kept short and conservative. Tempo introduced at the lower end. Hamstring protocol active on all speed work.', hamstring:true,
-    days:{ Mon:{type:'Intervals',detail:'8×400m @ 4:10/km · 90s rest · 2km WU/CD · conservative pace',dot:'hard'}, Tue:{type:'Easy Run',detail:'8km easy Z2 · 5:45/km',dot:'easy'}, Wed:{type:'Strength',detail:'45 min · RDL + Nordics priority · 3×10',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 12 min @ Z4 (4:25/km) · 2km CD · total ~7km',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'13km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+    days:{ Mon:{type:'Intervals',detail:'8×400m @ 4:10/km · 90s rest · 2km WU/CD · conservative pace',dot:'hard'}, Tue:{type:'Easy Run',detail:'8km easy Z2 · 5:45/km',dot:'easy'}, Wed:{type:'Tempo',detail:'2km WU · 12 min @ Z4 (4:25/km) · 2km CD · total ~7km',dot:'moderate'}, Thu:{type:'Strength',detail:'45 min · RDL + Nordics priority · 3×10',dot:'strength'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'13km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:4, phase:'base', label:'Deload — Consolidate', km:29, note:'Planned deload after 3 progressive weeks. Volume drops ~15%. Quality maintained but sessions shorter. Body adapts during recovery weeks.', hamstring:true,
-    days:{ Mon:{type:'Strides',detail:'7km easy + 6×100m strides · relaxed turnover',dot:'easy'}, Tue:{type:'Easy Run',detail:'6km easy Z2 · full recovery feel',dot:'easy'}, Wed:{type:'Strength',detail:'40 min · reduced load, focus on form · 3×8',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 10 min @ Z4 · 2km CD · total ~6km',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'11km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+    days:{ Mon:{type:'Strides',detail:'7km easy + 6×100m strides · relaxed turnover',dot:'easy'}, Tue:{type:'Easy Run',detail:'6km easy Z2 · full recovery feel',dot:'easy'}, Wed:{type:'Tempo',detail:'2km WU · 10 min @ Z4 · 2km CD · total ~6km',dot:'moderate'}, Thu:{type:'Strength',detail:'40 min · reduced load, focus on form · 3×8',dot:'strength'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'11km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:5, phase:'build', label:'Threshold Introduction', km:40, note:'Phase 2 begins. A proper base is now under you. Longer intervals at race pace, longer tempo blocks. Resume full Z5b if hamstring soreness has resolved.', hamstring:false,
-    days:{ Mon:{type:'Intervals',detail:'6×1000m @ 10km RP (4:10–4:15) · 2 min rest · 2km WU/CD · total ~10km',dot:'hard'}, Tue:{type:'Easy Run',detail:'9km easy Z2',dot:'easy'}, Wed:{type:'Strength',detail:'50 min · Phase 2 load · 4×8',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 20 min Z4 continuous · 2km CD · total ~8km',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'15km easy Z2 + 2km Z3 finish · total 17km',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+    days:{ Mon:{type:'Intervals',detail:'6×1000m @ 10km RP (4:10–4:15) · 2 min rest · 2km WU/CD · total ~10km',dot:'hard'}, Tue:{type:'Easy Run',detail:'9km easy Z2',dot:'easy'}, Wed:{type:'Tempo',detail:'2km WU · 20 min Z4 continuous · 2km CD · total ~8km',dot:'moderate'}, Thu:{type:'Strength',detail:'50 min · Phase 2 load · 4×8',dot:'strength'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'15km easy Z2 + 2km Z3 finish · total 17km',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:6, phase:'build', label:'Volume Increase', km:44, note:'Longer intervals and tempo. Long run adds progression finish. Keep Monday genuinely easy.', hamstring:false,
-    days:{ Mon:{type:'Intervals',detail:'5×1200m @ 10km RP · 2.5 min rest · 2km WU/CD · total ~10km',dot:'hard'}, Tue:{type:'Easy Run',detail:'10km easy Z2',dot:'easy'}, Wed:{type:'Strength',detail:'50 min · Progressive load · 3×8',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 2×15 min Z4 (3 min jog) · 2km CD · total ~9km',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'16km · last 4km @ Z3 progression',dot:'moderate'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+    days:{ Mon:{type:'Intervals',detail:'5×1200m @ 10km RP · 2.5 min rest · 2km WU/CD · total ~10km',dot:'hard'}, Tue:{type:'Easy Run',detail:'10km easy Z2',dot:'easy'}, Wed:{type:'Tempo',detail:'2km WU · 2×15 min Z4 (3 min jog) · 2km CD · total ~9km',dot:'moderate'}, Thu:{type:'Strength',detail:'50 min · Progressive load · 3×8',dot:'strength'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'16km · last 4km @ Z3 progression',dot:'moderate'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:7, phase:'build', label:'Aerobic Push', km:47, note:'Highest aerobic volume of the build. Thursday 30 min tempo is the key session — protect it.', hamstring:false,
-    days:{ Mon:{type:'Intervals',detail:'10×400m @ Z5b (3:58/km) · 75s rest · 2km WU/CD · total ~8km',dot:'hard'}, Tue:{type:'Easy Run',detail:'11km easy Z2',dot:'easy'}, Wed:{type:'Strength',detail:'50 min · Heavy phase · 4×6–8',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 30 min Z4 continuous · 2km CD · total ~10km',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'17km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+    days:{ Mon:{type:'Intervals',detail:'10×400m @ Z5b (3:58/km) · 75s rest · 2km WU/CD · total ~8km',dot:'hard'}, Tue:{type:'Easy Run',detail:'11km easy Z2',dot:'easy'}, Wed:{type:'Tempo',detail:'2km WU · 30 min Z4 continuous · 2km CD · total ~10km',dot:'moderate'}, Thu:{type:'Strength',detail:'50 min · Heavy phase · 4×6–8',dot:'strength'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'17km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:8, phase:'build', label:'Deload — Consolidate', km:37, note:'Second deload. Volume drops, two quality sessions maintained at shorter duration. Legs should feel fresher by Saturday.', hamstring:false,
-    days:{ Mon:{type:'Intervals',detail:'6×800m @ 10km RP · 90s rest · 2km WU/CD · total ~9km',dot:'hard'}, Tue:{type:'Easy Run',detail:'8km easy Z2 + 4×100m strides',dot:'easy'}, Wed:{type:'Strength',detail:'45 min · Reduced load, maintain form',dot:'strength'}, Thu:{type:'Easy Run',detail:'8km easy Z2',dot:'easy'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'13km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+    days:{ Mon:{type:'Intervals',detail:'6×800m @ 10km RP · 90s rest · 2km WU/CD · total ~9km',dot:'hard'}, Tue:{type:'Easy Run',detail:'8km easy Z2 + 4×100m strides',dot:'easy'}, Wed:{type:'Easy Run',detail:'8km easy Z2',dot:'easy'}, Thu:{type:'Strength',detail:'45 min · Reduced load, maintain form',dot:'strength'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'13km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:9, phase:'build', label:'Peak Volume', km:50, note:'Highest weekly volume in the plan. 4×2km at race pace is the centrepiece — all other sessions exist to enable that one.', hamstring:false,
-    days:{ Mon:{type:'Intervals',detail:'4×2000m @ 10km RP (4:10) · 3 min rest · 2km WU/CD · total ~12km',dot:'hard'}, Tue:{type:'Easy Run',detail:'11km easy Z2',dot:'easy'}, Wed:{type:'Strength',detail:'55 min · Peak strength block · 4×6–8',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 35 min Z4 · 2km CD · total ~11km',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'18km · last 5km @ Z3',dot:'moderate'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+    days:{ Mon:{type:'Intervals',detail:'4×2000m @ 10km RP (4:10) · 3 min rest · 2km WU/CD · total ~12km',dot:'hard'}, Tue:{type:'Easy Run',detail:'11km easy Z2',dot:'easy'}, Wed:{type:'Tempo',detail:'2km WU · 35 min Z4 · 2km CD · total ~11km',dot:'moderate'}, Thu:{type:'Strength',detail:'55 min · Peak strength block · 4×6–8',dot:'strength'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'18km · last 5km @ Z3',dot:'moderate'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:10, phase:'peak', label:'Race-Specific Sharpening', km:46, note:'Volume slightly reduced, intensity at exact race pace. The 3×3km at race pace should feel controlled.', hamstring:false,
     days:{ Mon:{type:'Race Pace',detail:'3×3km @ exact race pace (4:11/km) · 3 min rest · 2km WU/CD · total ~11km',dot:'hard'}, Tue:{type:'Easy Run',detail:'10km easy Z2',dot:'easy'}, Wed:{type:'Strength',detail:'45 min · Maintain strength, reduce volume',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 25 min Z4 · 2km CD · total ~9km',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'17km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:11, phase:'peak', label:'Race Simulation', km:44, note:'8km race simulation Saturday. Treat it like race day — warm up properly, execute the pace, don\'t blow up.', hamstring:false,
-    days:{ Mon:{type:'Intervals',detail:'12×400m @ Z5b (3:55/km) · 60s rest · 2km WU/CD · total ~8km',dot:'hard'}, Tue:{type:'Easy Run',detail:'10km easy Z2',dot:'easy'}, Wed:{type:'Strength',detail:'40 min · Reduced intensity, keep form',dot:'strength'}, Thu:{type:'Easy Run',detail:'8km easy Z2 · fresh legs for Sat',dot:'easy'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Race Simulation',detail:'2km WU · 8km @ 4:10–4:12/km · 2km CD · total 12km',dot:'race'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+    days:{ Mon:{type:'Intervals',detail:'12×400m @ Z5b (3:55/km) · 60s rest · 2km WU/CD · total ~8km',dot:'hard'}, Tue:{type:'Easy Run',detail:'10km easy Z2',dot:'easy'}, Wed:{type:'Easy Run',detail:'8km easy Z2 · fresh legs for Sat',dot:'easy'}, Thu:{type:'Strength',detail:'40 min · Reduced intensity, keep form',dot:'strength'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Race Simulation',detail:'2km WU · 8km @ 4:10–4:12/km · 2km CD · total 12km',dot:'race'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:12, phase:'taper', label:'Freshen Up', km:30, note:'Volume drops 30–35%. Keep two quality sessions but shorten them. The fitness is banked — trust the taper.', hamstring:false,
-    days:{ Mon:{type:'Intervals',detail:'6×600m @ race pace · 2 min rest · 2km WU/CD · total ~6km',dot:'hard'}, Tue:{type:'Easy Run',detail:'7km easy Z2',dot:'easy'}, Wed:{type:'Strength',detail:'25 min · Bodyweight + activation only',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 12 min Z4 · 2km CD · total ~6km',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Easy Run',detail:'9km easy Z2 · no long run',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+    days:{ Mon:{type:'Intervals',detail:'6×600m @ race pace · 2 min rest · 2km WU/CD · total ~6km',dot:'hard'}, Tue:{type:'Easy Run',detail:'7km easy Z2',dot:'easy'}, Wed:{type:'Tempo',detail:'2km WU · 12 min Z4 · 2km CD · total ~6km',dot:'moderate'}, Thu:{type:'Strength',detail:'25 min · Bodyweight + activation only',dot:'strength'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Easy Run',detail:'9km easy Z2 · no long run',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:13, phase:'taper', label:'Race Week', km:24, note:'19 July race day. Everything this week is activation. Short, sharp, easy. Sleep is your biggest performance lever.', hamstring:false,
     days:{ Mon:{type:'Easy Run',detail:'5km very easy Z1 · shake out legs',dot:'easy'}, Tue:{type:'Shakeout',detail:'4km easy + 4×100m race pace strides · feel sharp',dot:'easy'}, Wed:{type:'Rest',detail:'Full rest day',dot:'rest'}, Thu:{type:'Shakeout',detail:'3km easy + 4×100m strides · keep very short',dot:'easy'}, Fri:{type:'Rest',detail:'Prep kit, finalise nutrition plan, early night',dot:'rest'}, Sat:{type:'RACE DAY',detail:'10km · Target: sub-42:00 (4:11/km) · 2km WU · trust the training',dot:'race'}, Sun:{type:'Rest',detail:'',dot:'rest'} }}
 ];
@@ -1046,33 +1046,20 @@ el.innerHTML = `
       <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Bar height = planned weekly load. Dark fill = actual completed.</p>
       ${loadChartHTML}
     </div>
-    <div class="digest-card">
-      <div class="digest-header">
-        <div class="digest-title">Weekly Digest</div>
-        <button class="digest-btn" id="digest-btn" onclick="generateDigest()"><span id="digest-icon">✦</span> Generate</button>
-      </div>
-      <div class="digest-content" id="digest-content" style="color:var(--text-faint);font-style:italic">Click Generate for your AI weekly summary and coaching notes.</div>
-    </div>
+
     <div class="digest-card">
       <div class="digest-header" style="margin-bottom:8px"><div class="digest-title">Training Trends</div></div>
       <div>${trendsHTML}</div>
     </div>
-    <div class="digest-card">
-      <div class="digest-header" style="margin-bottom:8px">
-        <div class="digest-title">Today's Nutrition</div>
-        <button class="btn-secondary" onclick="showPage('meals')" style="font-size:12px;padding:5px 12px">Log food →</button>
-      </div>
-      ${macroHTML}
-    </div>
+
 ${wkNum ? `
 <div class="digest-card">
   <div class="digest-header" style="margin-bottom:12px">
     <div>
       <div class="digest-title">Weekly Check-In</div>
-      <div style="font-size:12px;color:var(--text-muted);margin-top:2px">A quick status check so the coach can adjust the week intelligently.</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Quick status so the coach can adjust intelligently.</div>
     </div>
   </div>
-
   <div class="checkin-grid">
     <div class="checkin-field">
       <label>Fatigue</label>
@@ -1085,7 +1072,6 @@ ${wkNum ? `
         <option value="5">5 · Very tired</option>
       </select>
     </div>
-
     <div class="checkin-field">
       <label>Soreness / niggles</label>
       <select class="checkin-input" id="checkin-niggle">
@@ -1098,7 +1084,6 @@ ${wkNum ? `
         <option value="5">5 · Do not run hard</option>
       </select>
     </div>
-
     <div class="checkin-field">
       <label>Sleep</label>
       <select class="checkin-input" id="checkin-sleep">
@@ -1107,7 +1092,6 @@ ${wkNum ? `
         <option>Poor</option>
       </select>
     </div>
-
     <div class="checkin-field">
       <label>Confidence</label>
       <select class="checkin-input" id="checkin-confidence">
@@ -1120,12 +1104,12 @@ ${wkNum ? `
       </select>
     </div>
   </div>
-
   <textarea class="checkin-notes" id="checkin-notes" rows="2" placeholder="Anything the coach should know? e.g. easing back in, busy week, tight calf, missed session..."></textarea>
-
-  <div style="display:flex;justify-content:flex-end;margin-top:10px">
-    <button class="btn-primary" onclick="saveWeeklyCheckin()">Save Check-In</button>
+  <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px">
+    <button class="digest-btn" id="digest-btn" onclick="generateDigest()"><span id="digest-icon">✦</span> Weekly Digest</button>
+    <button class="btn-primary" onclick="saveWeeklyCheckin()">Save &amp; Brief Coach</button>
   </div>
+  <div class="digest-content" id="digest-content" style="color:var(--text-faint);font-style:italic;margin-top:12px"></div>
 </div>
 ` : ''}
 
