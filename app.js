@@ -518,17 +518,140 @@ function getMatchQuality(act, planned) {
   return 'ok';
 }
 
+// ── SMART TWO-PASS ACTIVITY MATCHING ──
+// Week-level cache so we don't recompute constantly
+let _activityIndexCache = null;
+let _activityIndexCacheLen = 0;
+
 function buildActivityIndex() {
+  // Invalidate cache if activities array changed
+  if (_activityIndexCache && _activityIndexCacheLen === activities.length) {
+    return _activityIndexCache;
+  }
+
   const idx = {};
+
+  // Group activities by week
+  const byWeek = {};
   activities.forEach(act => {
-    const match = matchActivityToSession(act);
-    if (!match) return;
-    const key = `${match.week}-${match.day}`;
-    if (!idx[key]) idx[key] = [];
-    idx[key].push(act);
+    if (!act.date) return;
+    const [y,m,d] = act.date.split('-');
+    const dt = new Date(y, m-1, d);
+    const diffDays = Math.floor((dt - PLAN_START) / 86400000);
+    if (diffDays < 0) return;
+    const weekNum = Math.floor(diffDays / 7) + 1;
+    if (weekNum < 1 || weekNum > 13) return;
+    if (!byWeek[weekNum]) byWeek[weekNum] = [];
+    byWeek[weekNum].push({ act, dt, weekNum, dayName: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()] });
   });
+
+  // For each week, do two-pass matching
+  Object.entries(byWeek).forEach(([weekNum, entries]) => {
+    weekNum = parseInt(weekNum);
+    const week = weeks[weekNum - 1];
+    if (!week) return;
+
+    const claimedSessions = new Set(); // days already matched
+    const matched = new Map();          // act → { day, planned, flexible }
+
+    // PASS 1: exact day matches (activity occurred on the scheduled day)
+    entries.forEach(({ act, dayName }) => {
+      const session = week.days[dayName];
+      if (session && session.dot !== 'rest') {
+        matched.set(act, { day: dayName, planned: session, flexible: false });
+        claimedSessions.add(dayName);
+      }
+    });
+
+    // PASS 2: flexible matches for activities on rest days or unscheduled days
+    entries.forEach(({ act, dayName }) => {
+      if (matched.has(act)) return; // already matched in pass 1
+
+      const actKm = parseFloat(act.distance || 0);
+      const actDot = inferDot(act);
+
+      // Score each unmatched session in the week
+      let bestDay = null, bestScore = -1;
+      dayOrder.forEach(day => {
+        if (claimedSessions.has(day)) return;
+        const session = week.days[day];
+        if (!session || session.dot === 'rest' || session.dot === 'strength') return;
+
+        let score = 0;
+
+        // Type match
+        if (actDot && session.dot === actDot) score += 3;
+        else if (actDot === 'easy' && session.dot === 'moderate') score += 1;
+        else if (actDot === 'moderate' && session.dot === 'easy') score += 1;
+
+        // Distance match
+        const targetKm = getPlannedDistanceKm(session);
+        if (targetKm && actKm > 0) {
+          const ratio = Math.abs(actKm - targetKm) / targetKm;
+          if (ratio < 0.15) score += 3;
+          else if (ratio < 0.30) score += 2;
+          else if (ratio < 0.50) score += 1;
+        }
+
+        if (score > bestScore) { bestScore = score; bestDay = day; }
+      });
+
+      if (bestDay && bestScore > 0) {
+        matched.set(act, { day: bestDay, planned: week.days[bestDay], flexible: true });
+        claimedSessions.add(bestDay);
+      } else {
+        // No good match — park it on its actual day as unplanned
+        matched.set(act, { day: dayName, planned: week.days[dayName] || null, flexible: false });
+      }
+    });
+
+    // Write into idx
+    matched.forEach(({ day }, act) => {
+      const key = `${weekNum}-${day}`;
+      if (!idx[key]) idx[key] = [];
+      idx[key].push(act);
+    });
+  });
+
+  _activityIndexCache = idx;
+  _activityIndexCacheLen = activities.length;
   return idx;
 }
+
+function invalidateActivityIndex() {
+  _activityIndexCache = null;
+}
+
+function inferDot(act) {
+  if (!act.pace) return null;
+  const [pm, ps] = act.pace.split(':').map(Number);
+  const secs = pm * 60 + (ps || 0);
+  if (secs < 275) return 'hard';
+  if (secs < 315) return 'moderate';
+  return 'easy';
+}
+
+function matchActivityToSession(act) {
+  // Thin wrapper — use the index for consistency
+  if (!act.date) return null;
+  const [y,m,d] = act.date.split('-');
+  const dt = new Date(y, m-1, d);
+  const diffDays = Math.floor((dt - PLAN_START) / 86400000);
+  if (diffDays < 0) return null;
+  const weekNum = Math.floor(diffDays / 7) + 1;
+  if (weekNum < 1 || weekNum > 13) return null;
+  const idx = buildActivityIndex();
+  for (const [key, acts] of Object.entries(idx)) {
+    if (acts.includes(act)) {
+      const [wk, day] = key.split('-');
+      const planned = weeks[parseInt(wk)-1]?.days[day];
+      return { week: parseInt(wk), day, planned: planned || null };
+    }
+  }
+  return null;
+}
+
+
 
 // ── DASHBOARD ──
 function renderDashboard() {
@@ -805,6 +928,12 @@ function renderDashboard() {
       const dotCol = dotCols[s.dot] || 'var(--border)';
       const dayActs = actI[wkNum + '-' + day] || [];
       const act = dayActs[0];
+
+      // Check if activity was done on a different day (flexible match)
+      const actDayName = act ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(...(act.date||'').split('-').map((v,i)=>i===1?v-1:+v)).getDay()] : null;
+      const isFlexible = act && actDayName !== day;
+      const flexLabel = isFlexible ? ' <span style="font-size:10px;color:#378ADD;font-family:var(--mono)">(done ' + actDayName + ')</span>' : '';
+
       const actLine = act
         ? '<div class="dwday-act">' + act.distance + 'km &middot; ' + (act.pace || '—') + '/km' + (act.average_heartrate ? ' &hearts;' + Math.round(act.average_heartrate) : '') + '</div>'
         : '';
@@ -815,10 +944,35 @@ function renderDashboard() {
         '<div class="dwday-dot" style="background:' + dotCol + '"></div>' +
         '<div class="dwday-info">' +
           '<div class="dwday-label">' + day + (isToday ? ' &middot; Today' : '') + '</div>' +
-          '<div class="dwday-type">' + doneIcon + s.type + '</div>' +
+          '<div class="dwday-type">' + doneIcon + s.type + flexLabel + '</div>' +
           detailText + actLine +
         '</div></div>';
     }).join('');
+
+    // Linkage table — planned vs actual for all non-rest sessions this week
+    const linkageRows = dayOrder.map(day => {
+      const s = weeks[wkNum-1].days[day];
+      if (!s || s.dot === 'rest') return '';
+      const dayActs = actI[wkNum + '-' + day] || [];
+      const act = dayActs[0];
+      const actDayName = act ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(...(act.date||'').split('-').map((v,i)=>i===1?v-1:+v)).getDay()] : null;
+      const isFlexible = act && actDayName !== day;
+      const isPast = dayOrder.indexOf(day) < todayIdx;
+
+      const statusIcon = act ? '&#10003;' : isPast ? '&#9888;' : '&middot;';
+      const statusCol = act ? '#1D9E75' : isPast ? '#EF9F27' : 'var(--text-faint)';
+      const plannedKmStr = getPlannedDistanceKm(s) ? getPlannedDistanceKm(s) + 'km' : '—';
+      const actualStr = act
+        ? act.distance + 'km @ ' + (act.pace || '—') + '/km' + (isFlexible ? ' <span style="color:#378ADD">(moved from ' + actDayName + ')</span>' : '')
+        : isPast ? '<span style="color:#EF9F27">Not logged</span>' : '<span style="color:var(--text-faint)">Upcoming</span>';
+
+      return '<div class="linkage-row">' +
+        '<div class="lr-status" style="color:' + statusCol + '">' + statusIcon + '</div>' +
+        '<div class="lr-planned"><div class="lr-day">' + day + '</div><div class="lr-type">' + s.type + '</div><div class="lr-km">' + plannedKmStr + '</div></div>' +
+        '<div class="lr-arrow">→</div>' +
+        '<div class="lr-actual">' + actualStr + '</div>' +
+      '</div>';
+    }).filter(Boolean).join('');
 
     const hrBanner = avgHR
       ? '<div class="dash-hr-banner ' + (avgEasyHR && avgEasyHR > hrEasyTarget ? 'dash-hr-hot' : 'dash-hr-ok') + '">' +
@@ -842,6 +996,7 @@ function renderDashboard() {
         '</div>' +
       '</div>' +
       '<div class="dash-week-days">' + daysHTML + '</div>' +
+      (linkageRows ? '<div class="linkage-table"><div class="linkage-title">Plan vs Actual</div>' + linkageRows + '</div>' : '') +
     '</div>' + hrBanner;
   })();
 
