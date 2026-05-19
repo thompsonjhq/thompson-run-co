@@ -268,7 +268,7 @@ let currentPageName = 'dashboard';
 let weeklyCheckins = [];
 
 // ── PAGE NAVIGATION ──
-const pageOrder = ['dashboard','schedule','coach','activities','meals','paces','strength','nutrition','methodology','hamstring'];
+const pageOrder = ['dashboard','schedule','coach','strength','activities','paces','nutrition','methodology','hamstring'];
 let touchStartX = 0, touchStartY = 0;
 
 document.addEventListener('touchstart', e => {
@@ -2088,45 +2088,50 @@ const statsHTML = isStrength ? '' : `
   ${splitsHTML}
   ${gearLine ? `<div class="act-gear-row">${gearLine}</div>` : ''}
 `;
-return `<div class="activity-card">
-  <div class="activity-card-header">
-    <div class="act-icon" style="${isCycling ? 'background:#E3EAF5' : ''}">${icon}</div>
+// ── Collapsed summary line ──
+const summaryLine = [
+  act.distance ? act.distance + 'km' : null,
+  act.pace ? act.pace + '/km' : null,
+  act.elapsed_time ? fmtTime(act.elapsed_time) : null,
+  act.average_heartrate ? '♥ ' + Math.round(act.average_heartrate) + 'bpm' : null,
+].filter(Boolean).join('  ·  ');
 
+return `<div class="activity-card" id="acard-${actId}">
+  <div class="activity-card-header" onclick="toggleActivityCard('${actId}')">
+    <div class="act-icon" style="${isCycling ? 'background:#E3EAF5' : ''}">${icon}</div>
     <div class="activity-card-main">
       <div class="act-name">${act.name || act.sport_type || 'Activity'}</div>
       <div class="act-meta">${fmtDate(act.date)} · ${metaLabel}</div>
-      <div class="activity-badges">
+      <div class="act-summary-line">${summaryLine}</div>
+      <div class="activity-badges" style="margin-top:6px">
         ${badgeHTML}
         <span style="font-size:11px;color:var(--strava);font-family:var(--mono);font-weight:500">STRAVA</span>
         ${hrBadge}
-        ${detectedBadge}
       </div>
     </div>
-    <button class="act-refresh-btn" onclick="refreshActivity('${act.strava_id}',this)" title="Re-fetch from Strava">↻</button>
+    <div class="act-card-right">
+      <button class="act-refresh-btn" onclick="event.stopPropagation();refreshActivity('${act.strava_id}',this)" title="Re-fetch from Strava">↻</button>
+      <span class="act-expand-icon" id="aexpand-${actId}">›</span>
+    </div>
   </div>
 
-  ${statsHTML}
+  <div class="activity-card-body" id="acbody-${actId}" style="display:none">
+    ${statsHTML}
 
-  ${debrief ? `
+    ${debrief ? `
     <div class="activity-debrief ad-confirmed">
       <div class="ad-header">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span>Session Details</span>
           <span class="ad-confirmed-badge">Confirmed</span>
         </div>
-
         <span style="display:flex;gap:8px;align-items:center">
           ${debrief.shoes ? `<span>${debrief.shoes}</span>` : ''}
           <button class="btn-secondary" style="font-size:11px;padding:3px 8px" onclick="openDebriefEditor('${actId}')">Edit</button>
         </span>
       </div>
-
       <div class="ad-session-title">${debrief.session_label || debrief.session_type || 'Completed session'}</div>
-
-      ${debrief.structured_summary ? `
-        <div class="ad-summary">${debrief.structured_summary}</div>
-      ` : ''}
-
+      ${debrief.structured_summary ? `<div class="ad-summary">${debrief.structured_summary}</div>` : ''}
       ${Array.isArray(debrief.segments) && debrief.segments.length ? `
         <div class="ad-segments">
           ${debrief.segments.map(seg => `
@@ -2138,7 +2143,6 @@ return `<div class="activity-card">
           `).join('')}
         </div>
       ` : ''}
-
       <div class="ad-metrics">
         ${debrief.rpe ? `<span>RPE ${debrief.rpe}/10</span>` : ''}
         ${debrief.soreness_score !== null && debrief.soreness_score !== undefined ? `<span>Soreness ${debrief.soreness_score}/5</span>` : ''}
@@ -2146,7 +2150,7 @@ return `<div class="activity-card">
         ${debrief.completed_as_planned ? `<span>${debrief.completed_as_planned}</span>` : ''}
       </div>
     </div>
-  ` : `
+    ` : `
     <div class="activity-debrief ad-empty">
       <div>
         <div style="font-weight:500;color:var(--text);margin-bottom:2px">No session details yet</div>
@@ -2154,7 +2158,7 @@ return `<div class="activity-card">
       </div>
       <button class="btn-secondary" onclick="openDebriefEditor('${actId}')">Add session details</button>
     </div>
-  `}
+    `}
 
   <div class="debrief-editor" id="debrief-editor-${actId}" style="display:none">
     <div class="debrief-editor-title">Session Details</div>
@@ -2245,6 +2249,7 @@ return `<div class="activity-card">
       </div>
     </div>`;
   })()}
+  </div>
 </div>`;
   }).join('') : '<p style="font-size:13px;color:var(--text-muted)">No activities yet. Connect Strava to start syncing.</p>';
 
@@ -2330,6 +2335,15 @@ if (saveBtn) {
 }
 
 await saveActivityDebriefFromText(actId, act, enrichedText);
+}
+
+function toggleActivityCard(actId) {
+  const body = document.getElementById('acbody-' + actId);
+  const icon = document.getElementById('aexpand-' + actId);
+  if (!body) return;
+  const open = body.style.display === 'none';
+  body.style.display = open ? 'block' : 'none';
+  if (icon) icon.textContent = open ? '⌄' : '›';
 }
 
 function toggleSplits(actId) {
