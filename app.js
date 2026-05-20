@@ -457,6 +457,14 @@ function matchActivityToSession(act) {
   return { week: weekNum, day: dayName, planned: weeks[weekNum-1].days[dayName] };
 }
 
+function getPlannedDistanceKm(planned) {
+  if (!planned || !planned.detail) return null;
+  const m = planned.detail.match(/(?:total\s*~?|^~?)(\d+(?:\.\d+)?)km/i);
+  if (m) return parseFloat(m[1]);
+  const m2 = planned.detail.match(/(\d+(?:\.\d+)?)\s*km/i);
+  return m2 ? parseFloat(m2[1]) : null;
+}
+
 function getMatchQuality(act, planned) {
   if (!planned || planned.dot === 'rest') return 'unmatched';
   if (!act.pace) return 'ok';
@@ -2377,40 +2385,57 @@ async function deleteMeal(id) {
 }
 
 // ── STRENGTH PAGE ──
+// ── STRENGTH DATA ──
 const STRENGTH_P1 = [
-  {id:'rdl',name:'Romanian Deadlift (RDL)',target:'3×8 · 3 sec eccentric · controlled',sets:3},
-  {id:'bss',name:'Bulgarian Split Squat',target:'3×8 each · smooth control',sets:3},
-  {id:'hip',name:'Hip Thrust / Glute Bridge',target:'3×10 · strong lockout',sets:3},
-  {id:'curl',name:'Seated or Lying Hamstring Curl',target:'3×10 · controlled return',sets:3},
-  {id:'calf',name:'Single-Leg Calf Raise',target:'3×12 each',sets:3},
-  {id:'cope',name:'Copenhagen Plank',target:'2×20s each',sets:2},
-  {id:'nordic',name:'Assisted Nordic Hamstring Curl',target:'Optional · 2×3 only if no soreness',sets:2}
+  {id:'rdl',name:'Romanian Deadlift (RDL)',target:'3×8 · 3 sec eccentric · controlled',sets:3,why:'Primary hamstring loading. Most important exercise.',tag:'hamstring',
+    alts:['Dumbbell RDL (if no barbell)','Single-leg RDL (balance focus)','Good Morning (if no weights)']},
+  {id:'bss',name:'Bulgarian Split Squat',target:'3×8 each · smooth control',sets:3,why:'Single-leg quad + glute strength, mimics running gait.',tag:'',
+    alts:['Reverse Lunge (if no bench/box)','Step-Up (if no bench)','Goblet Squat (if balance is a problem)']},
+  {id:'hip',name:'Hip Thrust / Glute Bridge',target:'3×10 · strong lockout',sets:3,why:'Glute activation — powers propulsion, reduces hamstring load.',tag:'',
+    alts:['Glute Bridge on floor (if no bench)','Single-leg Glute Bridge','Cable Pull-Through (if cable available)']},
+  {id:'curl',name:'Seated or Lying Hamstring Curl',target:'3×10 · controlled return',sets:3,why:'Direct hamstring work under load.',tag:'hamstring',
+    alts:['Swiss Ball Leg Curl (if no machine)','Dumbbell Hamstring Curl (lying)','Slider Leg Curl (if sliders available)']},
+  {id:'calf',name:'Single-Leg Calf Raise',target:'3×12 each',sets:3,why:'Achilles and calf resilience for running impact.',tag:'',
+    alts:['Seated Calf Raise machine','Bodyweight (both legs if injury)','Step calf raise (use a step)']},
+  {id:'cope',name:'Copenhagen Plank',target:'2×20s each',sets:2,why:'Hip adductor strength — often neglected.',tag:'',
+    alts:['Side-lying hip adduction (if no bench)','Lateral band walk (activation substitute)','Inner thigh squeeze with ball']},
+  {id:'nordic',name:'Assisted Nordic Hamstring Curl',target:'Optional · 2×3 only if no soreness',sets:2,why:'Best evidence-based hamstring prevention. Eccentric focus.',tag:'hamstring',
+    alts:['Slow eccentric RDL (if no partner/anchor)','Swiss ball rollout (partial substitute)','Skip this week if sore']}
 ];
 
 const STRENGTH_P2 = [
-  {id:'rdl',name:'Romanian Deadlift (RDL)',target:'4×6–8 · moderate-heavy · controlled eccentric',sets:4},
-  {id:'bss',name:'Bulgarian Split Squat',target:'3×8 each · progressive load',sets:3},
-  {id:'hip',name:'Hip Thrust',target:'3×8–10 · progressive load',sets:3},
-  {id:'curl',name:'Seated or Lying Hamstring Curl',target:'3×8–10 · controlled return',sets:3},
-  {id:'calf',name:'Single-Leg Calf Raise',target:'3×12–15 · weighted if tolerated',sets:3},
-  {id:'cope',name:'Copenhagen Plank',target:'2–3×30s each',sets:3}
+  {id:'rdl',name:'Romanian Deadlift (RDL)',target:'4×6–8 · moderate-heavy · controlled eccentric',sets:4,why:'Progressive overload on hamstrings. 3–4s lowering.',tag:'hamstring',
+    alts:['Trap Bar Deadlift (if available)','Dumbbell RDL','Single-leg RDL (load each side)']},
+  {id:'bss',name:'Bulgarian Split Squat',target:'3×8 each · progressive load',sets:3,why:'Add load with dumbbells or barbell.',tag:'',
+    alts:['Barbell Rear-Foot Elevated Split Squat','Walking Lunge (if no bench)','Step-Up with dumbbells']},
+  {id:'hip',name:'Hip Thrust',target:'3×8–10 · progressive load',sets:3,why:'Load the glutes progressively — barbell preferred.',tag:'',
+    alts:['Dumbbell Hip Thrust','Machine Hip Thrust','Cable Pull-Through']},
+  {id:'curl',name:'Seated or Lying Hamstring Curl',target:'3×8–10 · controlled return',sets:3,why:'Direct hamstring machine work — add load each week.',tag:'hamstring',
+    alts:['Swiss Ball Leg Curl','Dumbbell Hamstring Curl','Nordic (if no machine)']},
+  {id:'calf',name:'Single-Leg Calf Raise',target:'3×12–15 · weighted if tolerated',sets:3,why:'Hold dumbbell or use seated calf raise machine.',tag:'',
+    alts:['Seated calf raise machine (heavy)','Smith machine calf raise','Bodyweight (increase reps to 20+)']},
+  {id:'cope',name:'Copenhagen Plank',target:'2–3×30s each',sets:3,why:'Extend duration as adductor strength improves.',tag:'',
+    alts:['Side plank with leg lift','Adductor machine','Lateral band walk (3×20 steps)']}
 ];
 
 const STRENGTH_TAPER = [
-  {id:'rdl',name:'Romanian Deadlift (RDL)',target:'2×6 · light/moderate · no soreness',sets:2},
-  {id:'bss',name:'Bulgarian Split Squat',target:'2×6 each · light/moderate',sets:2},
-  {id:'curl',name:'Hamstring Curl',target:'2×8 · smooth and easy',sets:2},
-  {id:'calf',name:'Single-Leg Calf Raise',target:'2×12 each',sets:2},
-  {id:'mobility',name:'Mobility / Activation',target:'8–10 min · hips, glutes, calves',sets:1}
+  {id:'rdl',name:'Romanian Deadlift (RDL)',target:'2×6 · light/moderate · no soreness',sets:2,why:'Maintain movement pattern — reduce load by 20%.',tag:'hamstring',
+    alts:['Dumbbell RDL (lighter)','Single-leg RDL (bodyweight only)']},
+  {id:'bss',name:'Bulgarian Split Squat',target:'2×6 each · light/moderate',sets:2,why:'Keep the pattern, drop the intensity.',tag:'',
+    alts:['Bodyweight Split Squat','Reverse Lunge (bodyweight)']},
+  {id:'curl',name:'Hamstring Curl',target:'2×8 · smooth and easy',sets:2,why:'Light stimulus only — no fatigue chasing.',tag:'hamstring',
+    alts:['Dumbbell hamstring curl','Swiss Ball curl (easier)']},
+  {id:'calf',name:'Single-Leg Calf Raise',target:'2×12 each',sets:2,why:'Maintain Achilles load tolerance.',tag:'',
+    alts:['Seated calf raise','Bodyweight (both legs)']},
+  {id:'mobility',name:'Mobility / Activation',target:'8–10 min · hips, glutes, calves',sets:1,why:'Glute bridges, leg swings, hip 90/90, calf stretch.',tag:'',
+    alts:['Yoga flow (10 min)','Foam rolling + stretching']}
 ];
 
 function getStrengthExercises() {
   const wk = getCurrentWeekNum() || 1;
-
   if (wk <= 4) return STRENGTH_P1;
   if (wk <= 9) return STRENGTH_P2;
   if (wk <= 12) return STRENGTH_TAPER;
-
   return [];
 }
 
@@ -2418,166 +2443,210 @@ function renderStrengthPage() {
   const el = document.getElementById('page-strength');
   const exercises = getStrengthExercises();
   const wk = getCurrentWeekNum() || 1;
-   const phase = wk<=4
-  ? 'Phase 1 · Foundation / Hamstring Capacity'
-  : wk<=9
-    ? 'Phase 2 · Build / Maintain Strength'
-    : wk<=12
-      ? 'Phase 3 · Taper / Reduce Soreness'
-      : 'Race Week · No Heavy Strength';
+  const phase = wk<=4 ? 'Phase 1 · Foundation' : wk<=9 ? 'Phase 2 · Build' : wk<=12 ? 'Phase 3 · Taper' : 'Race Week';
 
-  const exerciseInputs = exercises.map(ex => {
+  const exerciseCards = exercises.map((ex) => {
     const saved = currentStrengthSession[ex.id] || {};
-    const setsHTML = Array.from({length:ex.sets},(_,i)=>{
+    const sets = Array.from({length: ex.sets}, (_, i) => {
       const s = saved.sets?.[i] || {};
-      return `<div class="st-set-row">
-        <div class="st-set-label">${i+1}</div>
-        <input class="st-input" type="number" placeholder="kg" step="2.5" value="${s.kg||''}" oninput="saveSetData('${ex.id}',${i},'kg',this.value)">
-        <input class="st-input" type="number" placeholder="reps" step="1" value="${s.reps||''}" oninput="saveSetData('${ex.id}',${i},'reps',this.value)">
-        <input class="st-input" type="text" placeholder="note" value="${s.note||''}" oninput="saveSetData('${ex.id}',${i},'note',this.value)">
-      </div>`;
+      const isComplete = s.kg || s.reps;
+      return '<div class="gym-set-row ' + (isComplete ? 'gym-set-done' : '') + '" id="set-row-' + ex.id + '-' + i + '">' +
+        '<div class="gym-set-num">' + (i+1) + '</div>' +
+        '<div class="gym-set-prev">' + getPrevSetData(ex.id, i) + '</div>' +
+        '<input class="gym-input gym-input-kg" type="number" inputmode="decimal" placeholder="kg" step="2.5" value="' + (s.kg||'') + '" oninput="saveSetData(\'' + ex.id + '\',' + i + ',\'kg\',this.value);updateSetRow(\'' + ex.id + '\',' + i + ')">' +
+        '<input class="gym-input gym-input-reps" type="number" inputmode="numeric" placeholder="reps" step="1" value="' + (s.reps||'') + '" oninput="saveSetData(\'' + ex.id + '\',' + i + ',\'reps\',this.value);updateSetRow(\'' + ex.id + '\',' + i + ')">' +
+        '<button class="gym-set-tick ' + (isComplete?'ticked':'') + '" onclick="tickSet(\'' + ex.id + '\',' + i + ',this)">✓</button>' +
+      '</div>';
     }).join('');
-    return `<div class="st-exercise">
-      <div class="st-ex-header" onclick="this.nextElementSibling.classList.toggle('open')">
-        <div><div class="st-ex-name">${ex.name}</div><div class="st-ex-target">${ex.target}</div></div>
-        <span style="font-size:10px;color:var(--text-faint)">▼</span>
-      </div>
-      <div class="st-ex-body">
-        <div class="st-set-row" style="margin-bottom:4px"><div></div><div class="st-col-label">Weight (kg)</div><div class="st-col-label">Reps</div><div class="st-col-label">Note</div></div>
-        ${setsHTML}
-        <textarea class="st-notes" rows="2" placeholder="Notes for this exercise…" oninput="saveExNotes('${ex.id}',this.value)">${saved.notes||''}</textarea>
-      </div>
-    </div>`;
+
+    const altsHTML = ex.alts && ex.alts.length
+      ? '<div class="gym-alts" id="alts-' + ex.id + '" style="display:none"><div class="gym-alts-label">Alternatives</div>' +
+        ex.alts.map(a => '<div class="gym-alt-item" onclick="swapExercise(\'' + ex.id + '\',\'' + a.replace(/'/g,'&#39;') + '\',this)">↔ ' + a + '</div>').join('') +
+        '</div>'
+      : '';
+
+    const tagHTML = ex.tag === 'hamstring' ? '<span class="gym-tag gym-tag-hs">hamstring priority</span>' : '';
+    const completedSets = Object.keys(saved.sets || {}).filter(i => saved.sets[i]?.kg || saved.sets[i]?.reps).length;
+    const progressPct = ex.sets > 0 ? Math.round(completedSets / ex.sets * 100) : 0;
+    const ringDash = Math.round(94.2 * progressPct / 100);
+
+    return '<div class="gym-card ' + (completedSets >= ex.sets ? 'gym-card-complete' : '') + '" id="gymcard-' + ex.id + '">' +
+      '<div class="gym-card-header" onclick="toggleGymCard(\'' + ex.id + '\')">' +
+        '<div class="gym-card-left">' +
+          '<div class="gym-card-progress-ring">' +
+            '<svg viewBox="0 0 36 36" class="gym-ring-svg">' +
+              '<circle cx="18" cy="18" r="15" fill="none" stroke="var(--border)" stroke-width="3"/>' +
+              '<circle cx="18" cy="18" r="15" fill="none" stroke="' + (completedSets>=ex.sets?'#1D9E75':'#378ADD') + '" stroke-width="3" stroke-dasharray="' + ringDash + ' 94.2" stroke-linecap="round" transform="rotate(-90 18 18)"/>' +
+            '</svg>' +
+            '<span class="gym-ring-label">' + completedSets + '/' + ex.sets + '</span>' +
+          '</div>' +
+          '<div>' +
+            '<div class="gym-card-name">' + (saved._swapped || ex.name) + ' ' + tagHTML + '</div>' +
+            '<div class="gym-card-target">' + ex.target + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="gym-card-right">' +
+          (ex.alts?.length ? '<button class="gym-alt-btn" onclick="event.stopPropagation();toggleAlts(\'' + ex.id + '\')">Alt</button>' : '') +
+          '<span class="gym-chevron" id="gymchev-' + ex.id + '">›</span>' +
+        '</div>' +
+      '</div>' +
+      altsHTML +
+      '<div class="gym-card-body" id="gymbody-' + ex.id + '">' +
+        '<div class="gym-why">' + (ex.why||'') + '</div>' +
+        '<div class="gym-set-header"><div class="gym-set-num">#</div><div class="gym-set-prev">Previous</div><div style="font-size:11px;color:var(--text-faint);font-family:var(--mono)">kg</div><div style="font-size:11px;color:var(--text-faint);font-family:var(--mono)">reps</div><div></div></div>' +
+        sets +
+        '<textarea class="gym-notes" rows="2" placeholder="Notes for this exercise…" oninput="saveExNotes(\'' + ex.id + '\',this.value)">' + (saved.notes||'') + '</textarea>' +
+      '</div>' +
+    '</div>';
   }).join('');
 
-  // History
-  const histHTML = strengthLog.length ? strengthLog.slice(0,12).map((entry,idx)=>{
+  const histHTML = strengthLog.length ? strengthLog.slice(0,12).map((entry,idx) => {
     const dateStr = fmtDate(entry.date);
     const logged = (entry.exercises||[]).filter(ex=>ex.sets?.some(s=>s.kg||s.reps));
-    const summary = logged.map(ex=>{const top=ex.sets?.reduce((b,s)=>parseFloat(s.kg||0)>parseFloat(b.kg||0)?s:b,{});return `${ex.name?.split(' ')[0]} ${top.kg||''}${top.reps?'×'+top.reps:''}`.trim();}).join(' · ') || 'Logged';
-    const detail = (entry.exercises||[]).map(ex=>{
-      const filled=(ex.sets||[]).filter(s=>s.kg||s.reps);
-      if(!filled.length&&!ex.notes) return '';
-      return `<div class="st-hist-ex"><div class="st-hist-ex-name">${ex.name}</div><div class="st-hist-sets">${filled.map((s,i)=>`<div class="st-hist-set">Set ${i+1}: ${s.kg||'?'}kg×${s.reps||'?'}${s.note?' ('+s.note+')':''}</div>`).join('')}</div>${ex.notes?`<div class="st-hist-note">📝 ${ex.notes}</div>`:''}</div>`;
-    }).filter(Boolean).join('');
-    const sId = String(entry.id || `strength-${entry.date}`);
+    const summary = logged.map(ex=>{const top=ex.sets?.reduce((b,s)=>parseFloat(s.kg||0)>parseFloat(b.kg||0)?s:b,{});return (ex.name?.split(' ')[0]||'') + ' ' + (top.kg||'') + (top.reps?'×'+top.reps:'');}).join(' · ') || 'Logged';
+    const sId = String(entry.id || 'strength-' + entry.date);
     const sLogs = (sessionLogs[sId]||[]).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
     const sLogsHTML = sLogs.length
-      ? sLogs.map(l=>{const ts=new Date(l.created_at);const timeStr=ts.toLocaleDateString('en-AU',{day:'numeric',month:'short'})+' · '+ts.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'});return `<div class="log-entry"><div class="log-avatar">J</div><div class="log-body"><div class="log-meta">${timeStr}</div><div class="log-text">${l.note}</div></div><button class="log-delete" onclick="deleteSessionLog(${l.id},'${sId}',this)">✕</button></div>`;}).join('')
-      : `<div class="log-empty">No notes yet</div>`;
-    return `<div class="st-hist-entry">
-      <div class="st-hist-header" onclick="toggleStHist(${idx})">
-        <div><div class="st-hist-date">Wk ${entry.week} · ${dateStr}</div><div class="st-hist-summary">${summary}</div></div>
-        <div style="display:flex;align-items:center;gap:8px"><button class="st-hist-delete" onclick="event.stopPropagation();deleteStrengthEntry(${idx})">✕ Delete</button><span style="font-size:10px;color:var(--text-faint)" id="sth-chev-${idx}">▼</span></div>
-      </div>
-      <div class="st-hist-body" id="sth-body-${idx}">
-        ${detail||'<p style="font-size:12px;color:var(--text-muted);padding-top:8px">No weights recorded.</p>'}
-        <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
-          <div style="font-size:11px;font-family:var(--mono);color:var(--text-faint);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Session Notes</div>
-          <div id="log-feed-${sId}">${sLogsHTML}</div>
-          <div class="log-input-row" style="margin-top:8px">
-            <textarea class="log-textarea" id="log-input-${sId}" rows="1" placeholder="How did this session feel? Any PRs or niggles?"
-              oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"
-              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitSessionLog('${sId}','strength','${entry.date}',this)}"></textarea>
-            <button class="log-submit" onclick="submitSessionLog('${sId}','strength','${entry.date}',document.getElementById('log-input-${sId}'))">Post</button>
-          </div>
-        </div>
-      </div>
-    </div>`;
+      ? sLogs.map(l=>{const ts=new Date(l.created_at);const timeStr=ts.toLocaleDateString('en-AU',{day:'numeric',month:'short'})+' · '+ts.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'});return '<div class="log-entry"><div class="log-avatar">J</div><div class="log-body"><div class="log-meta">'+timeStr+'</div><div class="log-text">'+l.note+'</div></div><button class="log-delete" onclick="deleteSessionLog('+l.id+',\''+sId+'\',this)">✕</button></div>';}).join('')
+      : '<div class="log-empty">No notes yet</div>';
+    return '<div class="st-hist-entry">' +
+      '<div class="st-hist-header" onclick="toggleStHist(' + idx + ')">' +
+        '<div><div class="st-hist-date">Wk ' + entry.week + ' · ' + dateStr + '</div><div class="st-hist-summary">' + summary + '</div></div>' +
+        '<div style="display:flex;align-items:center;gap:8px"><button class="st-hist-delete" onclick="event.stopPropagation();deleteStrengthEntry(' + idx + ')">✕</button><span style="font-size:10px;color:var(--text-faint)" id="sth-chev-' + idx + '">▼</span></div>' +
+      '</div>' +
+      '<div class="st-hist-body" id="sth-body-' + idx + '">' +
+        '<div id="log-feed-' + sId + '">' + sLogsHTML + '</div>' +
+        '<div class="log-input-row" style="margin-top:8px">' +
+          '<textarea class="log-textarea" id="log-input-' + sId + '" rows="1" placeholder="How did this session feel?" oninput="this.style.height=\'auto\';this.style.height=Math.min(this.scrollHeight,100)+\'px\'" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();submitSessionLog(\'' + sId + '\',\'strength\',\'' + entry.date + '\',this)}"></textarea>' +
+          '<button class="log-submit" onclick="submitSessionLog(\'' + sId + '\',\'strength\',\'' + entry.date + '\',document.getElementById(\'log-input-' + sId + '\'))">Post</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
   }).join('') : '<p style="font-size:13px;color:var(--text-muted)">No sessions logged yet.</p>';
 
-  el.innerHTML = `
-    <div class="page-title">Strength Plan</div>
-    <p class="page-sub">Wednesday sessions, 45–50 minutes. Log each session below — saved to your database automatically.</p>
-    <div class="alert alert-amber">Strength is once per week, ideally Tuesday. RDLs and hamstring curls are the main hamstring work. Assisted Nordics are optional only if they do not create soreness. In weeks 10–13, reduce load and avoid heavy eccentric soreness.</div>
-    <div class="strength-tracker">
-      <div class="st-header">
-        <div style="font-size:15px;font-weight:500">📋 Log Today's Session <span style="font-size:12px;color:var(--text-muted);font-weight:400">· ${phase}</span></div>
-        <span class="st-saved" id="st-saved-msg">Saved ✓</span>
-      </div>
-      ${exerciseInputs}
-      ${exercises.length
-  ? `<button class="st-complete-btn" onclick="completeStrengthSession()">Mark Session Complete</button>`
-  : `<div class="alert alert-green">Race week: no heavy strength. Keep this week to light mobility, activation, and walking only.</div>`
+  el.innerHTML =
+    '<div class="page-title">Strength</div>' +
+    '<div class="gym-session-meta">' +
+      '<div class="gym-meta-pill">' + phase + '</div>' +
+      '<div class="gym-meta-pill">Week ' + wk + ' of 13</div>' +
+      '<div class="gym-meta-pill">Thursday · 45–55 min</div>' +
+      '<span class="st-saved" id="st-saved-msg">Saved ✓</span>' +
+    '</div>' +
+    (wk <= 9 ? '<div class="alert alert-amber" style="margin-bottom:16px">RDL and hamstring curls are the priority exercises. Protect these — everything else is secondary.</div>' : '') +
+    (exercises.length
+      ? '<div class="gym-exercise-list">' + exerciseCards + '</div><button class="gym-complete-btn" onclick="completeStrengthSession()">✓ Complete Session</button>'
+      : '<div class="alert alert-green">Race week: no heavy strength. Light mobility and activation only.</div>') +
+    '<div class="sec-title" style="margin-top:28px">Session History</div>' +
+    '<div id="st-history-list">' + histHTML + '</div>';
+
+  const firstEx = exercises[0];
+  if (firstEx) toggleGymCard(firstEx.id, true);
 }
-    </div>
-    <div class="sec-title">Session History</div>
-    <div id="st-history-list">${histHTML}</div>
-    <div class="sec-title">Phase 1 — Base (Weeks 1–4) · Learn + Rehab</div>
-    <p class="sec-sub">3×10–12 reps, moderate weight. Master the movements.</p>
-    <div class="exercise-list">
-      <div class="exercise-row"><div><div class="exercise-name">Romanian Deadlift (RDL)<span class="hsring-badge">hamstring priority</span></div></div><div class="exercise-sets">3×10 · slow eccentric</div><div class="exercise-why">Most important exercise. 3–4s lowering. Start light.</div></div>
-      <div class="exercise-row"><div><div class="exercise-name">Nordic Hamstring Curl<span class="hsring-badge">hamstring priority</span></div></div><div class="exercise-sets">3×5 (assisted)</div><div class="exercise-why">Best evidence-based hamstring prevention. Anchor feet, assist lowering.</div></div>
-      <div class="exercise-row"><div><div class="exercise-name">Hip Thrust / Glute Bridge</div></div><div class="exercise-sets">3×12</div><div class="exercise-why">Glute activation. Powers propulsion, reduces hamstring compensation.</div></div>
-      <div class="exercise-row"><div><div class="exercise-name">Bulgarian Split Squat</div></div><div class="exercise-sets">3×8 each</div><div class="exercise-why">Single-leg quad + glute. Mimics running gait.</div></div>
-      <div class="exercise-row"><div><div class="exercise-name">Single-Leg Calf Raise</div></div><div class="exercise-sets">3×15 each</div><div class="exercise-why">Achilles and calf resilience.</div></div>
-      <div class="exercise-row"><div><div class="exercise-name">Copenhagen Plank</div></div><div class="exercise-sets">3×20s each</div><div class="exercise-why">Hip adductor strength.</div></div>
-      <div class="exercise-row"><div><div class="exercise-name">Dead Bug</div></div><div class="exercise-sets">3×8 each</div><div class="exercise-why">Core stability at speed.</div></div>
-    </div>
-    <div class="sec-title">Phase 2 — Build (Weeks 5–9) · Load Increase</div>
-    <p class="sec-sub">3–4×8 reps, increase load progressively.</p>
-    <div class="exercise-list">
-      <div class="exercise-row"><div><div class="exercise-name">Romanian Deadlift</div></div><div class="exercise-sets">4×8 · heavier</div><div class="exercise-why">Progressive overload. Controlled eccentric.</div></div>
-      <div class="exercise-row"><div><div class="exercise-name">Nordic Hamstring Curl</div></div><div class="exercise-sets">3×6–8</div><div class="exercise-why">Build to unassisted reps.</div></div>
-      <div class="exercise-row"><div><div class="exercise-name">Bulgarian Split Squat</div></div><div class="exercise-sets">4×8 each · heavier</div><div class="exercise-why">Add load with dumbbells or barbell.</div></div>
-      <div class="exercise-row"><div><div class="exercise-name">Hip Thrust</div></div><div class="exercise-sets">4×10 · heavier</div><div class="exercise-why">Load the glutes progressively.</div></div>
-      <div class="exercise-row"><div><div class="exercise-name">Single-Leg Calf Raise</div></div><div class="exercise-sets">3×15 · weighted</div><div class="exercise-why">Hold a dumbbell or use the machine.</div></div>
-      <div class="exercise-row"><div><div class="exercise-name">Copenhagen Plank</div></div><div class="exercise-sets">3×30s each</div><div class="exercise-why">Extend duration as strength improves.</div></div>
-    </div>
-    <div class="alert alert-green"><strong>Warm-Up (10 min):</strong> Glute bridges ×15, leg swings ×10 each, lateral band walks ×15, hip 90/90 ×5 each side. <strong>Cool-Down:</strong> Hip flexor stretch, pigeon pose, calf stretch. 60 seconds each.</div>`;
+
+function getPrevSetData(exId, setIdx) {
+  const prev = strengthLog[0];
+  if (!prev) return '—';
+  const prevEx = (prev.exercises||[]).find(e => e.name && e.name.toLowerCase().includes(exId.replace('rdl','romanian').replace('bss','bulgarian').replace('cope','copenhagen').replace('nordic','nordic')));
+  if (!prevEx || !prevEx.sets?.[setIdx]) return '—';
+  const s = prevEx.sets[setIdx];
+  return s.kg ? s.kg + 'kg×' + (s.reps||'?') : '—';
+}
+
+function toggleGymCard(exId, forceOpen) {
+  const body = document.getElementById('gymbody-' + exId);
+  const chev = document.getElementById('gymchev-' + exId);
+  if (!body) return;
+  const shouldOpen = forceOpen !== undefined ? forceOpen : !body.classList.contains('open');
+  body.classList.toggle('open', shouldOpen);
+  if (chev) chev.textContent = shouldOpen ? '⌄' : '›';
+}
+
+function toggleAlts(exId) {
+  const el = document.getElementById('alts-' + exId);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function swapExercise(exId, altName) {
+  if (!currentStrengthSession[exId]) currentStrengthSession[exId] = {};
+  currentStrengthSession[exId]._swapped = altName;
+  localStorage.setItem('strength_session_wip', JSON.stringify(currentStrengthSession));
+  const card = document.getElementById('gymcard-' + exId);
+  if (card) { const n = card.querySelector('.gym-card-name'); if (n) n.firstChild.textContent = altName + ' '; }
+  toggleAlts(exId);
+}
+
+function updateSetRow(exId, setIdx) {
+  const saved = currentStrengthSession[exId];
+  const s = saved?.sets?.[setIdx];
+  const row = document.getElementById('set-row-' + exId + '-' + setIdx);
+  if (row && (s?.kg || s?.reps)) row.classList.add('gym-set-done');
+  const ex = getStrengthExercises().find(e => e.id === exId);
+  if (!ex) return;
+  const completedSets = Object.keys(saved?.sets||{}).filter(i => saved.sets[i]?.kg || saved.sets[i]?.reps).length;
+  const card = document.getElementById('gymcard-' + exId);
+  if (!card) return;
+  const ringCircle = card.querySelectorAll('.gym-ring-svg circle')[1];
+  if (ringCircle) ringCircle.setAttribute('stroke-dasharray', Math.round(94.2*completedSets/ex.sets) + ' 94.2');
+  const ringLabel = card.querySelector('.gym-ring-label');
+  if (ringLabel) ringLabel.textContent = completedSets + '/' + ex.sets;
+  if (completedSets >= ex.sets) card.classList.add('gym-card-complete');
+}
+
+function tickSet(exId, setIdx, btn) {
+  const row = document.getElementById('set-row-' + exId + '-' + setIdx);
+  if (!row) return;
+  row.classList.toggle('gym-set-done');
+  btn.classList.toggle('ticked');
 }
 
 function saveSetData(exId, setIdx, field, value) {
-  if(!currentStrengthSession[exId]) currentStrengthSession[exId]={sets:[]};
-  if(!currentStrengthSession[exId].sets) currentStrengthSession[exId].sets=[];
-  if(!currentStrengthSession[exId].sets[setIdx]) currentStrengthSession[exId].sets[setIdx]={};
-  currentStrengthSession[exId].sets[setIdx][field]=value;
+  if (!currentStrengthSession[exId]) currentStrengthSession[exId] = {sets:[]};
+  if (!currentStrengthSession[exId].sets) currentStrengthSession[exId].sets = [];
+  if (!currentStrengthSession[exId].sets[setIdx]) currentStrengthSession[exId].sets[setIdx] = {};
+  currentStrengthSession[exId].sets[setIdx][field] = value;
   localStorage.setItem('strength_session_wip', JSON.stringify(currentStrengthSession));
   flashSaved();
 }
+
 function saveExNotes(exId, value) {
-  if(!currentStrengthSession[exId]) currentStrengthSession[exId]={};
-  currentStrengthSession[exId].notes=value;
+  if (!currentStrengthSession[exId]) currentStrengthSession[exId] = {};
+  currentStrengthSession[exId].notes = value;
   localStorage.setItem('strength_session_wip', JSON.stringify(currentStrengthSession));
   flashSaved();
 }
+
 function flashSaved() {
   const el = document.getElementById('st-saved-msg');
-  if(!el) return;
+  if (!el) return;
   el.classList.add('show');
   clearTimeout(window._savedTimer);
-  window._savedTimer = setTimeout(()=>el.classList.remove('show'), 1800);
+  window._savedTimer = setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+function toggleStHist(idx) {
+  const body = document.getElementById('sth-body-' + idx);
+  const chev = document.getElementById('sth-chev-' + idx);
+  if (!body) return;
+  body.classList.toggle('open');
+  if (chev) chev.textContent = body.classList.contains('open') ? '▲' : '▼';
 }
 
 async function completeStrengthSession() {
   const wkNum = getCurrentWeekNum() || 1;
   const exercises = getStrengthExercises().map(ex => ({
-    name: ex.name,
+    name: currentStrengthSession[ex.id]?._swapped || ex.name,
     sets: currentStrengthSession[ex.id]?.sets || [],
     notes: currentStrengthSession[ex.id]?.notes || ''
   }));
   try {
-    await api.post('strength_sessions', {
-      session_date: todayISO(),
-      week_num: wkNum,
-      exercises
-    }, 'return=minimal');
+    await api.post('strength_sessions', {session_date:todayISO(),week_num:wkNum,exercises}, 'return=minimal');
     currentStrengthSession = {};
     localStorage.removeItem('strength_session_wip');
-    // Reload strength data
     const sessions = await api.get('strength_sessions','select=*&order=session_date.desc&limit=30');
     strengthLog = (sessions||[]).map(s=>({id:s.id,date:s.session_date,week:s.week_num,exercises:s.exercises||[]}));
     renderStrengthPage();
-    alert(`Session logged ✓ — Week ${wkNum} strength session saved.`);
-  } catch(e) { alert('Error saving session: '+e.message); }
-}
-
-function toggleStHist(idx) {
-  const body=document.getElementById('sth-body-'+idx);
-  const chev=document.getElementById('sth-chev-'+idx);
-  if(!body) return;
-  body.classList.toggle('open');
-  if(chev) chev.textContent=body.classList.contains('open')?'▲':'▼';
+    alert('Session logged ✓ — Week ' + wkNum + ' strength session saved.');
+  } catch(e) { alert('Error saving session: ' + e.message); }
 }
 
 async function deleteStrengthEntry(idx) {
