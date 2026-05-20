@@ -33,7 +33,7 @@ const RACE_DATE  = new Date(2026, 6, 19);
 const weeks = [
   { num:1, phase:'base', label:'Return To Running', km:21, note:'Maintenance week transitioning into the plan. All easy aerobic running — no intervals, no tempo. Re-establish the habit, wake the legs up, introduce strength without digging a hole.', hamstring:true,
     days:{ Mon:{type:'Easy Run',detail:'5km easy Z2 · 5:50/km · genuinely conversational',dot:'easy'}, Tue:{type:'Easy Run',detail:'6km easy Z2 · 5:45/km · relaxed',dot:'easy'}, Wed:{type:'Easy Run',detail:'4km very easy · shake the legs out',dot:'easy'}, Thu:{type:'Strength',detail:'40 min · RDL first + Nordics · 3×10 light',dot:'strength'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'10km easy Z2 · 5:50/km · flat route, no watch pressure',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
-  { num:2, phase:'base', label:'Building The Habit', km:26, note:'+5km on week 1. Still no hard sessions — introduce strides on Tuesday. Keep long run easy.', hamstring:true,
+  { num:2, phase:'base', label:'Building The Habit', km:26, note:'+5km on week 1. Still no hard sessions — introduce strides on Thursday. Keep long run easy.', hamstring:true,
     days:{ Mon:{type:'Strides',detail:'7km easy + 6×80m strides · relaxed, not sprinting',dot:'easy'}, Tue:{type:'Easy Run',detail:'7km easy Z2 · 5:45/km',dot:'easy'}, Wed:{type:'Easy Run',detail:'5km easy · keep it relaxed',dot:'easy'}, Thu:{type:'Strength',detail:'40 min · RDL + Nordics · 3×10 · start adding light load',dot:'strength'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'12km easy Z2 · 5:50/km · focus on time on feet',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:3, phase:'base', label:'First Quality Work', km:34, note:'First intervals of the plan — kept short and conservative. Tempo introduced at the lower end. Hamstring protocol active on all speed work.', hamstring:true,
     days:{ Mon:{type:'Intervals',detail:'8×400m @ 4:10/km · 90s rest · 2km WU/CD · conservative pace',dot:'hard'}, Tue:{type:'Easy Run',detail:'8km easy Z2 · 5:45/km',dot:'easy'}, Wed:{type:'Tempo',detail:'2km WU · 12 min @ Z4 (4:25/km) · 2km CD · total ~7km',dot:'moderate'}, Thu:{type:'Strength',detail:'45 min · RDL + Nordics priority · 3×10',dot:'strength'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'13km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
@@ -50,7 +50,7 @@ const weeks = [
   { num:9, phase:'build', label:'Peak Volume', km:50, note:'Highest weekly volume in the plan. 4×2km at race pace is the centrepiece — all other sessions exist to enable that one.', hamstring:false,
     days:{ Mon:{type:'Intervals',detail:'4×2000m @ 10km RP (4:10) · 3 min rest · 2km WU/CD · total ~12km',dot:'hard'}, Tue:{type:'Easy Run',detail:'11km easy Z2',dot:'easy'}, Wed:{type:'Tempo',detail:'2km WU · 35 min Z4 · 2km CD · total ~11km',dot:'moderate'}, Thu:{type:'Strength',detail:'55 min · Peak strength block · 4×6–8',dot:'strength'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'18km · last 5km @ Z3',dot:'moderate'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:10, phase:'peak', label:'Race-Specific Sharpening', km:46, note:'Volume slightly reduced, intensity at exact race pace. The 3×3km at race pace should feel controlled.', hamstring:false,
-    days:{ Mon:{type:'Race Pace',detail:'3×3km @ exact race pace (4:11/km) · 3 min rest · 2km WU/CD · total ~11km',dot:'hard'}, Tue:{type:'Easy Run',detail:'10km easy Z2',dot:'easy'}, Wed:{type:'Strength',detail:'45 min · Maintain strength, reduce volume',dot:'strength'}, Thu:{type:'Tempo',detail:'2km WU · 25 min Z4 · 2km CD · total ~9km',dot:'moderate'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'17km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+    days:{ Mon:{type:'Race Pace',detail:'3×3km @ exact race pace (4:11/km) · 3 min rest · 2km WU/CD · total ~11km',dot:'hard'}, Tue:{type:'Easy Run',detail:'10km easy Z2',dot:'easy'}, Wed:{type:'Tempo',detail:'2km WU · 25 min Z4 · 2km CD · total ~9km',dot:'moderate'}, Thu:{type:'Strength',detail:'45 min · Maintain strength, reduce volume',dot:'strength'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'17km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:11, phase:'peak', label:'Race Simulation', km:44, note:'8km race simulation Saturday. Treat it like race day — warm up properly, execute the pace, don\'t blow up.', hamstring:false,
     days:{ Mon:{type:'Intervals',detail:'12×400m @ Z5b (3:55/km) · 60s rest · 2km WU/CD · total ~8km',dot:'hard'}, Tue:{type:'Easy Run',detail:'10km easy Z2',dot:'easy'}, Wed:{type:'Easy Run',detail:'8km easy Z2 · fresh legs for Sat',dot:'easy'}, Thu:{type:'Strength',detail:'40 min · Reduced intensity, keep form',dot:'strength'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Race Simulation',detail:'2km WU · 8km @ 4:10–4:12/km · 2km CD · total 12km',dot:'race'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:12, phase:'taper', label:'Freshen Up', km:30, note:'Volume drops 30–35%. Keep two quality sessions but shorten them. The fitness is banked — trust the taper.', hamstring:false,
@@ -358,10 +358,7 @@ async function loadAllData() {
     activities = (acts || []).map(a => ({
       ...a,
       date: (a.start_date_local || a.start_date || '').slice(0, 10),
-      // Legacy records stored metres; new records store km. Heuristic: >500 = metres.
-      distance: a.distance != null
-        ? (parseFloat(a.distance) > 500 ? (parseFloat(a.distance) / 1000).toFixed(2) : parseFloat(a.distance).toFixed(2))
-        : '0',
+      distance: a.distance != null ? (parseFloat(a.distance) > 500 ? (parseFloat(a.distance)/1000).toFixed(2) : parseFloat(a.distance).toFixed(2)) : '0',
       pace: a.pace || fmtPace(a.average_speed),
       source: 'strava'
     }));
@@ -448,68 +445,21 @@ function matchActivityToSession(act) {
   const weekNum = Math.floor(diffDays / 7) + 1;
   const dayName = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()];
   if (weekNum < 1 || weekNum > 13) return null;
-
-  const week = weeks[weekNum - 1];
-  const exactDay = week.days[dayName];
-
-  // Exact day match on a non-rest day — primary path
-  if (exactDay && exactDay.dot !== 'rest') {
-    return { week: weekNum, day: dayName, planned: exactDay };
-  }
-
-  // Flexible match — find session in week matching this activity's type/distance
-  // (no buildActivityIndex call here — that would cause infinite recursion)
-  const actKm = parseFloat(act.distance || 0);
-  const actDot = (() => {
-    if (!act.pace) return null;
-    const [pm, ps] = act.pace.split(':').map(Number);
-    const secs = pm * 60 + (ps || 0);
-    if (secs < 275) return 'hard';
-    if (secs < 315) return 'moderate';
-    return 'easy';
-  })();
-
-  for (const day of dayOrder) {
-    if (day === dayName) continue;
-    const session = week.days[day];
-    if (!session || session.dot === 'rest') continue;
-    if (actDot && session.dot === actDot) {
-      return { week: weekNum, day, planned: session, flexible: true };
-    }
-    const targetKm = getPlannedDistanceKm(session);
-    if (targetKm && actKm > 0 && Math.abs(actKm - targetKm) / targetKm < 0.3) {
-      return { week: weekNum, day, planned: session, flexible: true };
+  // Use index if available, otherwise fall back to exact day
+  if (_activityIndexCache) {
+    for (const [key, acts] of Object.entries(_activityIndexCache)) {
+      if (acts.includes(act)) {
+        const [wk, day] = key.split('-');
+        return { week: parseInt(wk), day, planned: weeks[parseInt(wk)-1]?.days[day] || null };
+      }
     }
   }
-
-  return { week: weekNum, day: dayName, planned: exactDay || null };
-}
-
-function getPlannedDistanceKm(planned) {
-  if (!planned || !planned.detail) return null;
-  // Extract distance hints like "13km", "10km", "~8km", "total ~7km"
-  const m = planned.detail.match(/(?:total\s*~?|^)(\d+(?:\.\d+)?)km/i);
-  if (m) return parseFloat(m[1]);
-  // Fallback: first standalone number followed by km
-  const m2 = planned.detail.match(/(\d+(?:\.\d+)?)\s*km/i);
-  return m2 ? parseFloat(m2[1]) : null;
+  return { week: weekNum, day: dayName, planned: weeks[weekNum-1].days[dayName] };
 }
 
 function getMatchQuality(act, planned) {
   if (!planned || planned.dot === 'rest') return 'unmatched';
-
-  const actualKm = parseFloat(act.distance || 0);
-  const plannedKm = getPlannedDistanceKm(planned);
-
-  // Distance completion check — if we know the planned distance, enforce it
-  if (plannedKm && plannedKm > 0) {
-    const completionPct = actualKm / plannedKm;
-    if (completionPct < 0.75) return 'miss';   // <75% of planned distance → Off Plan
-    if (completionPct < 0.90) return 'warn';   // 75–90% → Check
-  }
-
-  // Pace check (secondary, only if pace is available)
-  if (!act.pace) return plannedKm ? 'ok' : 'ok';
+  if (!act.pace) return 'ok';
   const [m,s] = act.pace.split(':').map(Number);
   const secs = m*60 + (s||0);
   if (planned.dot === 'easy') return (secs >= 310 && secs <= 390) ? 'great' : secs < 310 ? 'warn' : 'miss';
@@ -518,20 +468,12 @@ function getMatchQuality(act, planned) {
   return 'ok';
 }
 
-// ── SMART TWO-PASS ACTIVITY MATCHING ──
-// Week-level cache so we don't recompute constantly
 let _activityIndexCache = null;
 let _activityIndexCacheLen = 0;
 
 function buildActivityIndex() {
-  // Invalidate cache if activities array changed
-  if (_activityIndexCache && _activityIndexCacheLen === activities.length) {
-    return _activityIndexCache;
-  }
-
+  if (_activityIndexCache && _activityIndexCacheLen === activities.length) return _activityIndexCache;
   const idx = {};
-
-  // Group activities by week
   const byWeek = {};
   activities.forEach(act => {
     if (!act.date) return;
@@ -544,17 +486,13 @@ function buildActivityIndex() {
     if (!byWeek[weekNum]) byWeek[weekNum] = [];
     byWeek[weekNum].push({ act, dt, weekNum, dayName: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()] });
   });
-
-  // For each week, do two-pass matching
   Object.entries(byWeek).forEach(([weekNum, entries]) => {
     weekNum = parseInt(weekNum);
     const week = weeks[weekNum - 1];
     if (!week) return;
-
-    const claimedSessions = new Set(); // days already matched
-    const matched = new Map();          // act → { day, planned, flexible }
-
-    // PASS 1: exact day matches (activity occurred on the scheduled day)
+    const claimedSessions = new Set();
+    const matched = new Map();
+    // Pass 1: exact day matches
     entries.forEach(({ act, dayName }) => {
       const session = week.days[dayName];
       if (session && session.dot !== 'rest') {
@@ -562,29 +500,19 @@ function buildActivityIndex() {
         claimedSessions.add(dayName);
       }
     });
-
-    // PASS 2: flexible matches for activities on rest days or unscheduled days
+    // Pass 2: flexible matches
     entries.forEach(({ act, dayName }) => {
-      if (matched.has(act)) return; // already matched in pass 1
-
+      if (matched.has(act)) return;
       const actKm = parseFloat(act.distance || 0);
       const actDot = inferDot(act);
-
-      // Score each unmatched session in the week
       let bestDay = null, bestScore = -1;
       dayOrder.forEach(day => {
         if (claimedSessions.has(day)) return;
         const session = week.days[day];
         if (!session || session.dot === 'rest' || session.dot === 'strength') return;
-
         let score = 0;
-
-        // Type match
         if (actDot && session.dot === actDot) score += 3;
         else if (actDot === 'easy' && session.dot === 'moderate') score += 1;
-        else if (actDot === 'moderate' && session.dot === 'easy') score += 1;
-
-        // Distance match
         const targetKm = getPlannedDistanceKm(session);
         if (targetKm && actKm > 0) {
           const ratio = Math.abs(actKm - targetKm) / targetKm;
@@ -592,34 +520,24 @@ function buildActivityIndex() {
           else if (ratio < 0.30) score += 2;
           else if (ratio < 0.50) score += 1;
         }
-
         if (score > bestScore) { bestScore = score; bestDay = day; }
       });
-
       if (bestDay && bestScore > 0) {
         matched.set(act, { day: bestDay, planned: week.days[bestDay], flexible: true });
         claimedSessions.add(bestDay);
       } else {
-        // No good match — park it on its actual day as unplanned
         matched.set(act, { day: dayName, planned: week.days[dayName] || null, flexible: false });
       }
     });
-
-    // Write into idx
     matched.forEach(({ day }, act) => {
-      const key = `${weekNum}-${day}`;
+      const key = weekNum + '-' + day;
       if (!idx[key]) idx[key] = [];
       idx[key].push(act);
     });
   });
-
   _activityIndexCache = idx;
   _activityIndexCacheLen = activities.length;
   return idx;
-}
-
-function invalidateActivityIndex() {
-  _activityIndexCache = null;
 }
 
 function inferDot(act) {
@@ -631,28 +549,6 @@ function inferDot(act) {
   return 'easy';
 }
 
-function matchActivityToSession(act) {
-  // Thin wrapper — use the index for consistency
-  if (!act.date) return null;
-  const [y,m,d] = act.date.split('-');
-  const dt = new Date(y, m-1, d);
-  const diffDays = Math.floor((dt - PLAN_START) / 86400000);
-  if (diffDays < 0) return null;
-  const weekNum = Math.floor(diffDays / 7) + 1;
-  if (weekNum < 1 || weekNum > 13) return null;
-  const idx = buildActivityIndex();
-  for (const [key, acts] of Object.entries(idx)) {
-    if (acts.includes(act)) {
-      const [wk, day] = key.split('-');
-      const planned = weeks[parseInt(wk)-1]?.days[day];
-      return { week: parseInt(wk), day, planned: planned || null };
-    }
-  }
-  return null;
-}
-
-
-
 // ── DASHBOARD ──
 function renderDashboard() {
   const wkNum = getCurrentWeekNum();
@@ -661,50 +557,13 @@ function renderDashboard() {
   const el = document.getElementById('page-dashboard');
 
   const quotePool = {
-    far: [
-      'Build the habit. Easy wins everything right now.',
-      'Consistency beats intensity every time.',
-      'The hay is going in the barn. Keep stacking.',
-      'Every easy run is an investment in race day.',
-      'Run easy enough that you could hold a conversation — then slow down a little more.',
-    ],
-    build: [
-      'Deep in the build. This is where fitness is made.',
-      'The work you do now is the fitness you feel in July.',
-      'You don\'t rise to the level of your goals, you fall to the level of your training.',
-      'Hard days build you. Easy days absorb it.',
-      'Fatigue is temporary. The adaptation is permanent.',
-      'Trust the process. The numbers will come.',
-      'Uncomfortable is where improvement lives.',
-    ],
-    peak: [
-      'Peak phase. Trust the process — sharpness is coming.',
-      'The engine is built. Now we tune it.',
-      'You\'re not getting fitter right now — you\'re getting sharper.',
-      'Race pace should feel familiar by now. Good.',
-      'Confidence is earned in training. Collect it.',
-    ],
-    taper: [
-      'Taper time. The work is done. Freshen up.',
-      'Less is more. Your legs are loading up.',
-      'Resist the urge to do more. The hay is in the barn.',
-      'Trust what you\'ve built over 10 weeks.',
-      'You\'re not losing fitness. You\'re becoming race-ready.',
-    ],
-    race: [
-      'Race week. Short, sharp, and sleep well.',
-      'One more sleep. The training is banked.',
-      'Go sub-42. Everything has led to this.',
-    ]
+    far: ['Build the habit. Easy wins everything right now.','Consistency beats intensity every time.','The hay is going in the barn. Keep stacking.','Every easy run is an investment in race day.'],
+    build: ['Deep in the build. This is where fitness is made.','The work you do now is the fitness you feel in July.','Hard days build you. Easy days absorb it.','Fatigue is temporary. The adaptation is permanent.','Trust the process. The numbers will come.','Uncomfortable is where improvement lives.'],
+    peak: ['Peak phase. Trust the process — sharpness is coming.','The engine is built. Now we tune it.','Race pace should feel familiar by now. Good.','Confidence is earned in training. Collect it.'],
+    taper: ['Taper time. The work is done. Freshen up.','Less is more. Your legs are loading up.','Resist the urge to do more. The hay is in the barn.','Trust what you have built over 10 weeks.'],
+    race: ['Race week. Short, sharp, and sleep well.','One more sleep. The training is banked.','Go sub-42. Everything has led to this.']
   };
-
-  const phaseKey = daysToRace > 84 ? 'far'
-    : daysToRace > 56 ? 'build'
-    : daysToRace > 28 ? 'peak'
-    : daysToRace > 5 ? 'taper'
-    : 'race';
-
-  // Pick a quote that rotates daily (deterministic per calendar day so it doesn't flicker on re-render)
+  const phaseKey = daysToRace > 84 ? 'far' : daysToRace > 56 ? 'build' : daysToRace > 28 ? 'peak' : daysToRace > 5 ? 'taper' : 'race';
   const todaySeed = new Date().toISOString().slice(0,10).replace(/-/g,'');
   const pool = quotePool[phaseKey];
   const countdownMsg = pool[parseInt(todaySeed) % pool.length];
@@ -950,96 +809,6 @@ function renderDashboard() {
       </div><div style="font-size:12px;color:var(--text-muted);text-align:center">${Math.round(macroTotals.k)} kcal · ${todayMeals.length} item${todayMeals.length!==1?'s':''} logged</div>`
     : '<div style="font-size:13px;color:var(--text-muted)">No food logged today. <button class="btn-secondary" style="font-size:12px;padding:4px 10px;margin-left:6px" onclick="showPage(\'meals\')">Log food →</button></div>';
 
-  // Build week snapshot HTML outside template literal to avoid nesting issues
-  const weekSnapshotHTML = (() => {
-    if (!wkNum) return '';
-    const actI = buildActivityIndex();
-    const todayDay = getCurrentDayOfWeek();
-    const todayIdx = dayOrder.indexOf(todayDay);
-    const completionPctWk = Math.min(100, Math.round(parseFloat(kmLogged) / (parseFloat(kmPlanned) || 1) * 100));
-    const ringDash = Math.round(94.2 * completionPctWk / 100);
-    const dotCols = { easy:'#1D9E75', hard:'#378ADD', moderate:'#EF9F27', rest:'var(--border)', strength:'#9B7DE8', race:'#E05252' };
-
-    const daysHTML = dayOrder.map(day => {
-      const s = weeks[wkNum-1].days[day];
-      if (!s) return '';
-      const isToday = day === todayDay;
-      const isPast = dayOrder.indexOf(day) < todayIdx;
-      const dotCol = dotCols[s.dot] || 'var(--border)';
-      const dayActs = actI[wkNum + '-' + day] || [];
-      const act = dayActs[0];
-
-      // Check if activity was done on a different day (flexible match)
-      const actDayName = act ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(...(act.date||'').split('-').map((v,i)=>i===1?v-1:+v)).getDay()] : null;
-      const isFlexible = act && actDayName !== day;
-      const flexLabel = isFlexible ? ' <span style="font-size:10px;color:#378ADD;font-family:var(--mono)">(done ' + actDayName + ')</span>' : '';
-
-      const actLine = act
-        ? '<div class="dwday-act">' + act.distance + 'km &middot; ' + (act.pace || '—') + '/km' + (act.average_heartrate ? ' &hearts;' + Math.round(act.average_heartrate) : '') + '</div>'
-        : '';
-      const doneIcon = act ? '&#10003; ' : '';
-      const detailText = s.dot !== 'rest' ? '<div class="dwday-detail">' + (s.detail || '').split('·')[0].trim() + '</div>' : '';
-      const classes = 'dwday' + (isToday ? ' dwday-today' : '') + (isPast && !act && s.dot !== 'rest' ? ' dwday-missed' : '') + (act ? ' dwday-done' : '');
-      return '<div class="' + classes + '">' +
-        '<div class="dwday-dot" style="background:' + dotCol + '"></div>' +
-        '<div class="dwday-info">' +
-          '<div class="dwday-label">' + day + (isToday ? ' &middot; Today' : '') + '</div>' +
-          '<div class="dwday-type">' + doneIcon + s.type + flexLabel + '</div>' +
-          detailText + actLine +
-        '</div></div>';
-    }).join('');
-
-    // Linkage table — planned vs actual for all non-rest sessions this week
-    const linkageRows = dayOrder.map(day => {
-      const s = weeks[wkNum-1].days[day];
-      if (!s || s.dot === 'rest') return '';
-      const dayActs = actI[wkNum + '-' + day] || [];
-      const act = dayActs[0];
-      const actDayName = act ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(...(act.date||'').split('-').map((v,i)=>i===1?v-1:+v)).getDay()] : null;
-      const isFlexible = act && actDayName !== day;
-      const isPast = dayOrder.indexOf(day) < todayIdx;
-
-      const statusIcon = act ? '&#10003;' : isPast ? '&#9888;' : '&middot;';
-      const statusCol = act ? '#1D9E75' : isPast ? '#EF9F27' : 'var(--text-faint)';
-      const plannedKmStr = getPlannedDistanceKm(s) ? getPlannedDistanceKm(s) + 'km' : '—';
-      const actualStr = act
-        ? act.distance + 'km @ ' + (act.pace || '—') + '/km' + (isFlexible ? ' <span style="color:#378ADD">(moved from ' + actDayName + ')</span>' : '')
-        : isPast ? '<span style="color:#EF9F27">Not logged</span>' : '<span style="color:var(--text-faint)">Upcoming</span>';
-
-      return '<div class="linkage-row">' +
-        '<div class="lr-status" style="color:' + statusCol + '">' + statusIcon + '</div>' +
-        '<div class="lr-planned"><div class="lr-day">' + day + '</div><div class="lr-type">' + s.type + '</div><div class="lr-km">' + plannedKmStr + '</div></div>' +
-        '<div class="lr-arrow">→</div>' +
-        '<div class="lr-actual">' + actualStr + '</div>' +
-      '</div>';
-    }).filter(Boolean).join('');
-
-    const hrBanner = avgHR
-      ? '<div class="dash-hr-banner ' + (avgEasyHR && avgEasyHR > hrEasyTarget ? 'dash-hr-hot' : 'dash-hr-ok') + '">' +
-        '<span>&#9829; HR on easy runs: ' + (avgEasyHR || avgHR) + 'bpm avg</span>' +
-        '<span class="dash-hr-flag">' + (avgEasyHR && avgEasyHR > hrEasyTarget ? '&#9888; Running Hot &mdash; slow down' : 'On Target') + '</span>' +
-        '</div>'
-      : '';
-
-    return '<div class="dash-week-snapshot">' +
-      '<div class="dash-week-header">' +
-        '<div>' +
-          '<div class="dash-week-title">Week ' + weekLabel + ' &middot; ' + phaseText + '</div>' +
-          '<div class="dash-week-sub">' + kmLogged + ' of ' + kmPlanned + 'km logged</div>' +
-        '</div>' +
-        '<div class="dash-week-progress-wrap">' +
-          '<svg viewBox="0 0 36 36" class="dash-ring-svg">' +
-            '<circle cx="18" cy="18" r="15" fill="none" stroke="var(--border)" stroke-width="3"/>' +
-            '<circle cx="18" cy="18" r="15" fill="none" stroke="#1D9E75" stroke-width="3" stroke-dasharray="' + ringDash + ' 94.2" stroke-linecap="round" transform="rotate(-90 18 18)"/>' +
-          '</svg>' +
-          '<span class="dash-ring-pct">' + completionPctWk + '%</span>' +
-        '</div>' +
-      '</div>' +
-      '<div class="dash-week-days">' + daysHTML + '</div>' +
-      (linkageRows ? '<div class="linkage-table"><div class="linkage-title">Plan vs Actual</div>' + linkageRows + '</div>' : '') +
-    '</div>' + hrBanner;
-  })();
-
 el.innerHTML = `
   <div class="dashboard-stack">
     <div>
@@ -1067,7 +836,12 @@ el.innerHTML = `
       </div>
     </div>
 
-    ${weekSnapshotHTML}
+    <div class="dash-grid">
+      <div class="dash-stat-card"><div class="dsc-label">Current Week</div><div class="dsc-value">${weekLabel}</div><div class="dsc-sub">${phaseText}</div></div>
+      <div class="dash-stat-card"><div class="dsc-label">This Week</div><div class="dsc-value">${kmLogged}</div><div class="dsc-sub">of ${kmPlanned} km planned</div></div>
+      <div class="dash-stat-card"><div class="dsc-label">Today</div><div class="dsc-value" style="font-size:16px;padding-top:6px">${todayType}</div><div class="dsc-sub">${todayDetail}</div></div>
+      ${avgHR ? `<div class="dash-stat-card"><div class="dsc-label">Avg Heart Rate</div><div class="dsc-value" style="color:${avgEasyHR&&avgEasyHR>hrEasyTarget?'#EF9F27':'var(--text)'}">${avgHR}</div><div class="dsc-sub">bpm avg · ${avgEasyHR?avgEasyHR+' bpm easy runs':''}</div></div>` : ''}
+    </div>
 
     ${wkNum && session && session.dot !== 'rest' ? `
     <div class="digest-card" style="margin-bottom:16px;border-left:3px solid var(--accent)">
@@ -1086,20 +860,33 @@ el.innerHTML = `
       <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Bar height = planned weekly load. Dark fill = actual completed.</p>
       ${loadChartHTML}
     </div>
-
+    <div class="digest-card">
+      <div class="digest-header">
+        <div class="digest-title">Weekly Digest</div>
+        <button class="digest-btn" id="digest-btn" onclick="generateDigest()"><span id="digest-icon">✦</span> Generate</button>
+      </div>
+      <div class="digest-content" id="digest-content" style="color:var(--text-faint);font-style:italic">Click Generate for your AI weekly summary and coaching notes.</div>
+    </div>
     <div class="digest-card">
       <div class="digest-header" style="margin-bottom:8px"><div class="digest-title">Training Trends</div></div>
       <div>${trendsHTML}</div>
     </div>
-
+    <div class="digest-card">
+      <div class="digest-header" style="margin-bottom:8px">
+        <div class="digest-title">Today's Nutrition</div>
+        <button class="btn-secondary" onclick="showPage('meals')" style="font-size:12px;padding:5px 12px">Log food →</button>
+      </div>
+      ${macroHTML}
+    </div>
 ${wkNum ? `
 <div class="digest-card">
   <div class="digest-header" style="margin-bottom:12px">
     <div>
       <div class="digest-title">Weekly Check-In</div>
-      <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Quick status so the coach can adjust intelligently.</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:2px">A quick status check so the coach can adjust the week intelligently.</div>
     </div>
   </div>
+
   <div class="checkin-grid">
     <div class="checkin-field">
       <label>Fatigue</label>
@@ -1112,6 +899,7 @@ ${wkNum ? `
         <option value="5">5 · Very tired</option>
       </select>
     </div>
+
     <div class="checkin-field">
       <label>Soreness / niggles</label>
       <select class="checkin-input" id="checkin-niggle">
@@ -1124,6 +912,7 @@ ${wkNum ? `
         <option value="5">5 · Do not run hard</option>
       </select>
     </div>
+
     <div class="checkin-field">
       <label>Sleep</label>
       <select class="checkin-input" id="checkin-sleep">
@@ -1132,6 +921,7 @@ ${wkNum ? `
         <option>Poor</option>
       </select>
     </div>
+
     <div class="checkin-field">
       <label>Confidence</label>
       <select class="checkin-input" id="checkin-confidence">
@@ -1144,12 +934,12 @@ ${wkNum ? `
       </select>
     </div>
   </div>
+
   <textarea class="checkin-notes" id="checkin-notes" rows="2" placeholder="Anything the coach should know? e.g. easing back in, busy week, tight calf, missed session..."></textarea>
-  <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px">
-    <button class="digest-btn" id="digest-btn" onclick="generateDigest()"><span id="digest-icon">✦</span> Weekly Digest</button>
-    <button class="btn-primary" onclick="saveWeeklyCheckin()">Save &amp; Brief Coach</button>
+
+  <div style="display:flex;justify-content:flex-end;margin-top:10px">
+    <button class="btn-primary" onclick="saveWeeklyCheckin()">Save Check-In</button>
   </div>
-  <div class="digest-content" id="digest-content" style="color:var(--text-faint);font-style:italic;margin-top:12px"></div>
 </div>
 ` : ''}
 
@@ -1525,15 +1315,8 @@ function renderWeeks() {
       dayActs.forEach(act => {
         const quality = getMatchQuality(act, d);
         const qClass = quality==='great'?'match-great':quality==='warn'?'match-warn':quality==='miss'?'match-miss':'';
-        const plannedKm = getPlannedDistanceKm(d);
-        const actualKm = parseFloat(act.distance || 0);
-        const completionPct = plannedKm ? Math.round(actualKm / plannedKm * 100) : null;
-        const labelText = quality==='great'?'✓ On Target':quality==='warn'?'⚠ Short / Check Pace':quality==='miss'?'✗ Incomplete / Off Plan':'↗ Strava';
-        const distLine = plannedKm
-          ? `${act.distance}km of ${plannedKm}km planned (${completionPct}%)`
-          : `${act.distance}km`;
-        const hrLine = act.average_heartrate ? ` · ❤ ${Math.round(act.average_heartrate)}bpm avg` : '';
-        overlayHTML += `<div class="activity-overlay ${qClass}"><div class="ao-label">${labelText}</div><div style="font-size:11px;color:var(--text-muted)">${distLine} · ${act.pace||'—'}/km${act.elapsed_time?' · '+fmtTime(act.elapsed_time):''}${hrLine}</div></div>`;
+        const labelText = quality==='great'?'✓ On Target':quality==='warn'?'⚠ Check Pace':quality==='miss'?'✗ Off Plan':'↗ Strava';
+        overlayHTML += `<div class="activity-overlay ${qClass}"><div class="ao-label">${labelText}</div><div style="font-size:11px;color:var(--text-muted)">${act.distance}km · ${act.pace||'—'}/km${act.elapsed_time?' · '+fmtTime(act.elapsed_time):''}</div></div>`;
       });
       const modifiedBadge = d._modified ? `<div style="font-size:10px;font-family:var(--mono);color:#378ADD;margin-top:4px">✎ Coach modified${d._reason ? ` — ${d._reason}` : ''}</div>` : '';
       return `<div class="day-card ${isRest?'rest-card':''}" style="${isTodayCard?'border:2px solid #1D9E75;':''}">
@@ -2011,7 +1794,7 @@ function renderActivitiesPage() {
     const icon = isStrength ? '🏋️' : isCycling ? '🚴' : '🏃';
     const metaLabel = isStrength ? 'Strength session'
       : isCycling ? 'Cycling'
-      : match?.planned ? `Wk${match.week} ${match.day} · ${match.planned?.type||'—'}${match.flexible ? ' ↔' : ''}` : 'Outside plan dates';
+      : match ? `Wk${match.week} ${match.day} · ${match.planned?.type||'—'}` : 'Outside plan dates';
     const badgeHTML = isStrength
       ? '<span class="match-badge mb-unmatched">🏋️ Strength</span>'
       : isCycling
@@ -2019,83 +1802,37 @@ function renderActivitiesPage() {
       : `<span class="match-badge ${badges[quality]}">${badgeText[quality]}</span>`;
     // Show speed for cycling instead of pace, add HR if available
     const hrBadge = act.average_heartrate ? `<span style="font-size:11px;font-family:var(--mono);color:${act.average_heartrate>160?'#EF9F27':act.average_heartrate>148?'var(--text-muted)':'#1D9E75'};margin-left:4px">♥ ${Math.round(act.average_heartrate)} bpm</span>` : '';
-    const detectedBadge = act.session_type_detected ? `<span style="font-size:11px;font-family:var(--mono);background:rgba(55,138,221,0.12);color:#378ADD;border-radius:4px;padding:1px 6px;margin-left:4px">${act.session_type_detected}</span>` : '';
-
-    // Splits table for runs
-    const splits = Array.isArray(act.splits_metric) ? act.splits_metric : [];
-    // ── Splits — visual bar chart style ──
-    const splitsHTML = (!isStrength && !isCycling && splits.length) ? (() => {
-      const paces = splits.map(s => {
-        if (!s.pace) return null;
-        const [m,sec] = s.pace.split(':').map(Number); return m*60+sec;
-      });
-      const validPaces = paces.filter(Boolean);
-      const minP = validPaces.length ? Math.min(...validPaces) : 300;
-      const maxP = validPaces.length ? Math.max(...validPaces) : 400;
-      const range = Math.max(maxP - minP, 30);
-
-      const rows = splits.map((s, i) => {
-        const secs = paces[i];
-        const paceColor = !secs ? 'var(--text-faint)' : secs < 265 ? '#378ADD' : secs < 300 ? '#1D9E75' : secs < 330 ? 'var(--text-muted)' : '#EF9F27';
-        const hrColor = !s.hr ? 'var(--text-faint)' : s.hr > 170 ? '#E05252' : s.hr > 158 ? '#EF9F27' : '#1D9E75';
-        const barPct = secs ? Math.round((1 - (secs - minP) / range) * 80 + 20) : 0;
-        return '<div class="sp-row">' +
-          '<div class="sp-km">' + s.km + '</div>' +
-          '<div class="sp-bar-wrap"><div class="sp-bar" style="width:' + barPct + '%;background:' + paceColor + '"></div></div>' +
-          '<div class="sp-pace" style="color:' + paceColor + '">' + (s.pace || '—') + '</div>' +
-          '<div class="sp-hr" style="color:' + hrColor + '">' + (s.hr ? s.hr : '—') + '</div>' +
-          '<div class="sp-elev">' + (s.elevation != null ? (s.elevation > 0 ? '+' : '') + s.elevation + 'm' : '') + '</div>' +
-        '</div>';
-      }).join('');
-
-      const miniPills = splits.slice(0,4).map((s,i) =>
-        '<span class="sp-mini-pill">' + (s.pace||'?') + '</span>'
-      ).join('') + (splits.length > 4 ? '<span class="sp-mini-more">+' + (splits.length-4) + '</span>' : '');
-
-      return '<div class="act-splits-wrap">' +
-        '<button class="act-splits-toggle" onclick="toggleSplits(\'' + actId + '\')">' +
-          '<span class="sp-toggle-label">Splits</span>' +
-          '<span class="sp-toggle-pills">' + miniPills + '</span>' +
-          '<span class="act-splits-toggle-icon" id="splits-icon-' + actId + '">▾</span>' +
-        '</button>' +
-        '<div class="act-splits" id="splits-' + actId + '" style="display:none">' +
-          '<div class="sp-header"><div class="sp-km">KM</div><div class="sp-bar-wrap"></div><div class="sp-pace">Pace</div><div class="sp-hr">HR</div><div class="sp-elev">Elev</div></div>' +
-          rows +
-        '</div>' +
-      '</div>';
-    })() : '';
-
-    const gearLine = act.gear_name ? '<span class="act-gear-pill">\ud83d\udc9f\ufe0f ' + act.gear_name + '</span>' : '';
-    const autoAnalysisHTML = act.auto_analysis ? '<div class="act-auto-analysis">' + act.auto_analysis + '</div>' : '';
-
 const statsHTML = isStrength ? '' : `
   <div class="activity-metrics">
     <div class="activity-metric">
       <div class="activity-metric-label">Distance</div>
       <div class="activity-metric-value">${act.distance}<span>km</span></div>
     </div>
-    <div class="activity-metric">
-      <div class="activity-metric-label">${isCycling ? 'Speed' : 'Pace'}</div>
-      <div class="activity-metric-value">${isCycling && act.average_speed ? (act.average_speed * 3.6).toFixed(1) : (act.pace || '—')}<span>${isCycling ? 'km/h' : '/km'}</span></div>
-    </div>
-    ${act.elapsed_time ? `<div class="activity-metric"><div class="activity-metric-label">Time</div><div class="activity-metric-value">${fmtTime(act.elapsed_time)}</div></div>` : ''}
-    ${act.average_heartrate ? `<div class="activity-metric"><div class="activity-metric-label">Avg HR</div><div class="activity-metric-value">${Math.round(act.average_heartrate)}<span>bpm</span></div></div>` : ''}
-    ${act.average_cadence ? `<div class="activity-metric"><div class="activity-metric-label">Cadence</div><div class="activity-metric-value">${Math.round(act.average_cadence * 2)}<span>spm</span></div></div>` : ''}
-    ${act.total_elevation_gain ? `<div class="activity-metric"><div class="activity-metric-label">Elev</div><div class="activity-metric-value">${Math.round(act.total_elevation_gain)}<span>m</span></div></div>` : ''}
-    ${act.calories ? `<div class="activity-metric"><div class="activity-metric-label">Calories</div><div class="activity-metric-value">${act.calories}<span>kcal</span></div></div>` : ''}
-  </div>
-  ${autoAnalysisHTML}
-  ${splitsHTML}
-  ${gearLine ? `<div class="act-gear-row">${gearLine}</div>` : ''}
-`;
-// ── Collapsed summary line ──
-const summaryLine = [
-  act.distance ? act.distance + 'km' : null,
-  act.pace ? act.pace + '/km' : null,
-  act.elapsed_time ? fmtTime(act.elapsed_time) : null,
-  act.average_heartrate ? '♥ ' + Math.round(act.average_heartrate) + 'bpm' : null,
-].filter(Boolean).join('  ·  ');
 
+    <div class="activity-metric">
+      <div class="activity-metric-label">${isCycling ? 'Avg Speed' : 'Avg Pace'}</div>
+      <div class="activity-metric-value">
+        ${isCycling && act.average_speed ? (act.average_speed * 3.6).toFixed(1) : (act.pace || '—')}
+        <span>${isCycling ? 'km/h' : '/km'}</span>
+      </div>
+    </div>
+
+    ${act.elapsed_time ? `
+      <div class="activity-metric">
+        <div class="activity-metric-label">Elapsed Time</div>
+        <div class="activity-metric-value">${fmtTime(act.elapsed_time)}</div>
+      </div>
+    ` : ''}
+
+    ${act.average_heartrate ? `
+      <div class="activity-metric">
+        <div class="activity-metric-label">Avg HR</div>
+        <div class="activity-metric-value">${Math.round(act.average_heartrate)}<span>bpm</span></div>
+      </div>
+    ` : ''}
+  </div>
+`;
+const summaryLine = [act.distance?act.distance+'km':null,act.pace?act.pace+'/km':null,act.elapsed_time?fmtTime(act.elapsed_time):null,act.average_heartrate?'\u2665 '+Math.round(act.average_heartrate)+'bpm':null].filter(Boolean).join('  \u00b7  ');
 return `<div class="activity-card" id="acard-${actId}">
   <div class="activity-card-header" onclick="toggleActivityCard('${actId}')">
     <div class="act-icon" style="${isCycling ? 'background:#E3EAF5' : ''}">${icon}</div>
@@ -2114,24 +1851,30 @@ return `<div class="activity-card" id="acard-${actId}">
       <span class="act-expand-icon" id="aexpand-${actId}">›</span>
     </div>
   </div>
-
   <div class="activity-card-body" id="acbody-${actId}" style="display:none">
-    ${statsHTML}
 
-    ${debrief ? `
+  ${statsHTML}
+
+  ${debrief ? `
     <div class="activity-debrief ad-confirmed">
       <div class="ad-header">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span>Session Details</span>
           <span class="ad-confirmed-badge">Confirmed</span>
         </div>
+
         <span style="display:flex;gap:8px;align-items:center">
           ${debrief.shoes ? `<span>${debrief.shoes}</span>` : ''}
           <button class="btn-secondary" style="font-size:11px;padding:3px 8px" onclick="openDebriefEditor('${actId}')">Edit</button>
         </span>
       </div>
+
       <div class="ad-session-title">${debrief.session_label || debrief.session_type || 'Completed session'}</div>
-      ${debrief.structured_summary ? `<div class="ad-summary">${debrief.structured_summary}</div>` : ''}
+
+      ${debrief.structured_summary ? `
+        <div class="ad-summary">${debrief.structured_summary}</div>
+      ` : ''}
+
       ${Array.isArray(debrief.segments) && debrief.segments.length ? `
         <div class="ad-segments">
           ${debrief.segments.map(seg => `
@@ -2143,6 +1886,7 @@ return `<div class="activity-card" id="acard-${actId}">
           `).join('')}
         </div>
       ` : ''}
+
       <div class="ad-metrics">
         ${debrief.rpe ? `<span>RPE ${debrief.rpe}/10</span>` : ''}
         ${debrief.soreness_score !== null && debrief.soreness_score !== undefined ? `<span>Soreness ${debrief.soreness_score}/5</span>` : ''}
@@ -2150,7 +1894,7 @@ return `<div class="activity-card" id="acard-${actId}">
         ${debrief.completed_as_planned ? `<span>${debrief.completed_as_planned}</span>` : ''}
       </div>
     </div>
-    ` : `
+  ` : `
     <div class="activity-debrief ad-empty">
       <div>
         <div style="font-weight:500;color:var(--text);margin-bottom:2px">No session details yet</div>
@@ -2158,7 +1902,7 @@ return `<div class="activity-card" id="acard-${actId}">
       </div>
       <button class="btn-secondary" onclick="openDebriefEditor('${actId}')">Add session details</button>
     </div>
-    `}
+  `}
 
   <div class="debrief-editor" id="debrief-editor-${actId}" style="display:none">
     <div class="debrief-editor-title">Session Details</div>
@@ -2346,42 +2090,6 @@ function toggleActivityCard(actId) {
   if (icon) icon.textContent = open ? '⌄' : '›';
 }
 
-function toggleSplits(actId) {
-  const el = document.getElementById('splits-' + actId);
-  const icon = document.getElementById('splits-icon-' + actId);
-  if (!el) return;
-  const open = el.style.display === 'none' || !el.style.display;
-  el.style.display = open ? 'block' : 'none';
-  if (icon) icon.textContent = open ? '▴' : '▾';
-}
-
-async function refreshActivity(stravaId, btn) {
-  if (!stravaId) return;
-  const orig = btn.textContent;
-  btn.textContent = '…';
-  btn.disabled = true;
-  try {
-    const res = await fetch('/api/strava-refresh', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ strava_id: stravaId })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Refresh failed');
-    // Reload activities from Supabase and re-render
-    const acts = await api.get('strava_activities', 'select=*&order=start_date.desc&limit=200');
-    activities = (acts || []).map(a => ({
-      ...a,
-      date: (a.start_date_local || a.start_date || '').slice(0, 10),
-    }));
-    renderActivitiesPage();
-  } catch (e) {
-    alert('Refresh failed: ' + e.message);
-    btn.textContent = orig;
-    btn.disabled = false;
-  }
-}
-
 function openDebriefEditor(actId) {
   const editor = document.getElementById(`debrief-editor-${actId}`);
   if (!editor) return;
@@ -2510,8 +2218,7 @@ async function addManualActivity() {
       name: type,
       sport_type: type,
       start_date: date + 'T00:00:00Z',
-      start_date_local: date + 'T00:00:00Z',
-      distance: dist,   // store in km, consistent with webhook
+      distance: dist * 1000,
       pace,
       average_speed: speed,
       elapsed_time: Math.round((m*60+(s||0))*dist),
@@ -2549,8 +2256,44 @@ function renderMealsPage() {
     return `<div class="st-hist-entry"><div class="st-hist-header" onclick="this.nextElementSibling.classList.toggle('open')"><div><div class="st-hist-date">${fmtDate(date)}</div><div class="st-hist-summary">${meals.length} items · ${Math.round(t.p)}g protein · ${Math.round(t.k)} kcal</div></div><span style="font-size:10px;color:var(--text-faint)">▼</span></div><div class="st-hist-body">${meals.map(m=>`<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--text-faint);font-family:var(--mono)">${m.time||''}</span> <strong>${m.type}</strong> — ${m.text}<div style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">${Math.round(m.protein||0)}g P · ${Math.round(m.carbs||0)}g C · ${Math.round(m.fat||0)}g F · ${m.kcal||0}kcal</div></div>`).join('')}</div></div>`;
   }).join('') || '<p style="font-size:13px;color:var(--text-muted)">No history yet.</p>';
 
+  const wkNum2 = getCurrentWeekNum();
+  const todaySession2 = wkNum2 ? weeks[wkNum2-1]?.days[getCurrentDayOfWeek()] : null;
+  const isHardDay = todaySession2?.dot === 'hard' || todaySession2?.dot === 'moderate';
+  const isRestDay = !todaySession2 || todaySession2.dot === 'rest';
+  const dayType = isHardDay ? 'Training' : isRestDay ? 'Rest' : 'Easy';
+  const carbTarget = isHardDay ? '375–525g' : isRestDay ? '300–375g' : '300–450g';
+  const proteinTarget = '120–135g';
+  const fatTarget = isHardDay ? '75–90g' : '90–105g';
+  const kcalTarget = isHardDay ? '2,800–3,200' : '2,400–2,700';
+
   el.innerHTML = `
-    <div class="page-title">Meal Tracker</div>
+    <div class="page-title">Nutrition</div>
+    <p class="page-sub">Targets adjust based on today's session type. Log food below to track against your targets.</p>
+
+    <div class="dash-grid" style="margin-bottom:16px">
+      <div class="dash-stat-card">
+        <div class="dsc-label">Carbs · ${dayType}</div>
+        <div class="dsc-value" style="font-size:16px">${carbTarget}</div>
+        <div class="dsc-sub">Logged: ${Math.round(totals.c)}g</div>
+      </div>
+      <div class="dash-stat-card">
+        <div class="dsc-label">Protein</div>
+        <div class="dsc-value" style="font-size:16px">${proteinTarget}</div>
+        <div class="dsc-sub">Logged: ${Math.round(totals.p)}g</div>
+      </div>
+      <div class="dash-stat-card">
+        <div class="dsc-label">Fat</div>
+        <div class="dsc-value" style="font-size:16px">${fatTarget}</div>
+        <div class="dsc-sub">Logged: ${Math.round(totals.f)}g</div>
+      </div>
+      <div class="dash-stat-card">
+        <div class="dsc-label">Calories</div>
+        <div class="dsc-value" style="font-size:16px">${kcalTarget}</div>
+        <div class="dsc-sub">Logged: ${totals.k} kcal</div>
+      </div>
+    </div>
+
+    <div class="sec-title">Today's Food Log</div>
     <p class="page-sub">Type what you ate — the AI extracts macros automatically. Focus on snacks and problem areas, or track everything. Targets: ~130g protein, ~450g carbs, ~80g fat on training days.</p>
     <div class="meal-input-card">
       <div class="meal-tabs">
@@ -2635,48 +2378,30 @@ async function deleteMeal(id) {
 
 // ── STRENGTH PAGE ──
 const STRENGTH_P1 = [
-  {id:'rdl',name:'Romanian Deadlift (RDL)',target:'3×8 · 3 sec eccentric · controlled',sets:3, why:'Primary hamstring loading. Most important exercise.', tag:'hamstring',
-    alts:['Dumbbell RDL (if no barbell)', 'Single-leg RDL (balance focus)', 'Good Morning (if no weights)']},
-  {id:'bss',name:'Bulgarian Split Squat',target:'3×8 each · smooth control',sets:3, why:'Single-leg quad + glute strength, mimics running gait.', tag:'',
-    alts:['Reverse Lunge (if no bench/box)', 'Step-Up (if no bench)', 'Goblet Squat (if balance is a problem)']},
-  {id:'hip',name:'Hip Thrust / Glute Bridge',target:'3×10 · strong lockout',sets:3, why:'Glute activation — powers propulsion, reduces hamstring load.', tag:'',
-    alts:['Glute Bridge on floor (if no bench)', 'Single-leg Glute Bridge', 'Cable Pull-Through (if cable available)']},
-  {id:'curl',name:'Seated or Lying Hamstring Curl',target:'3×10 · controlled return',sets:3, why:'Direct hamstring work under load.', tag:'hamstring',
-    alts:['Swiss Ball Leg Curl (if no machine)', 'Dumbbell Hamstring Curl (lying)', 'Slider Leg Curl (if sliders available)']},
-  {id:'calf',name:'Single-Leg Calf Raise',target:'3×12 each',sets:3, why:'Achilles and calf resilience for running impact.', tag:'',
-    alts:['Seated Calf Raise machine', 'Bodyweight (both legs if injury)', 'Step calf raise (use a step)']},
-  {id:'cope',name:'Copenhagen Plank',target:'2×20s each',sets:2, why:'Hip adductor strength — often neglected.', tag:'',
-    alts:['Side-lying hip adduction (if no bench)', 'Lateral band walk (activation substitute)', 'Inner thigh squeeze with ball']},
-  {id:'nordic',name:'Assisted Nordic Hamstring Curl',target:'Optional · 2×3 only if no soreness',sets:2, why:'Best evidence-based hamstring prevention. Eccentric focus.', tag:'hamstring',
-    alts:['Slow eccentric RDL (if no partner/anchor)', 'Swiss ball rollout (partial substitute)', 'Skip this week if sore']}
+  {id:'rdl',name:'Romanian Deadlift (RDL)',target:'3×8 · 3 sec eccentric · controlled',sets:3},
+  {id:'bss',name:'Bulgarian Split Squat',target:'3×8 each · smooth control',sets:3},
+  {id:'hip',name:'Hip Thrust / Glute Bridge',target:'3×10 · strong lockout',sets:3},
+  {id:'curl',name:'Seated or Lying Hamstring Curl',target:'3×10 · controlled return',sets:3},
+  {id:'calf',name:'Single-Leg Calf Raise',target:'3×12 each',sets:3},
+  {id:'cope',name:'Copenhagen Plank',target:'2×20s each',sets:2},
+  {id:'nordic',name:'Assisted Nordic Hamstring Curl',target:'Optional · 2×3 only if no soreness',sets:2}
 ];
 
 const STRENGTH_P2 = [
-  {id:'rdl',name:'Romanian Deadlift (RDL)',target:'4×6–8 · moderate-heavy · controlled eccentric',sets:4, why:'Progressive overload on hamstrings. 3–4s lowering.', tag:'hamstring',
-    alts:['Trap Bar Deadlift (if available)', 'Dumbbell RDL', 'Single-leg RDL (load each side)']},
-  {id:'bss',name:'Bulgarian Split Squat',target:'3×8 each · progressive load',sets:3, why:'Add load with dumbbells or barbell.', tag:'',
-    alts:['Barbell Rear-Foot Elevated Split Squat', 'Walking Lunge (if no bench)', 'Step-Up with dumbbells']},
-  {id:'hip',name:'Hip Thrust',target:'3×8–10 · progressive load',sets:3, why:'Load the glutes progressively — barbell preferred.', tag:'',
-    alts:['Dumbbell Hip Thrust', 'Machine Hip Thrust', 'Cable Pull-Through']},
-  {id:'curl',name:'Seated or Lying Hamstring Curl',target:'3×8–10 · controlled return',sets:3, why:'Direct hamstring machine work — add load each week.', tag:'hamstring',
-    alts:['Swiss Ball Leg Curl', 'Dumbbell Hamstring Curl', 'Nordic (if no machine)']},
-  {id:'calf',name:'Single-Leg Calf Raise',target:'3×12–15 · weighted if tolerated',sets:3, why:'Hold dumbbell or use seated calf raise machine.', tag:'',
-    alts:['Seated calf raise machine (heavy)', 'Smith machine calf raise', 'Bodyweight (increase reps to 20+)']},
-  {id:'cope',name:'Copenhagen Plank',target:'2–3×30s each',sets:3, why:'Extend duration as adductor strength improves.', tag:'',
-    alts:['Side plank with leg lift', 'Adductor machine', 'Lateral band walk (3×20 steps)']}
+  {id:'rdl',name:'Romanian Deadlift (RDL)',target:'4×6–8 · moderate-heavy · controlled eccentric',sets:4},
+  {id:'bss',name:'Bulgarian Split Squat',target:'3×8 each · progressive load',sets:3},
+  {id:'hip',name:'Hip Thrust',target:'3×8–10 · progressive load',sets:3},
+  {id:'curl',name:'Seated or Lying Hamstring Curl',target:'3×8–10 · controlled return',sets:3},
+  {id:'calf',name:'Single-Leg Calf Raise',target:'3×12–15 · weighted if tolerated',sets:3},
+  {id:'cope',name:'Copenhagen Plank',target:'2–3×30s each',sets:3}
 ];
 
 const STRENGTH_TAPER = [
-  {id:'rdl',name:'Romanian Deadlift (RDL)',target:'2×6 · light/moderate · no soreness',sets:2, why:'Maintain movement pattern — reduce load by 20%.', tag:'hamstring',
-    alts:['Dumbbell RDL (lighter)', 'Single-leg RDL (bodyweight only)']},
-  {id:'bss',name:'Bulgarian Split Squat',target:'2×6 each · light/moderate',sets:2, why:'Keep the pattern, drop the intensity.', tag:'',
-    alts:['Bodyweight Split Squat', 'Reverse Lunge (bodyweight)']},
-  {id:'curl',name:'Hamstring Curl',target:'2×8 · smooth and easy',sets:2, why:'Light stimulus only — no fatigue chasing.', tag:'hamstring',
-    alts:['Dumbbell hamstring curl', 'Swiss Ball curl (easier)']},
-  {id:'calf',name:'Single-Leg Calf Raise',target:'2×12 each',sets:2, why:'Maintain Achilles load tolerance.', tag:'',
-    alts:['Seated calf raise', 'Bodyweight (both legs)']},
-  {id:'mobility',name:'Mobility / Activation',target:'8–10 min · hips, glutes, calves',sets:1, why:'Glute bridges, leg swings, hip 90/90, calf stretch.', tag:'',
-    alts:['Yoga flow (10 min)', 'Foam rolling + stretching']}
+  {id:'rdl',name:'Romanian Deadlift (RDL)',target:'2×6 · light/moderate · no soreness',sets:2},
+  {id:'bss',name:'Bulgarian Split Squat',target:'2×6 each · light/moderate',sets:2},
+  {id:'curl',name:'Hamstring Curl',target:'2×8 · smooth and easy',sets:2},
+  {id:'calf',name:'Single-Leg Calf Raise',target:'2×12 each',sets:2},
+  {id:'mobility',name:'Mobility / Activation',target:'8–10 min · hips, glutes, calves',sets:1}
 ];
 
 function getStrengthExercises() {
@@ -2693,76 +2418,34 @@ function renderStrengthPage() {
   const el = document.getElementById('page-strength');
   const exercises = getStrengthExercises();
   const wk = getCurrentWeekNum() || 1;
-  const phase = wk<=4
-    ? 'Phase 1 · Foundation'
-    : wk<=9
-      ? 'Phase 2 · Build'
-      : wk<=12
-        ? 'Phase 3 · Taper'
-        : 'Race Week';
+   const phase = wk<=4
+  ? 'Phase 1 · Foundation / Hamstring Capacity'
+  : wk<=9
+    ? 'Phase 2 · Build / Maintain Strength'
+    : wk<=12
+      ? 'Phase 3 · Taper / Reduce Soreness'
+      : 'Race Week · No Heavy Strength';
 
-  // Build exercise cards with alternatives toggle
-  const exerciseCards = exercises.map((ex, exIdx) => {
+  const exerciseInputs = exercises.map(ex => {
     const saved = currentStrengthSession[ex.id] || {};
-    const sets = Array.from({length: ex.sets}, (_, i) => {
+    const setsHTML = Array.from({length:ex.sets},(_,i)=>{
       const s = saved.sets?.[i] || {};
-      const isComplete = s.kg || s.reps;
-      return `<div class="gym-set-row ${isComplete ? 'gym-set-done' : ''}" id="set-row-${ex.id}-${i}">
-        <div class="gym-set-num">${i + 1}</div>
-        <div class="gym-set-prev">${getPrevSetData(ex.id, i)}</div>
-        <input class="gym-input gym-input-kg" type="number" inputmode="decimal" placeholder="kg" step="2.5" value="${s.kg||''}"
-          oninput="saveSetData('${ex.id}',${i},'kg',this.value);updateSetRow('${ex.id}',${i})">
-        <input class="gym-input gym-input-reps" type="number" inputmode="numeric" placeholder="reps" step="1" value="${s.reps||''}"
-          oninput="saveSetData('${ex.id}',${i},'reps',this.value);updateSetRow('${ex.id}',${i})">
-        <button class="gym-set-tick ${isComplete?'ticked':''}" onclick="tickSet('${ex.id}',${i},this)">✓</button>
+      return `<div class="st-set-row">
+        <div class="st-set-label">${i+1}</div>
+        <input class="st-input" type="number" placeholder="kg" step="2.5" value="${s.kg||''}" oninput="saveSetData('${ex.id}',${i},'kg',this.value)">
+        <input class="st-input" type="number" placeholder="reps" step="1" value="${s.reps||''}" oninput="saveSetData('${ex.id}',${i},'reps',this.value)">
+        <input class="st-input" type="text" placeholder="note" value="${s.note||''}" oninput="saveSetData('${ex.id}',${i},'note',this.value)">
       </div>`;
     }).join('');
-
-    const altsHTML = ex.alts && ex.alts.length ? `
-      <div class="gym-alts" id="alts-${ex.id}" style="display:none">
-        <div class="gym-alts-label">Alternatives</div>
-        ${ex.alts.map(a => '<div class="gym-alt-item" onclick="swapExercise(\''+ex.id+'\',\''+a.replace(/'/g,'&#39;')+'\',this)">↔ '+a+'</div>').join('')}
-      </div>` : '';
-
-    const tagHTML = ex.tag === 'hamstring' ? `<span class="gym-tag gym-tag-hs">hamstring priority</span>` : '';
-    const completedSets = Object.keys(saved.sets || {}).filter(i => saved.sets[i]?.kg || saved.sets[i]?.reps).length;
-    const progressPct = ex.sets > 0 ? Math.round(completedSets / ex.sets * 100) : 0;
-
-    return `<div class="gym-card ${completedSets >= ex.sets ? 'gym-card-complete' : ''}" id="gymcard-${ex.id}">
-      <div class="gym-card-header" onclick="toggleGymCard('${ex.id}')">
-        <div class="gym-card-left">
-          <div class="gym-card-progress-ring">
-            <svg viewBox="0 0 36 36" class="gym-ring-svg">
-              <circle cx="18" cy="18" r="15" fill="none" stroke="var(--border)" stroke-width="3"/>
-              <circle cx="18" cy="18" r="15" fill="none" stroke="${completedSets>=ex.sets?'#1D9E75':'#378ADD'}" stroke-width="3"
-                stroke-dasharray="${Math.round(94.2*progressPct/100)} 94.2" stroke-linecap="round"
-                transform="rotate(-90 18 18)"/>
-            </svg>
-            <span class="gym-ring-label">${completedSets}/${ex.sets}</span>
-          </div>
-          <div>
-            <div class="gym-card-name">${saved._swapped || ex.name} ${tagHTML}</div>
-            <div class="gym-card-target">${ex.target}</div>
-          </div>
-        </div>
-        <div class="gym-card-right">
-          ${ex.alts?.length ? `<button class="gym-alt-btn" onclick="event.stopPropagation();toggleAlts('${ex.id}')">Alt</button>` : ''}
-          <span class="gym-chevron" id="gymchev-${ex.id}">›</span>
-        </div>
+    return `<div class="st-exercise">
+      <div class="st-ex-header" onclick="this.nextElementSibling.classList.toggle('open')">
+        <div><div class="st-ex-name">${ex.name}</div><div class="st-ex-target">${ex.target}</div></div>
+        <span style="font-size:10px;color:var(--text-faint)">▼</span>
       </div>
-      ${altsHTML}
-      <div class="gym-card-body" id="gymbody-${ex.id}">
-        <div class="gym-why">${ex.why||''}</div>
-        <div class="gym-set-header">
-          <div class="gym-set-num">#</div>
-          <div class="gym-set-prev">Previous</div>
-          <div style="font-size:11px;color:var(--text-faint);font-family:var(--mono)">kg</div>
-          <div style="font-size:11px;color:var(--text-faint);font-family:var(--mono)">reps</div>
-          <div></div>
-        </div>
-        ${sets}
-        <textarea class="gym-notes" rows="2" placeholder="Notes for this exercise…"
-          oninput="saveExNotes('${ex.id}',this.value)">${saved.notes||''}</textarea>
+      <div class="st-ex-body">
+        <div class="st-set-row" style="margin-bottom:4px"><div></div><div class="st-col-label">Weight (kg)</div><div class="st-col-label">Reps</div><div class="st-col-label">Note</div></div>
+        ${setsHTML}
+        <textarea class="st-notes" rows="2" placeholder="Notes for this exercise…" oninput="saveExNotes('${ex.id}',this.value)">${saved.notes||''}</textarea>
       </div>
     </div>`;
   }).join('');
@@ -2785,7 +2468,7 @@ function renderStrengthPage() {
     return `<div class="st-hist-entry">
       <div class="st-hist-header" onclick="toggleStHist(${idx})">
         <div><div class="st-hist-date">Wk ${entry.week} · ${dateStr}</div><div class="st-hist-summary">${summary}</div></div>
-        <div style="display:flex;align-items:center;gap:8px"><button class="st-hist-delete" onclick="event.stopPropagation();deleteStrengthEntry(${idx})">✕</button><span style="font-size:10px;color:var(--text-faint)" id="sth-chev-${idx}">▼</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><button class="st-hist-delete" onclick="event.stopPropagation();deleteStrengthEntry(${idx})">✕ Delete</button><span style="font-size:10px;color:var(--text-faint)" id="sth-chev-${idx}">▼</span></div>
       </div>
       <div class="st-hist-body" id="sth-body-${idx}">
         ${detail||'<p style="font-size:12px;color:var(--text-muted);padding-top:8px">No weights recorded.</p>'}
@@ -2793,7 +2476,7 @@ function renderStrengthPage() {
           <div style="font-size:11px;font-family:var(--mono);color:var(--text-faint);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Session Notes</div>
           <div id="log-feed-${sId}">${sLogsHTML}</div>
           <div class="log-input-row" style="margin-top:8px">
-            <textarea class="log-textarea" id="log-input-${sId}" rows="1" placeholder="How did this session feel?"
+            <textarea class="log-textarea" id="log-input-${sId}" rows="1" placeholder="How did this session feel? Any PRs or niggles?"
               oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"
               onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitSessionLog('${sId}','strength','${entry.date}',this)}"></textarea>
             <button class="log-submit" onclick="submitSessionLog('${sId}','strength','${entry.date}',document.getElementById('log-input-${sId}'))">Post</button>
@@ -2804,125 +2487,72 @@ function renderStrengthPage() {
   }).join('') : '<p style="font-size:13px;color:var(--text-muted)">No sessions logged yet.</p>';
 
   el.innerHTML = `
-    <div class="page-title">Strength</div>
-    <div class="gym-session-meta">
-      <div class="gym-meta-pill">${phase}</div>
-      <div class="gym-meta-pill">Week ${wk} of 13</div>
-      <div class="gym-meta-pill">Wednesday · 45–55 min</div>
-      <span class="st-saved" id="st-saved-msg">Saved ✓</span>
+    <div class="page-title">Strength Plan</div>
+    <p class="page-sub">Wednesday sessions, 45–50 minutes. Log each session below — saved to your database automatically.</p>
+    <div class="alert alert-amber">Strength is once per week, ideally Tuesday. RDLs and hamstring curls are the main hamstring work. Assisted Nordics are optional only if they do not create soreness. In weeks 10–13, reduce load and avoid heavy eccentric soreness.</div>
+    <div class="strength-tracker">
+      <div class="st-header">
+        <div style="font-size:15px;font-weight:500">📋 Log Today's Session <span style="font-size:12px;color:var(--text-muted);font-weight:400">· ${phase}</span></div>
+        <span class="st-saved" id="st-saved-msg">Saved ✓</span>
+      </div>
+      ${exerciseInputs}
+      ${exercises.length
+  ? `<button class="st-complete-btn" onclick="completeStrengthSession()">Mark Session Complete</button>`
+  : `<div class="alert alert-green">Race week: no heavy strength. Keep this week to light mobility, activation, and walking only.</div>`
+}
     </div>
-    ${wk <= 9 ? '<div class="alert alert-amber" style="margin-bottom:16px">RDL and hamstring curls are the priority exercises. Protect these — everything else is secondary.</div>' : ''}
-    ${exercises.length
-      ? `<div class="gym-exercise-list">${exerciseCards}</div>
-         <button class="gym-complete-btn" onclick="completeStrengthSession()">✓ Complete Session</button>`
-      : `<div class="alert alert-green">Race week: no heavy strength. Light mobility and activation only.</div>`
-    }
-    <div class="sec-title" style="margin-top:28px">Session History</div>
-    <div id="st-history-list">${histHTML}</div>`;
-
-  // Auto-open first incomplete card
-  const firstEx = exercises[0];
-  if (firstEx) toggleGymCard(firstEx.id, true);
-}
-
-
-
-function getPrevSetData(exId, setIdx) {
-  const prev = strengthLog[0];
-  if (!prev) return '—';
-  const ex = (prev.exercises || []).find(e => e.name && e.name.toLowerCase().includes(exId.toLowerCase().replace('rdl','romanian').replace('bss','bulgarian').replace('hip','hip').replace('curl','hamstring').replace('calf','calf').replace('cope','copenhagen').replace('nordic','nordic').replace('mobility','mobility')));
-  if (!ex || !ex.sets?.[setIdx]) return '—';
-  const s = ex.sets[setIdx];
-  return s.kg ? s.kg + 'kg×' + (s.reps || '?') : '—';
-}
-
-function toggleGymCard(exId, forceOpen) {
-  const body = document.getElementById('gymbody-' + exId);
-  const chev = document.getElementById('gymchev-' + exId);
-  if (!body) return;
-  const shouldOpen = forceOpen !== undefined ? forceOpen : !body.classList.contains('open');
-  body.classList.toggle('open', shouldOpen);
-  if (chev) chev.textContent = shouldOpen ? '⌄' : '›';
-}
-
-function toggleAlts(exId) {
-  const el = document.getElementById('alts-' + exId);
-  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
-}
-
-function swapExercise(exId, altName) {
-  if (!currentStrengthSession[exId]) currentStrengthSession[exId] = {};
-  currentStrengthSession[exId]._swapped = altName;
-  localStorage.setItem('strength_session_wip', JSON.stringify(currentStrengthSession));
-  const card = document.getElementById('gymcard-' + exId);
-  if (card) {
-    const nameEl = card.querySelector('.gym-card-name');
-    if (nameEl) nameEl.firstChild.textContent = altName + ' ';
-  }
-  toggleAlts(exId);
-}
-
-function updateSetRow(exId, setIdx) {
-  const saved = currentStrengthSession[exId];
-  const s = saved?.sets?.[setIdx];
-  const row = document.getElementById('set-row-' + exId + '-' + setIdx);
-  if (row && (s?.kg || s?.reps)) row.classList.add('gym-set-done');
-  const ex = getStrengthExercises().find(e => e.id === exId);
-  if (!ex) return;
-  const completedSets = Object.keys(saved?.sets || {}).filter(i => saved.sets[i]?.kg || saved.sets[i]?.reps).length;
-  const progressPct = Math.round(completedSets / ex.sets * 100);
-  const card = document.getElementById('gymcard-' + exId);
-  if (!card) return;
-  const ringCircle = card.querySelectorAll('.gym-ring-svg circle')[1];
-  if (ringCircle) ringCircle.setAttribute('stroke-dasharray', Math.round(94.2 * progressPct / 100) + ' 94.2');
-  const ringLabel = card.querySelector('.gym-ring-label');
-  if (ringLabel) ringLabel.textContent = completedSets + '/' + ex.sets;
-  if (completedSets >= ex.sets) card.classList.add('gym-card-complete');
-}
-
-function tickSet(exId, setIdx, btn) {
-  const row = document.getElementById('set-row-' + exId + '-' + setIdx);
-  if (!row) return;
-  row.classList.toggle('gym-set-done');
-  btn.classList.toggle('ticked');
+    <div class="sec-title">Session History</div>
+    <div id="st-history-list">${histHTML}</div>
+    <div class="sec-title">Phase 1 — Base (Weeks 1–4) · Learn + Rehab</div>
+    <p class="sec-sub">3×10–12 reps, moderate weight. Master the movements.</p>
+    <div class="exercise-list">
+      <div class="exercise-row"><div><div class="exercise-name">Romanian Deadlift (RDL)<span class="hsring-badge">hamstring priority</span></div></div><div class="exercise-sets">3×10 · slow eccentric</div><div class="exercise-why">Most important exercise. 3–4s lowering. Start light.</div></div>
+      <div class="exercise-row"><div><div class="exercise-name">Nordic Hamstring Curl<span class="hsring-badge">hamstring priority</span></div></div><div class="exercise-sets">3×5 (assisted)</div><div class="exercise-why">Best evidence-based hamstring prevention. Anchor feet, assist lowering.</div></div>
+      <div class="exercise-row"><div><div class="exercise-name">Hip Thrust / Glute Bridge</div></div><div class="exercise-sets">3×12</div><div class="exercise-why">Glute activation. Powers propulsion, reduces hamstring compensation.</div></div>
+      <div class="exercise-row"><div><div class="exercise-name">Bulgarian Split Squat</div></div><div class="exercise-sets">3×8 each</div><div class="exercise-why">Single-leg quad + glute. Mimics running gait.</div></div>
+      <div class="exercise-row"><div><div class="exercise-name">Single-Leg Calf Raise</div></div><div class="exercise-sets">3×15 each</div><div class="exercise-why">Achilles and calf resilience.</div></div>
+      <div class="exercise-row"><div><div class="exercise-name">Copenhagen Plank</div></div><div class="exercise-sets">3×20s each</div><div class="exercise-why">Hip adductor strength.</div></div>
+      <div class="exercise-row"><div><div class="exercise-name">Dead Bug</div></div><div class="exercise-sets">3×8 each</div><div class="exercise-why">Core stability at speed.</div></div>
+    </div>
+    <div class="sec-title">Phase 2 — Build (Weeks 5–9) · Load Increase</div>
+    <p class="sec-sub">3–4×8 reps, increase load progressively.</p>
+    <div class="exercise-list">
+      <div class="exercise-row"><div><div class="exercise-name">Romanian Deadlift</div></div><div class="exercise-sets">4×8 · heavier</div><div class="exercise-why">Progressive overload. Controlled eccentric.</div></div>
+      <div class="exercise-row"><div><div class="exercise-name">Nordic Hamstring Curl</div></div><div class="exercise-sets">3×6–8</div><div class="exercise-why">Build to unassisted reps.</div></div>
+      <div class="exercise-row"><div><div class="exercise-name">Bulgarian Split Squat</div></div><div class="exercise-sets">4×8 each · heavier</div><div class="exercise-why">Add load with dumbbells or barbell.</div></div>
+      <div class="exercise-row"><div><div class="exercise-name">Hip Thrust</div></div><div class="exercise-sets">4×10 · heavier</div><div class="exercise-why">Load the glutes progressively.</div></div>
+      <div class="exercise-row"><div><div class="exercise-name">Single-Leg Calf Raise</div></div><div class="exercise-sets">3×15 · weighted</div><div class="exercise-why">Hold a dumbbell or use the machine.</div></div>
+      <div class="exercise-row"><div><div class="exercise-name">Copenhagen Plank</div></div><div class="exercise-sets">3×30s each</div><div class="exercise-why">Extend duration as strength improves.</div></div>
+    </div>
+    <div class="alert alert-green"><strong>Warm-Up (10 min):</strong> Glute bridges ×15, leg swings ×10 each, lateral band walks ×15, hip 90/90 ×5 each side. <strong>Cool-Down:</strong> Hip flexor stretch, pigeon pose, calf stretch. 60 seconds each.</div>`;
 }
 
 function saveSetData(exId, setIdx, field, value) {
-  if (!currentStrengthSession[exId]) currentStrengthSession[exId] = { sets: [] };
-  if (!currentStrengthSession[exId].sets) currentStrengthSession[exId].sets = [];
-  if (!currentStrengthSession[exId].sets[setIdx]) currentStrengthSession[exId].sets[setIdx] = {};
-  currentStrengthSession[exId].sets[setIdx][field] = value;
+  if(!currentStrengthSession[exId]) currentStrengthSession[exId]={sets:[]};
+  if(!currentStrengthSession[exId].sets) currentStrengthSession[exId].sets=[];
+  if(!currentStrengthSession[exId].sets[setIdx]) currentStrengthSession[exId].sets[setIdx]={};
+  currentStrengthSession[exId].sets[setIdx][field]=value;
   localStorage.setItem('strength_session_wip', JSON.stringify(currentStrengthSession));
   flashSaved();
 }
-
 function saveExNotes(exId, value) {
-  if (!currentStrengthSession[exId]) currentStrengthSession[exId] = {};
-  currentStrengthSession[exId].notes = value;
+  if(!currentStrengthSession[exId]) currentStrengthSession[exId]={};
+  currentStrengthSession[exId].notes=value;
   localStorage.setItem('strength_session_wip', JSON.stringify(currentStrengthSession));
   flashSaved();
 }
-
 function flashSaved() {
   const el = document.getElementById('st-saved-msg');
-  if (!el) return;
+  if(!el) return;
   el.classList.add('show');
   clearTimeout(window._savedTimer);
-  window._savedTimer = setTimeout(() => el.classList.remove('show'), 1800);
-}
-
-function toggleStHist(idx) {
-  const body = document.getElementById('sth-body-' + idx);
-  const chev = document.getElementById('sth-chev-' + idx);
-  if (!body) return;
-  body.classList.toggle('open');
-  if (chev) chev.textContent = body.classList.contains('open') ? '▲' : '▼';
+  window._savedTimer = setTimeout(()=>el.classList.remove('show'), 1800);
 }
 
 async function completeStrengthSession() {
   const wkNum = getCurrentWeekNum() || 1;
   const exercises = getStrengthExercises().map(ex => ({
-    name: currentStrengthSession[ex.id]?._swapped || ex.name,
+    name: ex.name,
     sets: currentStrengthSession[ex.id]?.sets || [],
     notes: currentStrengthSession[ex.id]?.notes || ''
   }));
@@ -2934,11 +2564,20 @@ async function completeStrengthSession() {
     }, 'return=minimal');
     currentStrengthSession = {};
     localStorage.removeItem('strength_session_wip');
-    const sessions = await api.get('strength_sessions', 'select=*&order=session_date.desc&limit=30');
-    strengthLog = (sessions || []).map(s => ({ id: s.id, date: s.session_date, week: s.week_num, exercises: s.exercises || [] }));
+    // Reload strength data
+    const sessions = await api.get('strength_sessions','select=*&order=session_date.desc&limit=30');
+    strengthLog = (sessions||[]).map(s=>({id:s.id,date:s.session_date,week:s.week_num,exercises:s.exercises||[]}));
     renderStrengthPage();
-    alert('Session logged ✓ — Week ' + wkNum + ' strength session saved.');
-  } catch(e) { alert('Error saving session: ' + e.message); }
+    alert(`Session logged ✓ — Week ${wkNum} strength session saved.`);
+  } catch(e) { alert('Error saving session: '+e.message); }
+}
+
+function toggleStHist(idx) {
+  const body=document.getElementById('sth-body-'+idx);
+  const chev=document.getElementById('sth-chev-'+idx);
+  if(!body) return;
+  body.classList.toggle('open');
+  if(chev) chev.textContent=body.classList.contains('open')?'▲':'▼';
 }
 
 async function deleteStrengthEntry(idx) {
@@ -2974,22 +2613,9 @@ function renderPacesPage() {
 }
 
 function renderNutritionPage() {
-  document.getElementById('page-nutrition').innerHTML = `
-    <div class="page-title">Nutrition</div>
-    <p class="page-sub">At 75kg/188cm training 40–55km/week. Track snacks and meals in the Meal Tracker page for real macro data.</p>
-    <div class="sec-title">Daily Targets</div>
-    <div class="info-grid">
-      <div class="info-card"><h4>Training Days</h4><p>Carbs: 5–7g/kg → 375–525g<br>Protein: 1.6–1.8g/kg → 120–135g<br>Fat: 1.0–1.2g/kg → 75–90g<br>~2,800–3,200 kcal</p></div>
-      <div class="info-card"><h4>Rest / Easy Days</h4><p>Carbs: 4–5g/kg → 300–375g<br>Protein: 1.6–1.8g/kg → 120–135g<br>Fat: 1.2–1.4g/kg → 90–105g<br>~2,400–2,700 kcal</p></div>
-    </div>
-    <div class="sec-title">Timing</div>
-    <div class="info-grid">
-      <div class="info-card"><h4>Pre-Run (1–2 hrs before)</h4><p>50–80g carbs, low fat and fibre. Banana + oats, toast + honey. For early morning: a banana or 2 dates is enough.</p></div>
-      <div class="info-card"><h4>During Runs</h4><p>Under 60 min: water only. 60–90 min: 30g carbs/hr. 90+ min: 40–60g carbs/hr from 45 min.</p></div>
-      <div class="info-card"><h4>Post-Run (within 30–45 min)</h4><p>20–30g protein + 60–80g carbs. Greek yoghurt + fruit, chocolate milk, rice + chicken.</p></div>
-    </div>
-    <div class="alert alert-blue">Iron and Vitamin D are the most common deficiencies in distance runners. Consider getting bloods checked if you feel unexpectedly fatigued.</div>`;
+  showPage('meals');
 }
+
 
 function renderMethodologyPage() {
   document.getElementById('page-methodology').innerHTML = `
