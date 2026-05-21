@@ -3459,3 +3459,38 @@ body {
   color: var(--text-muted);
   font-family: var(--mono);
 }
+
+/* ── DASHBOARD WEEK SNAPSHOT ── */
+.dash-week-snapshot {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 18px 20px 14px;
+  margin-bottom: 12px;
+}
+.dash-week-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.dash-week-title { font-size: 15px; font-weight: 600; color: var(--text); }
+.dash-week-sub { font-size: 12px; color: var(--text-muted); font-family: var(--mono); margin-top: 2px; }
+.dash-week-progress-wrap { position: relative; width: 44px; height: 44px; flex-shrink: 0; }
+.dash-ring-pct { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; font-family: var(--mono); color: var(--text-muted); }
+.dash-week-days { display: flex; flex-direction: column; gap: 1px; }
+.dwday { display: flex; align-items: flex-start; gap: 10px; padding: 7px 8px; border-radius: 10px; }
+.dwday-today { background: var(--bg); outline: 1.5px solid var(--accent); }
+.dwday-done { background: rgba(29,158,117,0.05); }
+.dwday-missed { opacity: 0.4; }
+.dwday-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+.dwday-info { flex: 1; min-width: 0; }
+.dwday-label { font-size: 10px; font-family: var(--mono); color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.06em; }
+.dwday-type { font-size: 13px; font-weight: 500; color: var(--text); line-height: 1.3; }
+.dwday-detail { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dwday-act { font-size: 11px; font-family: var(--mono); color: #1D9E75; margin-top: 1px; }
+.dwday-flex { color: #378ADD; margin-left: 4px; font-size: 10px; }
+.dash-hr-banner { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: 10px; font-size: 12px; margin-bottom: 12px; font-family: var(--mono); }
+.dash-hr-ok { background: rgba(29,158,117,0.08); color: #1D9E75; }
+.dash-hr-hot { background: rgba(239,159,39,0.1); color: #EF9F27; }
+.dash-hr-flag { font-weight: 600; }
