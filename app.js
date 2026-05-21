@@ -1912,38 +1912,74 @@ function renderActivitiesPage() {
     const hrBadge = act.average_heartrate ? `<span style="font-size:11px;font-family:var(--mono);color:${act.average_heartrate>160?'#EF9F27':act.average_heartrate>148?'var(--text-muted)':'#1D9E75'};margin-left:4px">♥ ${Math.round(act.average_heartrate)} bpm</span>` : '';
 // ── Splits visual bars ──
   const splits = Array.isArray(act.splits_metric) ? act.splits_metric : [];
-  const splitsHTML = buildSplitsHTML(splits, actId, act);
+  const isIntervalSession = inferDot(act) === 'hard';
+
+  // Effort label from suffer score
+  const effortLabel = (() => {
+    const s = act.suffer_score;
+    if (!s) return null;
+    if (s >= 150) return { text: 'Maximum', col: '#E05252' };
+    if (s >= 100) return { text: 'Hard', col: '#EF9F27' };
+    if (s >= 50)  return { text: 'Moderate', col: '#1D9E75' };
+    return { text: 'Easy', col: '#1D9E75' };
+  })();
+
+  // Clean splits table
+  const splitsHTML = splits.length ? (() => {
+    const avgPaceSecs = act.pace ? (() => { const [m,s] = act.pace.split(':').map(Number); return m*60+s; })() : 330;
+    const rows = splits.map(s => {
+      if (!s.pace) return '';
+      const [m, sec] = s.pace.split(':').map(Number);
+      const secs = m * 60 + sec;
+      let paceCol;
+      if (isIntervalSession) {
+        const diff = secs - avgPaceSecs;
+        paceCol = diff < -25 ? '#378ADD' : diff > 35 ? 'var(--text-faint)' : 'var(--text-muted)';
+      } else {
+        paceCol = secs < 300 ? '#378ADD' : secs < 340 ? 'var(--text)' : secs < 370 ? '#EF9F27' : 'var(--text-faint)';
+      }
+      const hrCol = !s.hr ? 'var(--text-faint)' : s.hr > 175 ? '#E05252' : s.hr > 162 ? '#EF9F27' : '#1D9E75';
+      const elev = s.elevation != null ? (s.elevation > 0 ? '+' : '') + s.elevation + 'm' : '';
+      return `<tr><td class="spt-km">${s.km}</td><td class="spt-pace" style="color:${paceCol}">${s.pace}</td><td class="spt-hr" style="color:${hrCol}">${s.hr || '—'}</td><td class="spt-elev">${elev}</td></tr>`;
+    }).join('');
+    const miniPills = splits.slice(0,5).map(s=>`<span class="sp-mini-pill">${s.pace||'?'}</span>`).join('') + (splits.length>5?`<span class="sp-mini-more">+${splits.length-5}</span>`:'');
+    return `<div class="act-splits-section">
+      <div class="act-splits-toggle-row" onclick="toggleSplits('${actId}')">
+        <span class="act-splits-label">Splits</span>
+        <span class="sp-toggle-pills">${miniPills}</span>
+        <span class="act-splits-toggle-icon" id="splits-icon-${actId}">▾</span>
+      </div>
+      <div id="splits-${actId}" style="display:none">
+        <table class="spt"><thead><tr><th class="spt-km">KM</th><th class="spt-pace">Pace</th><th class="spt-hr">HR</th><th class="spt-elev">Elev</th></tr></thead><tbody>${rows}</tbody></table>
+      </div>
+    </div>`;
+  })() : '';
+
+  // Footer: gear + effort + PRs + max HR
+  const footerParts = [
+    act.gear_name ? `<span class="act-footer-item">👟 ${act.gear_name}</span>` : '',
+    effortLabel ? `<span class="act-footer-item" style="color:${effortLabel.col}">● ${effortLabel.text} effort</span>` : '',
+    act.pr_count ? `<span class="act-footer-item" style="color:#EF9F27">🏆 ${act.pr_count} PR${act.pr_count>1?'s':''}</span>` : '',
+    act.max_heartrate ? `<span class="act-footer-item">Max HR ${Math.round(act.max_heartrate)}bpm</span>` : '',
+  ].filter(Boolean).join('');
+  const footerHTML = footerParts ? `<div class="act-card-footer">${footerParts}</div>` : '';
   const autoAnalysisHTML = act.auto_analysis ? `<div class="act-auto-analysis">${act.auto_analysis}</div>` : '';
 
-  // Strava stats bar — suffer score, PRs, max HR
-  const stravaStatsHTML = (act.suffer_score || act.pr_count || act.max_heartrate) ? `
-    <div class="act-strava-bar">
-      ${act.suffer_score ? `<span class="act-strava-stat"><span class="asb-label">Suffer</span><span class="asb-val">${act.suffer_score}</span></span>` : ''}
-      ${act.max_heartrate ? `<span class="act-strava-stat"><span class="asb-label">Max HR</span><span class="asb-val">${Math.round(act.max_heartrate)}bpm</span></span>` : ''}
-      ${act.pr_count ? `<span class="act-strava-stat act-strava-pr"><span class="asb-label">PRs</span><span class="asb-val">${act.pr_count} 🏆</span></span>` : ''}
-      ${act.perceived_exertion ? `<span class="act-strava-stat"><span class="asb-label">RPE</span><span class="asb-val">${act.perceived_exertion}/10</span></span>` : ''}
-    </div>` : '';
-
-  // Gear footer
-  const gearFooter = act.gear_name ? `<div class="act-gear-footer"><span class="act-gear-icon">👟</span><span class="act-gear-name">${act.gear_name}</span></div>` : '';
-
 const statsHTML = isStrength ? '' : `
-  <div class="act-expanded-body">
-    <div class="activity-metrics">
-      <div class="activity-metric"><div class="activity-metric-label">Distance</div><div class="activity-metric-value">${act.distance}<span>km</span></div></div>
-      <div class="activity-metric"><div class="activity-metric-label">${isCycling?'Speed':'Pace'}</div><div class="activity-metric-value">${isCycling&&act.average_speed?(act.average_speed*3.6).toFixed(1):(act.pace||'—')}<span>${isCycling?'km/h':'/km'}</span></div></div>
-      ${act.elapsed_time?`<div class="activity-metric"><div class="activity-metric-label">Time</div><div class="activity-metric-value">${fmtTime(act.elapsed_time)}</div></div>`:''}
-      ${act.average_heartrate?`<div class="activity-metric"><div class="activity-metric-label">Avg HR</div><div class="activity-metric-value">${Math.round(act.average_heartrate)}<span>bpm</span></div></div>`:''}
-      ${act.average_cadence?`<div class="activity-metric"><div class="activity-metric-label">Cadence</div><div class="activity-metric-value">${Math.round(act.average_cadence*2)}<span>spm</span></div></div>`:''}
-      ${act.total_elevation_gain?`<div class="activity-metric"><div class="activity-metric-label">Elevation</div><div class="activity-metric-value">${Math.round(act.total_elevation_gain)}<span>m</span></div></div>`:''}
-      ${act.calories?`<div class="activity-metric"><div class="activity-metric-label">Calories</div><div class="activity-metric-value">${act.calories}<span>kcal</span></div></div>`:''}
-    </div>
-    ${stravaStatsHTML}
-    ${autoAnalysisHTML}
-    ${splitsHTML}
-    ${gearFooter}
+  <div class="activity-metrics">
+    <div class="activity-metric"><div class="activity-metric-label">Distance</div><div class="activity-metric-value">${act.distance}<span>km</span></div></div>
+    <div class="activity-metric"><div class="activity-metric-label">${isCycling?'Speed':'Pace'}</div><div class="activity-metric-value">${isCycling&&act.average_speed?(act.average_speed*3.6).toFixed(1):(act.pace||'—')}<span>${isCycling?'km/h':'/km'}</span></div></div>
+    ${act.elapsed_time?`<div class="activity-metric"><div class="activity-metric-label">Time</div><div class="activity-metric-value">${fmtTime(act.elapsed_time)}</div></div>`:''}
+    ${act.average_heartrate?`<div class="activity-metric"><div class="activity-metric-label">Avg HR</div><div class="activity-metric-value">${Math.round(act.average_heartrate)}<span>bpm</span></div></div>`:''}
+    ${act.average_cadence?`<div class="activity-metric"><div class="activity-metric-label">Cadence</div><div class="activity-metric-value">${Math.round(act.average_cadence*2)}<span>spm</span></div></div>`:''}
+    ${act.total_elevation_gain?`<div class="activity-metric"><div class="activity-metric-label">Elevation</div><div class="activity-metric-value">${Math.round(act.total_elevation_gain)}<span>m</span></div></div>`:''}
+    ${act.calories?`<div class="activity-metric"><div class="activity-metric-label">Calories</div><div class="activity-metric-value">${act.calories}<span>kcal</span></div></div>`:''}
   </div>
+  ${autoAnalysisHTML}
+  ${splitsHTML}
+  ${footerHTML}
 `;
+
 const distPace = [act.distance?act.distance+'km':null, act.pace?act.pace+'/km':null].filter(Boolean).join('  ');
 const timeHR = [act.elapsed_time?fmtTime(act.elapsed_time):null, act.average_heartrate?'♥ '+Math.round(act.average_heartrate):null].filter(Boolean).join('  ·  ');
 return `<div class="activity-card" id="acard-${actId}">
