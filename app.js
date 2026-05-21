@@ -549,7 +549,52 @@ function buildActivityIndex() {
 }
 
 function inferDot(act) {
-  if (!act.pace) return null;
+  // Use HR variance from splits to detect intervals — much more reliable than avg pace
+  const splits = Array.isArray(act.splits_metric) ? act.splits_metric : [];
+  const laps = Array.isArray(act.laps) ? act.laps : [];
+
+  // Intervals signature: large HR variance across splits (spikes + recovery)
+  if (splits.length >= 4) {
+    const hrs = splits.map(s => s.hr).filter(Boolean);
+    if (hrs.length >= 4) {
+      const maxHR = Math.max(...hrs);
+      const minHR = Math.min(...hrs);
+      const hrVariance = maxHR - minHR;
+      // >25bpm swing across km splits = intervals pattern
+      if (hrVariance > 25) return 'hard';
+    }
+
+    // Pace variance: if some splits are >45s/km faster than others = intervals
+    const paces = splits.map(s => {
+      if (!s.pace) return null;
+      const [m, sec] = s.pace.split(':').map(Number);
+      return m * 60 + sec;
+    }).filter(Boolean);
+    if (paces.length >= 4) {
+      const fastest = Math.min(...paces);
+      const slowest = Math.max(...paces);
+      if (slowest - fastest > 45) return 'hard';
+    }
+  }
+
+  // Laps with alternating fast/slow = intervals
+  if (laps.length >= 4) {
+    const lapPaces = laps.map(l => l.pace).filter(Boolean).map(p => {
+      const [m, sec] = p.split(':').map(Number); return m * 60 + sec;
+    });
+    if (lapPaces.length >= 4) {
+      const fastest = Math.min(...lapPaces);
+      const slowest = Math.max(...lapPaces);
+      if (slowest - fastest > 60) return 'hard';
+    }
+  }
+
+  // High avg HR on a run that wasn't fast avg pace = tempo/hard effort
+  if (act.average_heartrate > 165 && act.suffer_score > 80) return 'hard';
+  if (act.average_heartrate > 155) return 'moderate';
+
+  // Fall back to avg pace
+  if (!act.pace) return 'easy';
   const [pm, ps] = act.pace.split(':').map(Number);
   const secs = pm * 60 + (ps || 0);
   if (secs < 275) return 'hard';
@@ -936,13 +981,6 @@ el.innerHTML = `
     <div class="digest-card">
       <div class="digest-header" style="margin-bottom:8px"><div class="digest-title">Training Trends</div></div>
       <div>${trendsHTML}</div>
-    </div>
-    <div class="digest-card">
-      <div class="digest-header" style="margin-bottom:8px">
-        <div class="digest-title">Today's Nutrition</div>
-        <button class="btn-secondary" onclick="showPage('meals')" style="font-size:12px;padding:5px 12px">Log food →</button>
-      </div>
-      ${macroHTML}
     </div>
 ${wkNum ? `
 <div class="digest-card">
@@ -1892,19 +1930,19 @@ const statsHTML = isStrength ? '' : `
   ${splitsHTML}
   ${gearLine}
 `;
-const summaryLine = [act.distance?act.distance+'km':null,act.pace?act.pace+'/km':null,act.elapsed_time?fmtTime(act.elapsed_time):null,act.average_heartrate?'\u2665 '+Math.round(act.average_heartrate)+'bpm':null].filter(Boolean).join('  \u00b7  ');
+const distPace = [act.distance?act.distance+'km':null, act.pace?act.pace+'/km':null].filter(Boolean).join('  ');
+const timeHR = [act.elapsed_time?fmtTime(act.elapsed_time):null, act.average_heartrate?'♥ '+Math.round(act.average_heartrate):null].filter(Boolean).join('  ·  ');
 return `<div class="activity-card" id="acard-${actId}">
   <div class="activity-card-header" onclick="toggleActivityCard('${actId}')">
     <div class="act-icon" style="${isCycling ? 'background:#E3EAF5' : ''}">${icon}</div>
     <div class="activity-card-main">
-      <div class="act-name">${act.name || act.sport_type || 'Activity'}</div>
-      <div class="act-meta">${fmtDate(act.date)} · ${metaLabel}</div>
-      <div class="act-summary-line">${summaryLine}</div>
-      <div class="activity-badges" style="margin-top:6px">
+      <div class="act-meta-row">
+        <span class="act-meta">${fmtDate(act.date)} · ${metaLabel}</span>
         ${badgeHTML}
-        <span style="font-size:11px;color:var(--strava);font-family:var(--mono);font-weight:500">STRAVA</span>
-        ${hrBadge}
       </div>
+      <div class="act-name">${act.name || act.sport_type || 'Activity'}</div>
+      <div class="act-summary-line">${distPace}</div>
+      ${timeHR ? `<div class="act-summary-sub">${timeHR}</div>` : ''}
     </div>
     <div class="act-card-right">
       <button class="act-refresh-btn" onclick="event.stopPropagation();refreshActivity('${act.strava_id}',this)" title="Re-fetch from Strava">↻</button>
