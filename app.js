@@ -868,13 +868,7 @@ el.innerHTML = `
       <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Bar height = planned weekly load. Dark fill = actual completed.</p>
       ${loadChartHTML}
     </div>
-    <div class="digest-card">
-      <div class="digest-header">
-        <div class="digest-title">Weekly Digest</div>
-        <button class="digest-btn" id="digest-btn" onclick="generateDigest()"><span id="digest-icon">✦</span> Generate</button>
-      </div>
-      <div class="digest-content" id="digest-content" style="color:var(--text-faint);font-style:italic">Click Generate for your AI weekly summary and coaching notes.</div>
-    </div>
+
     <div class="digest-card">
       <div class="digest-header" style="margin-bottom:8px"><div class="digest-title">Training Trends</div></div>
       <div>${trendsHTML}</div>
@@ -946,7 +940,11 @@ ${wkNum ? `
   <textarea class="checkin-notes" id="checkin-notes" rows="2" placeholder="Anything the coach should know? e.g. easing back in, busy week, tight calf, missed session..."></textarea>
 
   <div style="display:flex;justify-content:flex-end;margin-top:10px">
-    <button class="btn-primary" onclick="saveWeeklyCheckin()">Save Check-In</button>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="digest-btn" id="digest-btn" onclick="generateDigest()"><span id="digest-icon">✦</span> Weekly Digest</button>
+      <button class="btn-primary" onclick="saveWeeklyCheckin()">Save &amp; Brief Coach</button>
+    </div>
+    <div class="digest-content" id="digest-content" style="color:var(--text-faint);font-style:italic;margin-top:12px;font-size:13px"></div>
   </div>
 </div>
 ` : ''}
@@ -1810,35 +1808,40 @@ function renderActivitiesPage() {
       : `<span class="match-badge ${badges[quality]}">${badgeText[quality]}</span>`;
     // Show speed for cycling instead of pace, add HR if available
     const hrBadge = act.average_heartrate ? `<span style="font-size:11px;font-family:var(--mono);color:${act.average_heartrate>160?'#EF9F27':act.average_heartrate>148?'var(--text-muted)':'#1D9E75'};margin-left:4px">♥ ${Math.round(act.average_heartrate)} bpm</span>` : '';
+// ── Splits visual bars ──
+  const splits = Array.isArray(act.splits_metric) ? act.splits_metric : [];
+  const splitsHTML = (!isStrength && !isCycling && splits.length) ? (() => {
+    const paces = splits.map(s => { if(!s.pace) return null; const [m,sec]=s.pace.split(':').map(Number); return m*60+sec; });
+    const validPaces = paces.filter(Boolean);
+    const minP = validPaces.length ? Math.min(...validPaces) : 300;
+    const maxP = validPaces.length ? Math.max(...validPaces) : 400;
+    const range = Math.max(maxP - minP, 30);
+    const rows = splits.map((s,i) => {
+      const secs = paces[i];
+      const paceColor = !secs ? 'var(--text-faint)' : secs<265?'#378ADD':secs<300?'#1D9E75':secs<330?'var(--text-muted)':'#EF9F27';
+      const hrColor = !s.hr?'var(--text-faint)':s.hr>170?'#E05252':s.hr>158?'#EF9F27':'#1D9E75';
+      const barPct = secs ? Math.round((1-(secs-minP)/range)*80+20) : 0;
+      return '<div class="sp-row"><div class="sp-km">'+s.km+'</div><div class="sp-bar-wrap"><div class="sp-bar" style="width:'+barPct+'%;background:'+paceColor+'"></div></div><div class="sp-pace" style="color:'+paceColor+'">'+(s.pace||'—')+'</div><div class="sp-hr" style="color:'+hrColor+'">'+(s.hr?s.hr:'—')+'</div><div class="sp-elev">'+(s.elevation!=null?(s.elevation>0?'+':'')+s.elevation+'m':'')+'</div></div>';
+    }).join('');
+    const miniPills = splits.slice(0,4).map(s=>'<span class="sp-mini-pill">'+(s.pace||'?')+'</span>').join('')+(splits.length>4?'<span class="sp-mini-more">+' +(splits.length-4)+'</span>':'');
+    return '<div class="act-splits-wrap"><button class="act-splits-toggle" onclick="toggleSplits(\'"+actId+"\')"><span class="sp-toggle-label">Splits</span><span class="sp-toggle-pills">'+miniPills+'</span><span class="act-splits-toggle-icon" id="splits-icon-'+actId+'">▾</span></button><div class="act-splits" id="splits-'+actId+'" style="display:none"><div class="sp-header"><div class="sp-km">KM</div><div class="sp-bar-wrap"></div><div class="sp-pace">Pace</div><div class="sp-hr">HR</div><div class="sp-elev">Elev</div></div>'+rows+'</div></div>';
+  })() : '';
+  const gearLine = act.gear_name ? '<div class="act-gear-row"><span class="act-gear-pill">👟 '+act.gear_name+'</span></div>' : '';
+  const autoAnalysisHTML = act.auto_analysis ? '<div class="act-auto-analysis">'+act.auto_analysis+'</div>' : '';
+
 const statsHTML = isStrength ? '' : `
   <div class="activity-metrics">
-    <div class="activity-metric">
-      <div class="activity-metric-label">Distance</div>
-      <div class="activity-metric-value">${act.distance}<span>km</span></div>
-    </div>
-
-    <div class="activity-metric">
-      <div class="activity-metric-label">${isCycling ? 'Avg Speed' : 'Avg Pace'}</div>
-      <div class="activity-metric-value">
-        ${isCycling && act.average_speed ? (act.average_speed * 3.6).toFixed(1) : (act.pace || '—')}
-        <span>${isCycling ? 'km/h' : '/km'}</span>
-      </div>
-    </div>
-
-    ${act.elapsed_time ? `
-      <div class="activity-metric">
-        <div class="activity-metric-label">Elapsed Time</div>
-        <div class="activity-metric-value">${fmtTime(act.elapsed_time)}</div>
-      </div>
-    ` : ''}
-
-    ${act.average_heartrate ? `
-      <div class="activity-metric">
-        <div class="activity-metric-label">Avg HR</div>
-        <div class="activity-metric-value">${Math.round(act.average_heartrate)}<span>bpm</span></div>
-      </div>
-    ` : ''}
+    <div class="activity-metric"><div class="activity-metric-label">Distance</div><div class="activity-metric-value">${act.distance}<span>km</span></div></div>
+    <div class="activity-metric"><div class="activity-metric-label">${isCycling?'Speed':'Pace'}</div><div class="activity-metric-value">${isCycling&&act.average_speed?(act.average_speed*3.6).toFixed(1):(act.pace||'—')}<span>${isCycling?'km/h':'/km'}</span></div></div>
+    ${act.elapsed_time?`<div class="activity-metric"><div class="activity-metric-label">Time</div><div class="activity-metric-value">${fmtTime(act.elapsed_time)}</div></div>`:''}
+    ${act.average_heartrate?`<div class="activity-metric"><div class="activity-metric-label">Avg HR</div><div class="activity-metric-value">${Math.round(act.average_heartrate)}<span>bpm</span></div></div>`:''}
+    ${act.average_cadence?`<div class="activity-metric"><div class="activity-metric-label">Cadence</div><div class="activity-metric-value">${Math.round(act.average_cadence*2)}<span>spm</span></div></div>`:''}
+    ${act.total_elevation_gain?`<div class="activity-metric"><div class="activity-metric-label">Elev</div><div class="activity-metric-value">${Math.round(act.total_elevation_gain)}<span>m</span></div></div>`:''}
+    ${act.calories?`<div class="activity-metric"><div class="activity-metric-label">Calories</div><div class="activity-metric-value">${act.calories}<span>kcal</span></div></div>`:''}
   </div>
+  ${autoAnalysisHTML}
+  ${splitsHTML}
+  ${gearLine}
 `;
 const summaryLine = [act.distance?act.distance+'km':null,act.pace?act.pace+'/km':null,act.elapsed_time?fmtTime(act.elapsed_time):null,act.average_heartrate?'\u2665 '+Math.round(act.average_heartrate)+'bpm':null].filter(Boolean).join('  \u00b7  ');
 return `<div class="activity-card" id="acard-${actId}">
@@ -2087,6 +2090,15 @@ if (saveBtn) {
 }
 
 await saveActivityDebriefFromText(actId, act, enrichedText);
+}
+
+function toggleSplits(actId) {
+  const el = document.getElementById('splits-' + actId);
+  const icon = document.getElementById('splits-icon-' + actId);
+  if (!el) return;
+  const open = el.style.display === 'none';
+  el.style.display = open ? 'block' : 'none';
+  if (icon) icon.textContent = open ? '▴' : '▾';
 }
 
 function toggleActivityCard(actId) {
