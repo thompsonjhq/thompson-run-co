@@ -557,6 +557,75 @@ function inferDot(act) {
   return 'easy';
 }
 
+function buildWeekSnapshot(wkNum, kmLogged, kmPlanned, avgHR, avgEasyHR, hrEasyTarget) {
+  if (!wkNum) return `
+    <div class="dash-grid">
+      <div class="dash-stat-card"><div class="dsc-label">Status</div><div class="dsc-value" style="font-size:16px">Pre-plan</div></div>
+    </div>`;
+
+  const actI = buildActivityIndex();
+  const todayDay = getCurrentDayOfWeek();
+  const todayIdx = dayOrder.indexOf(todayDay);
+  const pct = Math.min(100, Math.round(parseFloat(kmLogged) / (parseFloat(kmPlanned) || 1) * 100));
+  const week = weeks[wkNum - 1];
+  const dotCols = { easy:'#1D9E75', hard:'#378ADD', moderate:'#EF9F27', rest:'var(--border)', strength:'#9B7DE8', race:'#E05252' };
+
+  // Build day rows
+  const dayRows = dayOrder.map(day => {
+    const s = week.days[day];
+    if (!s) return '';
+    const isToday = day === todayDay;
+    const isPast = dayOrder.indexOf(day) < todayIdx;
+    const dotCol = dotCols[s.dot] || 'var(--border)';
+    const dayActs = actI[wkNum + '-' + day] || [];
+    const act = dayActs[0];
+
+    // Was this done on a different day? (flexible match)
+    const actDayName = act ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(...(act.date||'2000-01-01').split('-').map((v,i)=>i===1?v-1:+v)).getDay()] : null;
+    const isFlexible = act && actDayName !== day;
+    const flexNote = isFlexible ? `<span class="dwday-flex">(done ${actDayName})</span>` : '';
+    const doneIcon = act ? '✓ ' : '';
+    const actLine = act
+      ? `<div class="dwday-act">${act.distance}km · ${act.pace||'—'}/km${act.average_heartrate ? ' · ♥'+Math.round(act.average_heartrate) : ''}${flexNote}</div>`
+      : '';
+    const detailText = s.dot !== 'rest' ? `<div class="dwday-detail">${(s.detail||'').split('·')[0].trim()}</div>` : '';
+    const missed = isPast && !act && s.dot !== 'rest' && s.dot !== 'strength';
+
+    return `<div class="dwday ${isToday?'dwday-today':''} ${missed?'dwday-missed':''} ${act?'dwday-done':''}">
+      <div class="dwday-dot" style="background:${dotCol}"></div>
+      <div class="dwday-info">
+        <div class="dwday-label">${day}${isToday?' · Today':''}</div>
+        <div class="dwday-type">${doneIcon}${s.type}</div>
+        ${detailText}${actLine}
+      </div>
+    </div>`;
+  }).join('');
+
+  // HR banner
+  const hrBanner = avgHR ? `<div class="dash-hr-banner ${avgEasyHR && avgEasyHR > hrEasyTarget ? 'dash-hr-hot' : 'dash-hr-ok'}">
+    <span>♥ HR on easy runs: ${avgEasyHR||avgHR}bpm avg</span>
+    <span class="dash-hr-flag">${avgEasyHR && avgEasyHR > hrEasyTarget ? '⚠ Running Hot — slow down' : 'On Target'}</span>
+  </div>` : '';
+
+  return `<div class="dash-week-snapshot">
+    <div class="dash-week-header">
+      <div>
+        <div class="dash-week-title">Week ${wkNum} / 13 · ${week.label}</div>
+        <div class="dash-week-sub">${kmLogged} of ${kmPlanned}km · ${week.phase} phase</div>
+      </div>
+      <div class="dash-week-progress-wrap">
+        <svg viewBox="0 0 36 36" width="44" height="44">
+          <circle cx="18" cy="18" r="15" fill="none" stroke="var(--border)" stroke-width="3"/>
+          <circle cx="18" cy="18" r="15" fill="none" stroke="#1D9E75" stroke-width="3"
+            stroke-dasharray="${Math.round(94.2*pct/100)} 94.2" stroke-linecap="round" transform="rotate(-90 18 18)"/>
+        </svg>
+        <span class="dash-ring-pct">${pct}%</span>
+      </div>
+    </div>
+    <div class="dash-week-days">${dayRows}</div>
+  </div>${hrBanner}`;
+}
+
 // ── DASHBOARD ──
 function renderDashboard() {
   const wkNum = getCurrentWeekNum();
@@ -844,12 +913,7 @@ el.innerHTML = `
       </div>
     </div>
 
-    <div class="dash-grid">
-      <div class="dash-stat-card"><div class="dsc-label">Current Week</div><div class="dsc-value">${weekLabel}</div><div class="dsc-sub">${phaseText}</div></div>
-      <div class="dash-stat-card"><div class="dsc-label">This Week</div><div class="dsc-value">${kmLogged}</div><div class="dsc-sub">of ${kmPlanned} km planned</div></div>
-      <div class="dash-stat-card"><div class="dsc-label">Today</div><div class="dsc-value" style="font-size:16px;padding-top:6px">${todayType}</div><div class="dsc-sub">${todayDetail}</div></div>
-      ${avgHR ? `<div class="dash-stat-card"><div class="dsc-label">Avg Heart Rate</div><div class="dsc-value" style="color:${avgEasyHR&&avgEasyHR>hrEasyTarget?'#EF9F27':'var(--text)'}">${avgHR}</div><div class="dsc-sub">bpm avg · ${avgEasyHR?avgEasyHR+' bpm easy runs':''}</div></div>` : ''}
-    </div>
+    ${buildWeekSnapshot(wkNum, kmLogged, kmPlanned, avgHR, avgEasyHR, hrEasyTarget)}
 
     ${wkNum && session && session.dot !== 'rest' ? `
     <div class="digest-card" style="margin-bottom:16px;border-left:3px solid var(--accent)">
@@ -1810,24 +1874,9 @@ function renderActivitiesPage() {
     const hrBadge = act.average_heartrate ? `<span style="font-size:11px;font-family:var(--mono);color:${act.average_heartrate>160?'#EF9F27':act.average_heartrate>148?'var(--text-muted)':'#1D9E75'};margin-left:4px">♥ ${Math.round(act.average_heartrate)} bpm</span>` : '';
 // ── Splits visual bars ──
   const splits = Array.isArray(act.splits_metric) ? act.splits_metric : [];
-  const splitsHTML = (!isStrength && !isCycling && splits.length) ? (() => {
-    const paces = splits.map(s => { if(!s.pace) return null; const [m,sec]=s.pace.split(':').map(Number); return m*60+sec; });
-    const validPaces = paces.filter(Boolean);
-    const minP = validPaces.length ? Math.min(...validPaces) : 300;
-    const maxP = validPaces.length ? Math.max(...validPaces) : 400;
-    const range = Math.max(maxP - minP, 30);
-    const rows = splits.map((s,i) => {
-      const secs = paces[i];
-      const paceColor = !secs ? 'var(--text-faint)' : secs<265?'#378ADD':secs<300?'#1D9E75':secs<330?'var(--text-muted)':'#EF9F27';
-      const hrColor = !s.hr?'var(--text-faint)':s.hr>170?'#E05252':s.hr>158?'#EF9F27':'#1D9E75';
-      const barPct = secs ? Math.round((1-(secs-minP)/range)*80+20) : 0;
-      return '<div class="sp-row"><div class="sp-km">'+s.km+'</div><div class="sp-bar-wrap"><div class="sp-bar" style="width:'+barPct+'%;background:'+paceColor+'"></div></div><div class="sp-pace" style="color:'+paceColor+'">'+(s.pace||'—')+'</div><div class="sp-hr" style="color:'+hrColor+'">'+(s.hr?s.hr:'—')+'</div><div class="sp-elev">'+(s.elevation!=null?(s.elevation>0?'+':'')+s.elevation+'m':'')+'</div></div>';
-    }).join('');
-    const miniPills = splits.slice(0,4).map(s=>'<span class="sp-mini-pill">'+(s.pace||'?')+'</span>').join('')+(splits.length>4?'<span class="sp-mini-more">+' +(splits.length-4)+'</span>':'');
-    return '<div class="act-splits-wrap"><button class="act-splits-toggle" onclick="toggleSplits(\'"+actId+"\')"><span class="sp-toggle-label">Splits</span><span class="sp-toggle-pills">'+miniPills+'</span><span class="act-splits-toggle-icon" id="splits-icon-'+actId+'">▾</span></button><div class="act-splits" id="splits-'+actId+'" style="display:none"><div class="sp-header"><div class="sp-km">KM</div><div class="sp-bar-wrap"></div><div class="sp-pace">Pace</div><div class="sp-hr">HR</div><div class="sp-elev">Elev</div></div>'+rows+'</div></div>';
-  })() : '';
-  const gearLine = act.gear_name ? '<div class="act-gear-row"><span class="act-gear-pill">👟 '+act.gear_name+'</span></div>' : '';
-  const autoAnalysisHTML = act.auto_analysis ? '<div class="act-auto-analysis">'+act.auto_analysis+'</div>' : '';
+  const splitsHTML = buildSplitsHTML(splits, actId);
+  const gearLine = act.gear_name ? `<div class="act-gear-row"><span class="act-gear-pill">👟 ${act.gear_name}</span></div>` : '';
+  const autoAnalysisHTML = act.auto_analysis ? `<div class="act-auto-analysis">${act.auto_analysis}</div>` : '';
 
 const statsHTML = isStrength ? '' : `
   <div class="activity-metrics">
@@ -2090,6 +2139,51 @@ if (saveBtn) {
 }
 
 await saveActivityDebriefFromText(actId, act, enrichedText);
+}
+
+function buildSplitsHTML(splits, actId) {
+  if (!splits || !splits.length) return '';
+  const paces = splits.map(s => {
+    if (!s.pace) return null;
+    const [m,sec] = s.pace.split(':').map(Number);
+    return m * 60 + sec;
+  });
+  const validPaces = paces.filter(Boolean);
+  const minP = validPaces.length ? Math.min(...validPaces) : 300;
+  const maxP = validPaces.length ? Math.max(...validPaces) : 400;
+  const range = Math.max(maxP - minP, 30);
+
+  const rows = splits.map((s, i) => {
+    const secs = paces[i];
+    const paceColor = !secs ? 'var(--text-faint)' : secs < 265 ? '#378ADD' : secs < 300 ? '#1D9E75' : secs < 330 ? 'var(--text-muted)' : '#EF9F27';
+    const hrColor = !s.hr ? 'var(--text-faint)' : s.hr > 170 ? '#E05252' : s.hr > 158 ? '#EF9F27' : '#1D9E75';
+    const barPct = secs ? Math.round((1 - (secs - minP) / range) * 80 + 20) : 0;
+    return `<div class="sp-row">
+      <div class="sp-km">${s.km}</div>
+      <div class="sp-bar-wrap"><div class="sp-bar" style="width:${barPct}%;background:${paceColor}"></div></div>
+      <div class="sp-pace" style="color:${paceColor}">${s.pace || '—'}</div>
+      <div class="sp-hr" style="color:${hrColor}">${s.hr || '—'}</div>
+      <div class="sp-elev">${s.elevation != null ? (s.elevation > 0 ? '+' : '') + s.elevation + 'm' : ''}</div>
+    </div>`;
+  }).join('');
+
+  const miniPills = splits.slice(0, 4).map(s => `<span class="sp-mini-pill">${s.pace || '?'}</span>`).join('') +
+    (splits.length > 4 ? `<span class="sp-mini-more">+${splits.length - 4}</span>` : '');
+
+  return `<div class="act-splits-wrap">
+    <button class="act-splits-toggle" onclick="toggleSplits('${actId}')">
+      <span class="sp-toggle-label">Splits</span>
+      <span class="sp-toggle-pills">${miniPills}</span>
+      <span class="act-splits-toggle-icon" id="splits-icon-${actId}">▾</span>
+    </button>
+    <div class="act-splits" id="splits-${actId}" style="display:none">
+      <div class="sp-header">
+        <div class="sp-km">KM</div><div class="sp-bar-wrap"></div>
+        <div class="sp-pace">Pace</div><div class="sp-hr">HR</div><div class="sp-elev">Elev</div>
+      </div>
+      ${rows}
+    </div>
+  </div>`;
 }
 
 function toggleSplits(actId) {
