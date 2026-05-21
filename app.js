@@ -1912,23 +1912,37 @@ function renderActivitiesPage() {
     const hrBadge = act.average_heartrate ? `<span style="font-size:11px;font-family:var(--mono);color:${act.average_heartrate>160?'#EF9F27':act.average_heartrate>148?'var(--text-muted)':'#1D9E75'};margin-left:4px">♥ ${Math.round(act.average_heartrate)} bpm</span>` : '';
 // ── Splits visual bars ──
   const splits = Array.isArray(act.splits_metric) ? act.splits_metric : [];
-  const splitsHTML = buildSplitsHTML(splits, actId);
-  const gearLine = act.gear_name ? `<div class="act-gear-row"><span class="act-gear-pill">👟 ${act.gear_name}</span></div>` : '';
+  const splitsHTML = buildSplitsHTML(splits, actId, act);
   const autoAnalysisHTML = act.auto_analysis ? `<div class="act-auto-analysis">${act.auto_analysis}</div>` : '';
 
+  // Strava stats bar — suffer score, PRs, max HR
+  const stravaStatsHTML = (act.suffer_score || act.pr_count || act.max_heartrate) ? `
+    <div class="act-strava-bar">
+      ${act.suffer_score ? `<span class="act-strava-stat"><span class="asb-label">Suffer</span><span class="asb-val">${act.suffer_score}</span></span>` : ''}
+      ${act.max_heartrate ? `<span class="act-strava-stat"><span class="asb-label">Max HR</span><span class="asb-val">${Math.round(act.max_heartrate)}bpm</span></span>` : ''}
+      ${act.pr_count ? `<span class="act-strava-stat act-strava-pr"><span class="asb-label">PRs</span><span class="asb-val">${act.pr_count} 🏆</span></span>` : ''}
+      ${act.perceived_exertion ? `<span class="act-strava-stat"><span class="asb-label">RPE</span><span class="asb-val">${act.perceived_exertion}/10</span></span>` : ''}
+    </div>` : '';
+
+  // Gear footer
+  const gearFooter = act.gear_name ? `<div class="act-gear-footer"><span class="act-gear-icon">👟</span><span class="act-gear-name">${act.gear_name}</span></div>` : '';
+
 const statsHTML = isStrength ? '' : `
-  <div class="activity-metrics">
-    <div class="activity-metric"><div class="activity-metric-label">Distance</div><div class="activity-metric-value">${act.distance}<span>km</span></div></div>
-    <div class="activity-metric"><div class="activity-metric-label">${isCycling?'Speed':'Pace'}</div><div class="activity-metric-value">${isCycling&&act.average_speed?(act.average_speed*3.6).toFixed(1):(act.pace||'—')}<span>${isCycling?'km/h':'/km'}</span></div></div>
-    ${act.elapsed_time?`<div class="activity-metric"><div class="activity-metric-label">Time</div><div class="activity-metric-value">${fmtTime(act.elapsed_time)}</div></div>`:''}
-    ${act.average_heartrate?`<div class="activity-metric"><div class="activity-metric-label">Avg HR</div><div class="activity-metric-value">${Math.round(act.average_heartrate)}<span>bpm</span></div></div>`:''}
-    ${act.average_cadence?`<div class="activity-metric"><div class="activity-metric-label">Cadence</div><div class="activity-metric-value">${Math.round(act.average_cadence*2)}<span>spm</span></div></div>`:''}
-    ${act.total_elevation_gain?`<div class="activity-metric"><div class="activity-metric-label">Elev</div><div class="activity-metric-value">${Math.round(act.total_elevation_gain)}<span>m</span></div></div>`:''}
-    ${act.calories?`<div class="activity-metric"><div class="activity-metric-label">Calories</div><div class="activity-metric-value">${act.calories}<span>kcal</span></div></div>`:''}
+  <div class="act-expanded-body">
+    <div class="activity-metrics">
+      <div class="activity-metric"><div class="activity-metric-label">Distance</div><div class="activity-metric-value">${act.distance}<span>km</span></div></div>
+      <div class="activity-metric"><div class="activity-metric-label">${isCycling?'Speed':'Pace'}</div><div class="activity-metric-value">${isCycling&&act.average_speed?(act.average_speed*3.6).toFixed(1):(act.pace||'—')}<span>${isCycling?'km/h':'/km'}</span></div></div>
+      ${act.elapsed_time?`<div class="activity-metric"><div class="activity-metric-label">Time</div><div class="activity-metric-value">${fmtTime(act.elapsed_time)}</div></div>`:''}
+      ${act.average_heartrate?`<div class="activity-metric"><div class="activity-metric-label">Avg HR</div><div class="activity-metric-value">${Math.round(act.average_heartrate)}<span>bpm</span></div></div>`:''}
+      ${act.average_cadence?`<div class="activity-metric"><div class="activity-metric-label">Cadence</div><div class="activity-metric-value">${Math.round(act.average_cadence*2)}<span>spm</span></div></div>`:''}
+      ${act.total_elevation_gain?`<div class="activity-metric"><div class="activity-metric-label">Elevation</div><div class="activity-metric-value">${Math.round(act.total_elevation_gain)}<span>m</span></div></div>`:''}
+      ${act.calories?`<div class="activity-metric"><div class="activity-metric-label">Calories</div><div class="activity-metric-value">${act.calories}<span>kcal</span></div></div>`:''}
+    </div>
+    ${stravaStatsHTML}
+    ${autoAnalysisHTML}
+    ${splitsHTML}
+    ${gearFooter}
   </div>
-  ${autoAnalysisHTML}
-  ${splitsHTML}
-  ${gearLine}
 `;
 const distPace = [act.distance?act.distance+'km':null, act.pace?act.pace+'/km':null].filter(Boolean).join('  ');
 const timeHR = [act.elapsed_time?fmtTime(act.elapsed_time):null, act.average_heartrate?'♥ '+Math.round(act.average_heartrate):null].filter(Boolean).join('  ·  ');
@@ -2179,8 +2193,9 @@ if (saveBtn) {
 await saveActivityDebriefFromText(actId, act, enrichedText);
 }
 
-function buildSplitsHTML(splits, actId) {
+function buildSplitsHTML(splits, actId, act) {
   if (!splits || !splits.length) return '';
+
   const paces = splits.map(s => {
     if (!s.pace) return null;
     const [m,sec] = s.pace.split(':').map(Number);
@@ -2191,33 +2206,66 @@ function buildSplitsHTML(splits, actId) {
   const maxP = validPaces.length ? Math.max(...validPaces) : 400;
   const range = Math.max(maxP - minP, 30);
 
+  // Determine session context for zone colouring
+  const avgPaceSecs = act?.pace ? (() => { const [m,s] = act.pace.split(':').map(Number); return m*60+s; })() : 330;
+  const isIntervals = inferDot(act) === 'hard';
+
   const rows = splits.map((s, i) => {
     const secs = paces[i];
-    const paceColor = !secs ? 'var(--text-faint)' : secs < 265 ? '#378ADD' : secs < 300 ? '#1D9E75' : secs < 330 ? 'var(--text-muted)' : '#EF9F27';
-    const hrColor = !s.hr ? 'var(--text-faint)' : s.hr > 170 ? '#E05252' : s.hr > 158 ? '#EF9F27' : '#1D9E75';
-    const barPct = secs ? Math.round((1 - (secs - minP) / range) * 80 + 20) : 0;
+
+    // Zone-aware colour: for intervals, colour relative to effort vs rest
+    // For easy runs, colour by absolute Z2 range
+    let paceColor;
+    if (isIntervals && secs) {
+      // In intervals: fast splits blue, recovery grey
+      const relativeToAvg = secs - avgPaceSecs;
+      paceColor = relativeToAvg < -20 ? '#378ADD'   // significantly faster = interval rep
+                : relativeToAvg > 30  ? '#A0A0A0'   // slower = recovery
+                : '#1D9E75';                          // close to avg
+    } else if (secs) {
+      paceColor = secs < 270 ? '#378ADD'   // Z5
+               : secs < 295 ? '#1D9E75'   // Z4
+               : secs < 325 ? '#1D9E75'   // Z3
+               : secs < 360 ? 'var(--text-muted)' // Z2
+               : '#A0A0A0';              // Z1/walk
+    } else {
+      paceColor = 'var(--text-faint)';
+    }
+
+    const hrColor = !s.hr ? 'var(--text-faint)'
+                  : s.hr > 175 ? '#E05252'
+                  : s.hr > 165 ? '#EF9F27'
+                  : s.hr > 150 ? '#1D9E75'
+                  : 'var(--text-muted)';
+
+    const barPct = secs ? Math.round((1 - (secs - minP) / range) * 75 + 20) : 5;
+    const elev = s.elevation != null ? (s.elevation > 0 ? '+' : '') + s.elevation + 'm' : '';
+
     return `<div class="sp-row">
       <div class="sp-km">${s.km}</div>
-      <div class="sp-bar-wrap"><div class="sp-bar" style="width:${barPct}%;background:${paceColor}"></div></div>
-      <div class="sp-pace" style="color:${paceColor}">${s.pace || '—'}</div>
+      <div class="sp-bar-wrap"><div class="sp-bar" style="width:${barPct}%;background:${paceColor}20;border-right:3px solid ${paceColor}"></div></div>
+      <div class="sp-pace" style="color:${paceColor};font-weight:600">${s.pace || '—'}</div>
       <div class="sp-hr" style="color:${hrColor}">${s.hr || '—'}</div>
-      <div class="sp-elev">${s.elevation != null ? (s.elevation > 0 ? '+' : '') + s.elevation + 'm' : ''}</div>
+      <div class="sp-elev">${elev}</div>
     </div>`;
   }).join('');
 
-  const miniPills = splits.slice(0, 4).map(s => `<span class="sp-mini-pill">${s.pace || '?'}</span>`).join('') +
-    (splits.length > 4 ? `<span class="sp-mini-more">+${splits.length - 4}</span>` : '');
+  const miniPills = splits.slice(0, 5).map(s => `<span class="sp-mini-pill">${s.pace || '?'}</span>`).join('') +
+    (splits.length > 5 ? `<span class="sp-mini-more">+${splits.length - 5}</span>` : '');
 
-  return `<div class="act-splits-wrap">
-    <button class="act-splits-toggle" onclick="toggleSplits('${actId}')">
-      <span class="sp-toggle-label">Splits</span>
+  return `<div class="act-splits-section">
+    <div class="act-splits-toggle-row" onclick="toggleSplits('${actId}')">
+      <span class="act-splits-label">Km Splits</span>
       <span class="sp-toggle-pills">${miniPills}</span>
       <span class="act-splits-toggle-icon" id="splits-icon-${actId}">▾</span>
-    </button>
+    </div>
     <div class="act-splits" id="splits-${actId}" style="display:none">
       <div class="sp-header">
-        <div class="sp-km">KM</div><div class="sp-bar-wrap"></div>
-        <div class="sp-pace">Pace</div><div class="sp-hr">HR</div><div class="sp-elev">Elev</div>
+        <div class="sp-km">KM</div>
+        <div class="sp-bar-wrap"></div>
+        <div class="sp-pace">Pace</div>
+        <div class="sp-hr">HR</div>
+        <div class="sp-elev">Elev</div>
       </div>
       ${rows}
     </div>
