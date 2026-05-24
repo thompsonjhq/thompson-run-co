@@ -3666,3 +3666,95 @@ body {
   gap: 5px;
 }
 .act-footer-item:last-child { border-right: none; }
+
+/* ── REST TIMER ── */
+.gym-rest-timer {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--accent);
+  border-radius: 12px;
+  margin-bottom: 12px;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(26,58,42,0.3);
+}
+.gym-rest-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+}
+.gym-rest-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.gym-rest-track {
+  flex: 1;
+  height: 6px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.gym-rest-fill {
+  height: 100%;
+  background: #fff;
+  border-radius: 3px;
+  transition: width 1s linear;
+  width: 100%;
+}
+.gym-rest-label {
+  font-size: 16px;
+  font-family: var(--mono);
+  font-weight: 600;
+  color: #fff;
+  min-width: 36px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.gym-rest-add {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: #fff;
+  border-radius: 6px;
+  font-size: 11px;
+  font-family: var(--mono);
+  padding: 4px 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.gym-rest-add:hover { background: rgba(255,255,255,0.25); }
+.gym-rest-skip {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.6);
+  font-size: 11px;
+  font-family: var(--mono);
+  cursor: pointer;
+  padding: 4px;
+  flex-shrink: 0;
+}
+.gym-rest-skip:hover { color: #fff; }
+
+/* ── VOLUME BADGE ── */
+.gym-vol-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-family: var(--mono);
+  background: rgba(29,158,117,0.12);
+  color: #1D9E75;
+  border-radius: 10px;
+  padding: 2px 7px;
+  margin-left: 6px;
+  vertical-align: middle;
+  font-weight: 600;
+}
+
+/* ── PREVIOUS SESSION SUMMARY ── */
+.gym-prev-summary {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-family: var(--mono);
+  margin-top: 3px;
+}
