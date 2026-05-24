@@ -2667,6 +2667,125 @@ function getStrengthExercises() {
   return [];
 }
 
+// ── REST TIMER STATE ──
+let _restTimer = null;
+let _restTimerEl = null;
+let _restTimerRemaining = 0;
+
+function startRestTimer(seconds) {
+  // Clear any existing timer
+  if (_restTimer) clearInterval(_restTimer);
+  _restTimerRemaining = seconds;
+
+  // Find or create the timer bar
+  const bar = document.getElementById('gym-rest-timer');
+  if (!bar) return;
+  bar.style.display = 'flex';
+
+  const fill = document.getElementById('gym-rest-fill');
+  const label = document.getElementById('gym-rest-label');
+  const total = seconds;
+
+  function tick() {
+    if (_restTimerRemaining <= 0) {
+      clearInterval(_restTimer);
+      _restTimer = null;
+      bar.style.display = 'none';
+      // Vibrate on mobile if supported
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      return;
+    }
+    _restTimerRemaining--;
+    const pct = (_restTimerRemaining / total) * 100;
+    if (fill) fill.style.width = pct + '%';
+    const m = Math.floor(_restTimerRemaining / 60);
+    const s = _restTimerRemaining % 60;
+    if (label) label.textContent = m > 0 ? m + ':' + String(s).padStart(2,'0') : s + 's';
+  }
+
+  tick();
+  _restTimer = setInterval(tick, 1000);
+}
+
+function stopRestTimer() {
+  if (_restTimer) clearInterval(_restTimer);
+  _restTimer = null;
+  const bar = document.getElementById('gym-rest-timer');
+  if (bar) bar.style.display = 'none';
+}
+
+function addRestTime(seconds) {
+  _restTimerRemaining = Math.max(0, _restTimerRemaining + seconds);
+}
+
+// ── VOLUME CALCULATION ──
+function getExerciseVolume(exId) {
+  const saved = currentStrengthSession[exId];
+  if (!saved || !saved.sets) return 0;
+  return Object.values(saved.sets).reduce((total, s) => {
+    const kg = parseFloat(s.kg || 0);
+    const reps = parseInt(s.reps || 0);
+    return total + (kg * reps);
+  }, 0);
+}
+
+function getExerciseTopSet(exId) {
+  const saved = currentStrengthSession[exId];
+  if (!saved || !saved.sets) return null;
+  let top = null;
+  Object.values(saved.sets).forEach(s => {
+    if (s.kg && s.reps) {
+      const vol = parseFloat(s.kg) * parseInt(s.reps);
+      if (!top || vol > top.vol) {
+        top = { kg: s.kg, reps: s.reps, vol };
+      }
+    }
+  });
+  return top;
+}
+
+// ── PREVIOUS SESSION COMPARISON ──
+function getPrevSessionData(exId) {
+  const prev = strengthLog[0];
+  if (!prev) return null;
+  const prevEx = (prev.exercises || []).find(e =>
+    e.name && e.name.toLowerCase().includes(
+      exId.replace('rdl','romanian').replace('bss','bulgarian')
+         .replace('cope','copenhagen').replace('nordic','nordic')
+    )
+  );
+  if (!prevEx || !prevEx.sets) return null;
+  let topSet = null;
+  prevEx.sets.forEach(s => {
+    if (s.kg && s.reps) {
+      const vol = parseFloat(s.kg) * parseInt(s.reps);
+      if (!topSet || vol > topSet.vol) topSet = { kg: s.kg, reps: s.reps, vol };
+    }
+  });
+  const totalVol = prevEx.sets.reduce((t, s) => t + (parseFloat(s.kg||0) * parseInt(s.reps||0)), 0);
+  return { topSet, totalVol, date: prev.date };
+}
+
+function getPrevSetData(exId, setIdx) {
+  const prev = strengthLog[0];
+  if (!prev) return '—';
+  const prevEx = (prev.exercises || []).find(e =>
+    e.name && e.name.toLowerCase().includes(
+      exId.replace('rdl','romanian').replace('bss','bulgarian')
+         .replace('cope','copenhagen').replace('nordic','nordic')
+    )
+  );
+  if (!prevEx || !prevEx.sets?.[setIdx]) return '—';
+  const s = prevEx.sets[setIdx];
+  return s.kg ? s.kg + 'kg×' + (s.reps || '?') : '—';
+}
+
+// ── DEFAULT REST TIMES PER EXERCISE TYPE ──
+const REST_TIMES = {
+  rdl: 120, bss: 90, hip: 90, curl: 90,
+  calf: 60, cope: 60, nordic: 120, mobility: 30
+};
+
 function renderStrengthPage() {
   const el = document.getElementById('page-strength');
   const exercises = getStrengthExercises();
@@ -2675,15 +2794,35 @@ function renderStrengthPage() {
 
   const exerciseCards = exercises.map((ex) => {
     const saved = currentStrengthSession[ex.id] || {};
+    const prevData = getPrevSessionData(ex.id);
+    const completedSets = Object.keys(saved.sets || {}).filter(i => saved.sets[i]?.kg || saved.sets[i]?.reps).length;
+    const progressPct = ex.sets > 0 ? Math.round(completedSets / ex.sets * 100) : 0;
+    const ringDash = Math.round(94.2 * progressPct / 100);
+    const currentVol = getExerciseVolume(ex.id);
+    const currentTop = getExerciseTopSet(ex.id);
+    const isPB = prevData && currentTop && currentTop.vol > prevData.topSet?.vol;
+    const restSecs = REST_TIMES[ex.id] || 90;
+
+    // Previous session summary line
+    const prevLine = prevData
+      ? `<div class="gym-prev-summary">Last: ${prevData.topSet ? prevData.topSet.kg+'kg×'+prevData.topSet.reps : '—'} · ${Math.round(prevData.totalVol)}kg total${isPB && currentTop ? ' · <span style="color:#EF9F27">🏆 PB today!</span>' : ''}</div>`
+      : '';
+
+    // Volume badge
+    const volBadge = currentVol > 0
+      ? `<span class="gym-vol-badge">${Math.round(currentVol)}kg</span>`
+      : '';
+
     const sets = Array.from({length: ex.sets}, (_, i) => {
       const s = saved.sets?.[i] || {};
       const isComplete = s.kg || s.reps;
+      const prevSet = getPrevSetData(ex.id, i);
       return '<div class="gym-set-row ' + (isComplete ? 'gym-set-done' : '') + '" id="set-row-' + ex.id + '-' + i + '">' +
         '<div class="gym-set-num">' + (i+1) + '</div>' +
-        '<div class="gym-set-prev">' + getPrevSetData(ex.id, i) + '</div>' +
+        '<div class="gym-set-prev">' + prevSet + '</div>' +
         '<input class="gym-input gym-input-kg" type="number" inputmode="decimal" placeholder="kg" step="2.5" value="' + (s.kg||'') + '" oninput="saveSetData(\'' + ex.id + '\',' + i + ',\'kg\',this.value);updateSetRow(\'' + ex.id + '\',' + i + ')">' +
         '<input class="gym-input gym-input-reps" type="number" inputmode="numeric" placeholder="reps" step="1" value="' + (s.reps||'') + '" oninput="saveSetData(\'' + ex.id + '\',' + i + ',\'reps\',this.value);updateSetRow(\'' + ex.id + '\',' + i + ')">' +
-        '<button class="gym-set-tick ' + (isComplete?'ticked':'') + '" onclick="tickSet(\'' + ex.id + '\',' + i + ',this)">✓</button>' +
+        '<button class="gym-set-tick ' + (isComplete?'ticked':'') + '" onclick="tickSet(\'' + ex.id + '\',' + i + ',' + restSecs + ',this)">✓</button>' +
       '</div>';
     }).join('');
 
@@ -2694,9 +2833,6 @@ function renderStrengthPage() {
       : '';
 
     const tagHTML = ex.tag === 'hamstring' ? '<span class="gym-tag gym-tag-hs">hamstring priority</span>' : '';
-    const completedSets = Object.keys(saved.sets || {}).filter(i => saved.sets[i]?.kg || saved.sets[i]?.reps).length;
-    const progressPct = ex.sets > 0 ? Math.round(completedSets / ex.sets * 100) : 0;
-    const ringDash = Math.round(94.2 * progressPct / 100);
 
     return '<div class="gym-card ' + (completedSets >= ex.sets ? 'gym-card-complete' : '') + '" id="gymcard-' + ex.id + '">' +
       '<div class="gym-card-header" onclick="toggleGymCard(\'' + ex.id + '\')">' +
@@ -2709,8 +2845,9 @@ function renderStrengthPage() {
             '<span class="gym-ring-label">' + completedSets + '/' + ex.sets + '</span>' +
           '</div>' +
           '<div>' +
-            '<div class="gym-card-name">' + (saved._swapped || ex.name) + ' ' + tagHTML + '</div>' +
+            '<div class="gym-card-name">' + (saved._swapped || ex.name) + ' ' + tagHTML + ' ' + volBadge + '</div>' +
             '<div class="gym-card-target">' + ex.target + '</div>' +
+            prevLine +
           '</div>' +
         '</div>' +
         '<div class="gym-card-right">' +
@@ -2731,7 +2868,11 @@ function renderStrengthPage() {
   const histHTML = strengthLog.length ? strengthLog.slice(0,12).map((entry,idx) => {
     const dateStr = fmtDate(entry.date);
     const logged = (entry.exercises||[]).filter(ex=>ex.sets?.some(s=>s.kg||s.reps));
-    const summary = logged.map(ex=>{const top=ex.sets?.reduce((b,s)=>parseFloat(s.kg||0)>parseFloat(b.kg||0)?s:b,{});return (ex.name?.split(' ')[0]||'') + ' ' + (top.kg||'') + (top.reps?'×'+top.reps:'');}).join(' · ') || 'Logged';
+    const summary = logged.map(ex=>{
+      const top=ex.sets?.reduce((b,s)=>parseFloat(s.kg||0)>parseFloat(b.kg||0)?s:b,{});
+      const vol = ex.sets?.reduce((t,s)=>t+(parseFloat(s.kg||0)*parseInt(s.reps||0)),0);
+      return (ex.name?.split(' ')[0]||'') + ' ' + (top.kg||'') + (top.reps?'×'+top.reps:'') + (vol?' ('+Math.round(vol)+'kg)':'');
+    }).join(' · ') || 'Logged';
     const sId = String(entry.id || 'strength-' + entry.date);
     const sLogs = (sessionLogs[sId]||[]).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
     const sLogsHTML = sLogs.length
@@ -2760,6 +2901,16 @@ function renderStrengthPage() {
       '<div class="gym-meta-pill">Thursday · 45–55 min</div>' +
       '<span class="st-saved" id="st-saved-msg">Saved ✓</span>' +
     '</div>' +
+    // Rest timer bar
+    '<div id="gym-rest-timer" class="gym-rest-timer" style="display:none">' +
+      '<div class="gym-rest-inner">' +
+        '<span class="gym-rest-icon">⏱</span>' +
+        '<div class="gym-rest-track"><div class="gym-rest-fill" id="gym-rest-fill"></div></div>' +
+        '<span class="gym-rest-label" id="gym-rest-label">90s</span>' +
+        '<button class="gym-rest-add" onclick="addRestTime(30)">+30s</button>' +
+        '<button class="gym-rest-skip" onclick="stopRestTimer()">Skip</button>' +
+      '</div>' +
+    '</div>' +
     (wk <= 9 ? '<div class="alert alert-amber" style="margin-bottom:16px">RDL and hamstring curls are the priority exercises. Protect these — everything else is secondary.</div>' : '') +
     (exercises.length
       ? '<div class="gym-exercise-list">' + exerciseCards + '</div><button class="gym-complete-btn" onclick="completeStrengthSession()">✓ Complete Session</button>'
@@ -2769,15 +2920,6 @@ function renderStrengthPage() {
 
   const firstEx = exercises[0];
   if (firstEx) toggleGymCard(firstEx.id, true);
-}
-
-function getPrevSetData(exId, setIdx) {
-  const prev = strengthLog[0];
-  if (!prev) return '—';
-  const prevEx = (prev.exercises||[]).find(e => e.name && e.name.toLowerCase().includes(exId.replace('rdl','romanian').replace('bss','bulgarian').replace('cope','copenhagen').replace('nordic','nordic')));
-  if (!prevEx || !prevEx.sets?.[setIdx]) return '—';
-  const s = prevEx.sets[setIdx];
-  return s.kg ? s.kg + 'kg×' + (s.reps||'?') : '—';
 }
 
 function toggleGymCard(exId, forceOpen) {
@@ -2818,13 +2960,34 @@ function updateSetRow(exId, setIdx) {
   const ringLabel = card.querySelector('.gym-ring-label');
   if (ringLabel) ringLabel.textContent = completedSets + '/' + ex.sets;
   if (completedSets >= ex.sets) card.classList.add('gym-card-complete');
+
+  // Update volume badge
+  const vol = getExerciseVolume(exId);
+  const volBadge = card.querySelector('.gym-vol-badge');
+  if (volBadge) {
+    volBadge.textContent = Math.round(vol) + 'kg';
+    volBadge.style.display = vol > 0 ? 'inline-flex' : 'none';
+  } else if (vol > 0) {
+    const nameEl = card.querySelector('.gym-card-name');
+    if (nameEl) {
+      const badge = document.createElement('span');
+      badge.className = 'gym-vol-badge';
+      badge.textContent = Math.round(vol) + 'kg';
+      nameEl.appendChild(badge);
+    }
+  }
 }
 
-function tickSet(exId, setIdx, btn) {
+function tickSet(exId, setIdx, restSeconds, btn) {
   const row = document.getElementById('set-row-' + exId + '-' + setIdx);
   if (!row) return;
+  const wasDone = row.classList.contains('gym-set-done');
   row.classList.toggle('gym-set-done');
   btn.classList.toggle('ticked');
+  // Start rest timer only when marking as done (not undoing)
+  if (!wasDone) {
+    startRestTimer(restSeconds || 90);
+  }
 }
 
 function saveSetData(exId, setIdx, field, value) {
@@ -2870,21 +3033,12 @@ async function completeStrengthSession() {
     await api.post('strength_sessions', {session_date:todayISO(),week_num:wkNum,exercises}, 'return=minimal');
     currentStrengthSession = {};
     localStorage.removeItem('strength_session_wip');
+    stopRestTimer();
     const sessions = await api.get('strength_sessions','select=*&order=session_date.desc&limit=30');
     strengthLog = (sessions||[]).map(s=>({id:s.id,date:s.session_date,week:s.week_num,exercises:s.exercises||[]}));
     renderStrengthPage();
     alert('Session logged ✓ — Week ' + wkNum + ' strength session saved.');
   } catch(e) { alert('Error saving session: ' + e.message); }
-}
-
-async function deleteStrengthEntry(idx) {
-  if(!confirm('Delete this strength session?')) return;
-  const entry = strengthLog[idx];
-  try {
-    if(entry.id) await api.delete('strength_sessions',`id=eq.${entry.id}`);
-    strengthLog.splice(idx,1);
-    renderStrengthPage();
-  } catch(e) { alert('Error: '+e.message); }
 }
 
 // ── STATIC REFERENCE PAGES ──
