@@ -589,48 +589,97 @@ function buildActivityIndex() {
     if (!week) return;
     const claimedSessions = new Set();
     const matched = new Map();
-    // Pass 1: exact day matches.
-    // Excluded: runs landing on Strength days (they flex to their actual run slot in Pass 2).
-    // Excluded: fragments < 40% of planned distance (so the primary upload claims the slot).
-    entries.forEach(({ act, dayName }) => {
+
+    // ── Scoring function ──────────────────────────────────────────────────────
+    // Scores an activity against a candidate planned session slot.
+    // Higher = better match. Uses distance proximity as primary signal,
+    // day proximity as tiebreaker, type match as bonus.
+    // Does NOT rely on inferDot/average-pace inference (unreliable for
+    // grouped/fragmented uploads whose avg pace blends effort + recovery).
+    function scoreMatch(act, actDayName, candidateDay, session) {
+      const actKm    = parseFloat(act.distance || 0);
+      const targetKm = getPlannedDistanceKm(session) || getPlannedSessionKm(session);
+      let score = 0;
+
+      // Distance proximity — primary signal (0–6 pts)
+      if (targetKm && actKm > 0) {
+        const ratio = Math.abs(actKm - targetKm) / targetKm;
+        if      (ratio < 0.10) score += 6;
+        else if (ratio < 0.20) score += 4;
+        else if (ratio < 0.35) score += 2;
+        else if (ratio < 0.55) score += 1;
+      }
+
+      // Day proximity — tiebreaker (0–3 pts)
+      // Prefer sessions on the same day or adjacent days (athlete did it early/late)
+      const actIdx  = dayOrder.indexOf(actDayName);
+      const planIdx = dayOrder.indexOf(candidateDay);
+      const dayDiff = Math.abs(actIdx - planIdx);
+      if      (dayDiff === 0) score += 3;
+      else if (dayDiff === 1) score += 2;
+      else if (dayDiff === 2) score += 1;
+
+      // Type bonus — secondary (0–2 pts)
+      // Only applied when we have high confidence (grouped session or session_type_detected)
+      const detectedType = act.session_type_detected;
+      if (detectedType === 'intervals' && session.dot === 'hard')     score += 2;
+      if (detectedType === 'tempo'     && session.dot === 'moderate') score += 2;
+      if (detectedType === 'easy'      && session.dot === 'easy')     score += 1;
+      // Grouped threshold sessions: avg pace is meaningless, match on distance only
+      // (already captured above) — no type penalty for moderate sessions
+
+      return score;
+    }
+
+    // ── Pass 1: high-confidence exact-day matches ─────────────────────────────
+    // Only claim a slot when the activity clearly belongs there:
+    // - Not a Strength/Rest day
+    // - Not a fragment (< 40% of planned distance) — fragments flex to Pass 2
+    //   so the grouped/primary upload can claim the slot instead
+    // Sort entries by distance desc so the largest upload wins contested slots
+    const sortedEntries = [...entries].sort((a, b) =>
+      parseFloat(b.act.distance || 0) - parseFloat(a.act.distance || 0)
+    );
+    sortedEntries.forEach(({ act, dayName }) => {
+      if (matched.has(act)) return;
       const session = week.days[dayName];
       if (!session || session.dot === 'rest' || session.dot === 'strength') return;
-      const actKm = parseFloat(act.distance || 0);
-      const targetKm = getPlannedDistanceKm(session);
+      const actKm    = parseFloat(act.distance || 0);
+      const targetKm = getPlannedDistanceKm(session) || getPlannedSessionKm(session);
       const isFragment = targetKm > 0 && actKm < targetKm * 0.4;
       if (isFragment) return;
+      if (claimedSessions.has(dayName)) return;
       matched.set(act, { day: dayName, planned: session, flexible: false });
       claimedSessions.add(dayName);
     });
-    // Pass 2: flexible matches
-    entries.forEach(({ act, dayName }) => {
+
+    // ── Pass 2: score-based flexible matching ─────────────────────────────────
+    // Any activity not matched in Pass 1 (rest-day runs, fragments, strength-day
+    // runs, grouped sessions whose calendar day differs from the planned slot)
+    // gets scored against every unclaimed run session in the week.
+    // Sorted by distance desc so larger uploads claim slots before fragments.
+    sortedEntries.forEach(({ act, dayName }) => {
       if (matched.has(act)) return;
       const actKm = parseFloat(act.distance || 0);
-      const actDot = inferDot(act);
       let bestDay = null, bestScore = -1;
-      dayOrder.forEach(day => {
-        if (claimedSessions.has(day)) return;
-        const session = week.days[day];
+
+      dayOrder.forEach(candidateDay => {
+        if (claimedSessions.has(candidateDay)) return;
+        const session = week.days[candidateDay];
         if (!session || session.dot === 'rest' || session.dot === 'strength') return;
-        let score = 0;
-        if (actDot && session.dot === actDot) score += 3;
-        else if (actDot === 'easy' && session.dot === 'moderate') score += 1;
-        const targetKm = getPlannedDistanceKm(session);
-        if (targetKm && actKm > 0) {
-          const ratio = Math.abs(actKm - targetKm) / targetKm;
-          if (ratio < 0.15) score += 3;
-          else if (ratio < 0.30) score += 2;
-          else if (ratio < 0.50) score += 1;
-        }
-        if (score > bestScore) { bestScore = score; bestDay = day; }
+        const s = scoreMatch(act, dayName, candidateDay, session);
+        if (s > bestScore) { bestScore = s; bestDay = candidateDay; }
       });
-      if (bestDay && bestScore > 0) {
+
+      if (bestDay !== null && bestScore > 0) {
         matched.set(act, { day: bestDay, planned: week.days[bestDay], flexible: true });
         claimedSessions.add(bestDay);
       } else {
+        // Can't match to any unclaimed session — mark as unplanned on its actual day
         matched.set(act, { day: dayName, planned: week.days[dayName] || null, flexible: false });
       }
     });
+
     matched.forEach(({ day }, act) => {
       const key = weekNum + '-' + day;
       if (!idx[key]) idx[key] = [];
