@@ -12,67 +12,162 @@ function paceToSecs(paceStr) {
   return m * 60 + (s || 0);
 }
 
-// ── PLAN MIRROR ───────────────────────────────────────────────────────────────
-// Keep in sync with app.js weekPlan
+function secsToStr(secs) {
+  if (!secs) return null;
+  return `${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')}`;
+}
 
+// ── PLAN MIRROR ───────────────────────────────────────────────────────────────
 const PLAN_START = new Date('2026-04-27');
 
 const weekPlan = {
   1:  { Mon:{dot:'easy',type:'Easy Run',km:5},   Tue:{dot:'easy',type:'Easy Run',km:6},   Sat:{dot:'easy',type:'Long Run',km:10} },
   2:  { Mon:{dot:'easy',type:'Strides',km:7},    Tue:{dot:'easy',type:'Easy Run',km:7},   Sat:{dot:'easy',type:'Long Run',km:12} },
-  3:  { Mon:{dot:'hard',type:'Intervals',km:10,intervals:{reps:8, dist:400, targetPace:'4:10'}},  Tue:{dot:'easy',type:'Easy Run',km:8},  Wed:{dot:'moderate',type:'Tempo',km:7,tempo:{duration_min:12,targetPace:'4:25'}},  Thu:{dot:'strength',type:'Strength'}, Sat:{dot:'easy',type:'Long Run',km:13} },
+  3:  { Mon:{dot:'hard',type:'Intervals',km:10,intervals:{reps:8,  dist:400,  targetPace:'4:10'}}, Tue:{dot:'easy',type:'Easy Run',km:8},  Wed:{dot:'moderate',type:'Tempo',km:7,tempo:{duration_min:12,targetPace:'4:25'}}, Thu:{dot:'strength',type:'Strength'}, Sat:{dot:'easy',type:'Long Run',km:13} },
   4:  { Mon:{dot:'easy',type:'Strides',km:7},    Tue:{dot:'easy',type:'Easy Run',km:6},   Thu:{dot:'moderate',type:'Tempo',km:6,tempo:{duration_min:10,targetPace:'4:25'}}, Sat:{dot:'easy',type:'Long Run',km:11} },
-  5:  { Mon:{dot:'hard',type:'Intervals',km:10,intervals:{reps:6, dist:1000,targetPace:'4:12'}}, Tue:{dot:'easy',type:'Easy Run',km:9},  Wed:{dot:'moderate',type:'Tempo',km:8,tempo:{duration_min:20,targetPace:'4:25'}}, Thu:{dot:'strength',type:'Strength'}, Sat:{dot:'easy',type:'Long Run',km:17} },
-  6:  { Mon:{dot:'hard',type:'Intervals',km:10,intervals:{reps:5, dist:1200,targetPace:'4:12'}}, Tue:{dot:'easy',type:'Easy Run',km:10}, Thu:{dot:'moderate',type:'Tempo',km:9,tempo:{duration_min:30,targetPace:'4:25'}}, Sat:{dot:'moderate',type:'Long Run',km:16} },
-  7:  { Mon:{dot:'hard',type:'Intervals',km:8, intervals:{reps:10,dist:400, targetPace:'3:58'}}, Tue:{dot:'easy',type:'Easy Run',km:11}, Thu:{dot:'moderate',type:'Tempo',km:10,tempo:{duration_min:30,targetPace:'4:25'}}, Sat:{dot:'easy',type:'Long Run',km:17} },
-  8:  { Mon:{dot:'hard',type:'Intervals',km:9, intervals:{reps:6, dist:800, targetPace:'4:12'}}, Tue:{dot:'easy',type:'Easy Run',km:8},  Sat:{dot:'easy',type:'Long Run',km:13} },
-  9:  { Mon:{dot:'hard',type:'Intervals',km:12,intervals:{reps:4, dist:2000,targetPace:'4:10'}}, Tue:{dot:'easy',type:'Easy Run',km:11}, Thu:{dot:'moderate',type:'Tempo',km:11,tempo:{duration_min:35,targetPace:'4:25'}}, Sat:{dot:'moderate',type:'Long Run',km:18} },
-  10: { Mon:{dot:'hard',type:'Race Pace',km:11,intervals:{reps:3, dist:3000,targetPace:'4:11'}}, Tue:{dot:'easy',type:'Easy Run',km:10}, Thu:{dot:'moderate',type:'Tempo',km:9,tempo:{duration_min:25,targetPace:'4:25'}}, Sat:{dot:'easy',type:'Long Run',km:17} },
-  11: { Mon:{dot:'hard',type:'Intervals',km:8, intervals:{reps:12,dist:400, targetPace:'3:55'}}, Tue:{dot:'easy',type:'Easy Run',km:10}, Sat:{dot:'race',type:'Race Simulation',km:12} },
-  12: { Mon:{dot:'hard',type:'Intervals',km:6, intervals:{reps:6, dist:600, targetPace:'4:11'}}, Tue:{dot:'easy',type:'Easy Run',km:7},  Thu:{dot:'moderate',type:'Tempo',km:6,tempo:{duration_min:12,targetPace:'4:25'}}, Sat:{dot:'easy',type:'Easy Run',km:9} },
-  13: { Mon:{dot:'easy',type:'Easy Run',km:5}, Tue:{dot:'easy',type:'Shakeout',km:4}, Thu:{dot:'easy',type:'Shakeout',km:3}, Sat:{dot:'race',type:'RACE DAY',km:12} },
+  5:  { Mon:{dot:'hard',type:'Intervals',km:10,intervals:{reps:6,  dist:1000, targetPace:'4:12'}}, Tue:{dot:'easy',type:'Easy Run',km:9},  Wed:{dot:'moderate',type:'Threshold',km:8,tempo:{duration_min:20,targetPace:'4:25'}}, Thu:{dot:'strength',type:'Strength'}, Fri:{dot:'moderate',type:'Threshold',km:9,tempo:{duration_min:24,targetPace:'4:22'}}, Sat:{dot:'easy',type:'Long Run',km:17} },
+  6:  { Mon:{dot:'hard',type:'Intervals',km:10,intervals:{reps:5,  dist:1200, targetPace:'4:12'}}, Tue:{dot:'easy',type:'Easy Run',km:10}, Thu:{dot:'moderate',type:'Tempo',km:9,tempo:{duration_min:30,targetPace:'4:25'}}, Sat:{dot:'moderate',type:'Long Run',km:16} },
+  7:  { Mon:{dot:'hard',type:'Intervals',km:8,  intervals:{reps:10, dist:400,  targetPace:'3:58'}}, Tue:{dot:'easy',type:'Easy Run',km:11}, Thu:{dot:'moderate',type:'Tempo',km:10,tempo:{duration_min:30,targetPace:'4:25'}}, Sat:{dot:'easy',type:'Long Run',km:17} },
+  8:  { Mon:{dot:'hard',type:'Intervals',km:9,  intervals:{reps:6,  dist:800,  targetPace:'4:12'}}, Tue:{dot:'easy',type:'Easy Run',km:8},  Sat:{dot:'easy',type:'Long Run',km:13} },
+  9:  { Mon:{dot:'hard',type:'Intervals',km:12, intervals:{reps:4,  dist:2000, targetPace:'4:10'}}, Tue:{dot:'easy',type:'Easy Run',km:11}, Thu:{dot:'moderate',type:'Tempo',km:11,tempo:{duration_min:35,targetPace:'4:25'}}, Sat:{dot:'moderate',type:'Long Run',km:18} },
+  10: { Mon:{dot:'hard',type:'Race Pace',km:11, intervals:{reps:3,  dist:3000, targetPace:'4:11'}}, Tue:{dot:'easy',type:'Easy Run',km:10}, Thu:{dot:'moderate',type:'Tempo',km:9,tempo:{duration_min:25,targetPace:'4:25'}}, Sat:{dot:'easy',type:'Long Run',km:17} },
+  11: { Mon:{dot:'hard',type:'Intervals',km:8,  intervals:{reps:12, dist:400,  targetPace:'3:55'}}, Tue:{dot:'easy',type:'Easy Run',km:10}, Sat:{dot:'race',type:'Race Simulation',km:12} },
+  12: { Mon:{dot:'hard',type:'Intervals',km:6,  intervals:{reps:6,  dist:600,  targetPace:'4:11'}}, Tue:{dot:'easy',type:'Easy Run',km:7},  Thu:{dot:'moderate',type:'Tempo',km:6,tempo:{duration_min:12,targetPace:'4:25'}}, Sat:{dot:'easy',type:'Easy Run',km:9} },
+  13: { Mon:{dot:'easy',type:'Easy Run',km:5},  Tue:{dot:'easy',type:'Shakeout',km:4}, Thu:{dot:'easy',type:'Shakeout',km:3}, Sat:{dot:'race',type:'RACE DAY',km:12} },
 };
 
-// ── SESSION TYPE DETECTION ────────────────────────────────────────────────────
+// ── REP EXTRACTION ────────────────────────────────────────────────────────────
 //
-// Priority order:
-//   1. Lap count matches planned reps exactly → definitive intervals
-//   2. Lap pace variance > 45s/km → intervals pattern
-//   3. km-split variance (fallback when no useful laps)
-//   4. Plan dot for easy/moderate
+// This is the core of the "did I hit my reps" question.
+//
+// Strava gives us THREE data sources, each with different fidelity:
+//
+// 1. act.laps  — Watch-defined laps. If you ran a structured Garmin workout
+//    (or pressed lap between reps), each rep is its own lap object with exact
+//    distance, time, pace, HR. This is the gold standard. Distance_m will be
+//    close to planned rep distance (e.g. ~800m for 800m reps).
+//
+// 2. act.splits_metric — Automatic 1km splits. Always 1km boundaries, always
+//    present. Useless for sub-km reps on their own, but fast km-splits during
+//    an intervals run indicate effort sections.
+//
+// 3. act.best_efforts — Strava's own PR detector. Includes fastest 400m, 1/2
+//    mile, 1km, 1 mile etc. within the run. Useful for confirming rep pace
+//    even without lap data.
+//
+// Strategy:
+//   A. If laps exist AND their distances cluster around the planned rep distance
+//      (within 20%) → use laps directly as reps. Most reliable.
+//   B. If laps exist but are 1km auto-laps → fall back to best_efforts for
+//      rep-distance pace, km-splits for effort/recovery pattern.
+//   C. No useful laps → infer from km-splits: fast splits = effort, slow = recovery.
 
+function extractReps(laps, splitsFormatted, bestEfforts, plannedRepDist) {
+  // ── Strategy A: lap distances match planned rep distance ──────────────────
+  if (laps && laps.length >= 2) {
+    const repDistLaps = laps.filter(l => {
+      if (!l.distance_m || !plannedRepDist) return false;
+      const ratio = Math.abs(l.distance_m - plannedRepDist) / plannedRepDist;
+      return ratio < 0.25; // within 25% of planned rep distance
+    });
+
+    if (repDistLaps.length >= 2) {
+      return {
+        source: 'laps',
+        reps: repDistLaps.map(l => ({
+          distance_m: l.distance_m,
+          pace:       l.pace,
+          pace_secs:  paceToSecs(l.pace),
+          hr:         l.hr,
+          elapsed_s:  l.elapsed_s,
+        }))
+      };
+    }
+
+    // Laps exist but don't match rep distance — try median-split effort detection
+    const lapPaceSecs = laps.map(l => paceToSecs(l.pace)).filter(Boolean);
+    if (lapPaceSecs.length >= 4) {
+      const sorted = [...lapPaceSecs].sort((a, b) => a - b);
+      const median = sorted[Math.floor(sorted.length / 2)];
+      const effortLaps = laps.filter(l => paceToSecs(l.pace) < median - 20);
+      if (effortLaps.length >= 2) {
+        return {
+          source: 'laps_inferred',
+          reps: effortLaps.map(l => ({
+            distance_m: l.distance_m,
+            pace:       l.pace,
+            pace_secs:  paceToSecs(l.pace),
+            hr:         l.hr,
+            elapsed_s:  l.elapsed_s,
+          }))
+        };
+      }
+    }
+  }
+
+  // ── Strategy B: best_efforts for pace at rep distance ─────────────────────
+  if (bestEfforts && bestEfforts.length && plannedRepDist) {
+    // Find the best effort closest to planned rep distance
+    const closestEffort = bestEfforts
+      .filter(e => e.distance_m && Math.abs(e.distance_m - plannedRepDist) / plannedRepDist < 0.3)
+      .sort((a, b) => Math.abs(a.distance_m - plannedRepDist) - Math.abs(b.distance_m - plannedRepDist))[0];
+
+    if (closestEffort) {
+      return {
+        source: 'best_effort',
+        bestEffortPace: closestEffort.pace,
+        bestEffortPaceSecs: paceToSecs(closestEffort.pace),
+        bestEffortDist: closestEffort.distance_m,
+        reps: [] // can't enumerate individual reps from best_efforts
+      };
+    }
+  }
+
+  // ── Strategy C: km-split inference ────────────────────────────────────────
+  if (splitsFormatted && splitsFormatted.length >= 3) {
+    const splitPaceSecs = splitsFormatted.map(s => paceToSecs(s.pace)).filter(Boolean);
+    const sorted = [...splitPaceSecs].sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)];
+    const fastSplits = splitsFormatted.filter(s => paceToSecs(s.pace) < median - 20);
+
+    if (fastSplits.length >= 1) {
+      return {
+        source: 'splits_inferred',
+        reps: fastSplits.map(s => ({
+          distance_m: 1000,
+          pace:       s.pace,
+          pace_secs:  paceToSecs(s.pace),
+          hr:         s.hr,
+          elapsed_s:  s.moving_s,
+        }))
+      };
+    }
+  }
+
+  return { source: 'none', reps: [] };
+}
+
+// ── SESSION TYPE DETECTION ────────────────────────────────────────────────────
 function detectSessionType(plannedSession, laps, splitsFormatted) {
   if (!plannedSession) return null;
 
   if (plannedSession.dot === 'hard') {
-    // ── 1. Lap-based detection (most reliable) ────────────────────────────
     if (laps.length >= 2) {
       const lapPaceSecs = laps.map(l => paceToSecs(l.pace)).filter(Boolean);
-
       if (lapPaceSecs.length >= 2) {
         const fastest = Math.min(...lapPaceSecs);
         const slowest = Math.max(...lapPaceSecs);
         const lapVariance = slowest - fastest;
 
-        // Exact rep-count match is the strongest possible signal
-        if (plannedSession.intervals && laps.length === plannedSession.intervals.reps) {
-          return 'intervals'; // definitive — lap count matches planned reps
-        }
-
-        // Lap count matches reps + 1 or 2 (e.g. Garmin auto-laps WU/CD as extra laps)
+        if (plannedSession.intervals && laps.length === plannedSession.intervals.reps) return 'intervals';
         if (plannedSession.intervals) {
           const { reps } = plannedSession.intervals;
-          if (laps.length >= reps && laps.length <= reps + 2 && lapVariance > 30) {
-            return 'intervals';
-          }
+          if (laps.length >= reps && laps.length <= reps + 2 && lapVariance > 30) return 'intervals';
         }
-
-        // Large pace swing across laps even without exact rep match
         if (lapVariance > 45) return 'intervals';
       }
     }
 
-    // ── 2. km-split fallback (blunt but works for single-file uploads) ────
     if (splitsFormatted.length >= 2) {
       const paces = splitsFormatted.map(s => paceToSecs(s.pace)).filter(Boolean);
       if (paces.length >= 2) {
@@ -82,8 +177,7 @@ function detectSessionType(plannedSession, laps, splitsFormatted) {
         if (fastest < 270) return 'tempo';
       }
     }
-
-    return 'intervals'; // plan says hard — default to intervals rather than unknown
+    return 'intervals';
   }
 
   if (plannedSession.dot === 'moderate') return 'tempo';
@@ -91,22 +185,148 @@ function detectSessionType(plannedSession, laps, splitsFormatted) {
   return null;
 }
 
-// ── CONSECUTIVE-UPLOAD GROUPING ───────────────────────────────────────────────
+// ── PACE FEEDBACK ─────────────────────────────────────────────────────────────
+// Computes structured feedback comparing actual effort pace to planned target.
+// Returns a feedback object the frontend can render as a badge + coach note.
 //
-// When you upload warm-up / intervals / cool-down as separate Strava activities,
-// each lands in Supabase as its own row. This function finds sibling uploads that
-// belong to the same planned session slot (same week+day) and whose start times
-// are within GROUP_WINDOW_MINUTES of each other, then returns merged totals so
-// the analysis reflects the whole session.
-//
-// The individual rows are kept intact in Supabase (we never delete them).
-// We just compute a logical combined view for the analysis fields written back
-// to the PRIMARY activity (the one with the hard/intervals laps).
+// effort_pace_secs:    actual avg pace across effort reps (seconds/km)
+// target_pace_secs:   planned target pace (seconds/km)
+// diff_secs:          positive = faster than target, negative = slower
+// verdict:            'faster' | 'on_target' | 'slower' | 'unknown'
+// next_suggestion:    what to adjust next time
 
+function buildPaceFeedback(sessionType, repData, plannedSession, laps, splitsFormatted) {
+  const result = {
+    effort_pace_secs:  null,
+    target_pace_secs:  null,
+    diff_secs:         null,
+    verdict:           'unknown',
+    rep_count_planned: null,
+    rep_count_actual:  null,
+    rep_paces:         [],
+    data_source:       'none',
+    next_suggestion:   null,
+    coach_note:        null,
+  };
+
+  // ── Intervals ──────────────────────────────────────────────────────────────
+  if (sessionType === 'intervals' && plannedSession.intervals) {
+    const { reps, dist, targetPace } = plannedSession.intervals;
+    result.target_pace_secs  = paceToSecs(targetPace);
+    result.rep_count_planned = reps;
+    result.data_source       = repData.source;
+
+    if (repData.source === 'best_effort') {
+      result.effort_pace_secs = repData.bestEffortPaceSecs;
+      result.rep_count_actual = null; // can't count from best_effort
+    } else if (repData.reps.length > 0) {
+      const paces = repData.reps.map(r => r.pace_secs).filter(Boolean);
+      result.effort_pace_secs = paces.length
+        ? Math.round(paces.reduce((a, b) => a + b, 0) / paces.length)
+        : null;
+      result.rep_count_actual = repData.reps.length;
+      result.rep_paces = repData.reps.map(r => r.pace).filter(Boolean);
+    }
+
+    if (result.effort_pace_secs && result.target_pace_secs) {
+      result.diff_secs = result.target_pace_secs - result.effort_pace_secs; // positive = faster
+      const margin = Math.abs(result.diff_secs);
+
+      if (result.diff_secs > 8) {
+        result.verdict = 'faster';
+        result.next_suggestion = margin > 20
+          ? `Consider moving target to ${secsToStr(result.effort_pace_secs - 3)}/km — you have a higher ceiling.`
+          : `You're slightly ahead of target. Maintain ${targetPace}/km next session and see if you can hold consistency.`;
+        result.coach_note = `You ran ${margin}s/km faster than the ${targetPace}/km target. ${result.next_suggestion}`;
+      } else if (result.diff_secs < -8) {
+        result.verdict = 'slower';
+        result.next_suggestion = margin > 20
+          ? `Consider dropping target to ${secsToStr(result.target_pace_secs + 5)}/km to hit full reps with better form.`
+          : `Marginally over target — this can be normal on tired legs. Keep ${targetPace}/km target and monitor recovery.`;
+        result.coach_note = `You ran ${margin}s/km slower than the ${targetPace}/km target. ${result.next_suggestion}`;
+      } else {
+        result.verdict = 'on_target';
+        result.coach_note = `Spot on — ${secsToStr(result.effort_pace_secs)}/km average effort across ${result.rep_count_actual || reps} reps, right on the ${targetPace}/km target.`;
+      }
+    }
+
+    // Fade analysis across individual reps
+    if (repData.reps.length >= 4) {
+      const half = Math.floor(repData.reps.length / 2);
+      const firstHalf = repData.reps.slice(0, half).map(r => r.pace_secs).filter(Boolean);
+      const lastHalf  = repData.reps.slice(half).map(r => r.pace_secs).filter(Boolean);
+      if (firstHalf.length && lastHalf.length) {
+        const avgFirst = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
+        const avgLast  = lastHalf.reduce((a, b) => a + b, 0) / lastHalf.length;
+        const fade = avgLast - avgFirst;
+        if (fade > 12) {
+          result.coach_note += ` Note: pace faded ${Math.round(fade)}s/km across the session — may need more recovery between reps or slightly lower target.`;
+        } else if (fade < -12) {
+          result.coach_note += ` Strong negative split — you got faster as you warmed up. Good sign of controlled pacing.`;
+        }
+      }
+    }
+  }
+
+  // ── Tempo / Threshold ──────────────────────────────────────────────────────
+  if (sessionType === 'tempo' && plannedSession.tempo) {
+    const { targetPace, duration_min } = plannedSession.tempo;
+    result.target_pace_secs = paceToSecs(targetPace);
+    result.data_source = 'splits';
+
+    // Tempo effort = splits faster than target + 25s buffer
+    const effortSplits = splitsFormatted.filter(s => {
+      const secs = paceToSecs(s.pace);
+      return secs && secs <= result.target_pace_secs + 25;
+    });
+
+    if (effortSplits.length > 0) {
+      const paces = effortSplits.map(s => paceToSecs(s.pace)).filter(Boolean);
+      result.effort_pace_secs = Math.round(paces.reduce((a, b) => a + b, 0) / paces.length);
+      result.diff_secs = result.target_pace_secs - result.effort_pace_secs;
+      const margin = Math.abs(result.diff_secs);
+
+      if (result.diff_secs > 8) {
+        result.verdict = 'faster';
+        result.coach_note = `Tempo effort averaged ${secsToStr(result.effort_pace_secs)}/km — ${margin}s/km faster than ${targetPace}/km target. ${margin > 15 ? 'Consider nudging threshold target pace down next session.' : 'Solid execution — maintain this target.'}`;
+      } else if (result.diff_secs < -8) {
+        result.verdict = 'slower';
+        result.coach_note = `Tempo effort averaged ${secsToStr(result.effort_pace_secs)}/km — ${margin}s/km slower than ${targetPace}/km target. ${margin > 15 ? 'May have been a tough day — check fatigue and adjust next threshold session if needed.' : 'Marginal miss — keep the target and try again.'}`;
+      } else {
+        result.verdict = 'on_target';
+        result.coach_note = `Threshold effort averaged ${secsToStr(result.effort_pace_secs)}/km — right on ${targetPace}/km target. ${effortSplits.length} km at tempo effort.`;
+      }
+    }
+  }
+
+  // ── Easy runs ─────────────────────────────────────────────────────────────
+  if (sessionType === 'easy') {
+    const avgPace = laps.length > 0
+      ? Math.round(laps.map(l => paceToSecs(l.pace)).filter(Boolean).reduce((a, b) => a + b, 0) / laps.length)
+      : null;
+    result.effort_pace_secs = avgPace;
+    result.target_pace_secs = paceToSecs('5:45'); // Z2 upper bound
+    if (avgPace) {
+      if (avgPace < 300) { // faster than 5:00/km
+        result.verdict = 'faster';
+        result.coach_note = `Easy run pace ${secsToStr(avgPace)}/km — too fast for Z2. Aim for 5:30–6:00/km to keep aerobic stimulus without accumulating fatigue.`;
+      } else if (avgPace <= 360) {
+        result.verdict = 'on_target';
+        result.coach_note = `Easy run at ${secsToStr(avgPace)}/km — solid Z2 effort.`;
+      } else {
+        result.verdict = 'on_target'; // slow is fine for easy
+        result.coach_note = `Easy run at ${secsToStr(avgPace)}/km — very relaxed. Fine for recovery days.`;
+      }
+    }
+  }
+
+  return result;
+}
+
+// ── CONSECUTIVE-UPLOAD GROUPING ───────────────────────────────────────────────
 const GROUP_WINDOW_MINUTES = 90;
 
-async function fetchSiblingActivities(supabaseUrl, serviceKey, weekNum, dayName, currentStravaId, anchorStartEpoch) {
-  // Query all activities on this calendar day ± window
+async function fetchSiblingActivities(supabaseUrl, serviceKey, currentStravaId, anchorStartEpoch) {
   const windowStart = new Date((anchorStartEpoch - GROUP_WINDOW_MINUTES * 60) * 1000).toISOString();
   const windowEnd   = new Date((anchorStartEpoch + GROUP_WINDOW_MINUTES * 60) * 1000).toISOString();
 
@@ -119,7 +339,7 @@ async function fetchSiblingActivities(supabaseUrl, serviceKey, weekNum, dayName,
 
   const res = await fetch(url, {
     headers: {
-      'apikey': serviceKey,
+      'apikey':        serviceKey,
       'Authorization': `Bearer ${serviceKey}`,
     }
   });
@@ -130,21 +350,17 @@ async function fetchSiblingActivities(supabaseUrl, serviceKey, weekNum, dayName,
 }
 
 // ── MAIN FETCH + STORE ────────────────────────────────────────────────────────
-
 async function fetchAndStore(stravaId, access_token) {
-  // 1. Fetch detailed activity from Strava
   const actRes = await fetch(`https://www.strava.com/api/v3/activities/${stravaId}`, {
     headers: { 'Authorization': `Bearer ${access_token}` }
   });
   const act = await actRes.json();
   if (!actRes.ok) throw new Error(`Strava fetch failed: ${act.message}`);
 
-  // 2. Pace string
   const paceStr = parsePace(act.average_speed);
 
-  // 3. km-splits
   const splitsFormatted = (act.splits_metric || []).map((sp, i) => ({
-    km: i + 1,
+    km:         i + 1,
     distance_m: Math.round(sp.distance),
     elapsed_s:  sp.elapsed_time,
     moving_s:   sp.moving_time,
@@ -153,7 +369,6 @@ async function fetchAndStore(stravaId, access_token) {
     elevation:  sp.elevation_difference ? Math.round(sp.elevation_difference) : null,
   }));
 
-  // 4. Laps — the primary signal for interval detection
   const laps = (act.laps || []).map((lap, i) => ({
     lap:        i + 1,
     distance_m: Math.round(lap.distance),
@@ -164,49 +379,47 @@ async function fetchAndStore(stravaId, access_token) {
     cadence:    lap.average_cadence   ? Math.round(lap.average_cadence)   : null,
   }));
 
-  // 5. Best efforts
   const bestEfforts = (act.best_efforts || []).map(e => ({
     name:       e.name,
     distance_m: e.distance,
     elapsed_s:  e.elapsed_time,
     pace:       parsePace(e.average_speed),
+    pace_secs:  paceToSecs(parsePace(e.average_speed)),
     pr:         e.pr_rank === 1,
   }));
 
-  // 6. Plan slot for this activity
+  // Plan slot
   const actDate  = new Date(act.start_date);
   const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const dayName  = dayNames[actDate.getDay()];
   const diffDays = Math.floor((actDate - PLAN_START) / 86400000);
   const weekNum  = diffDays >= 0 ? Math.floor(diffDays / 7) + 1 : null;
-
   const plannedSession = weekNum && weekPlan[weekNum] ? weekPlan[weekNum][dayName] : null;
-  const actualKm       = (act.distance || 0) / 1000;
+  const actualKm = (act.distance || 0) / 1000;
 
-  // 7. Detect session type using laps first, splits second
   const sessionType = detectSessionType(plannedSession, laps, splitsFormatted);
 
-  // 8. Check for sibling uploads (consecutive segments of one session)
-  //    Only do this for hard sessions where fragmentation is common.
-  let groupedKm          = actualKm;
-  let groupedMovingTime  = act.moving_time || 0;
-  let groupedMaxHR       = act.max_heartrate || 0;
-  let groupedCalories    = act.calories || 0;
-  let siblingCount       = 0;
-  let isFragmented       = false;
-  let fragmentNote       = '';
+  // Rep extraction
+  const plannedRepDist = plannedSession?.intervals?.dist || null;
+  const repData = extractReps(laps, splitsFormatted, bestEfforts, plannedRepDist);
+
+  // Pace feedback
+  const paceFeedback = buildPaceFeedback(sessionType, repData, plannedSession || {}, laps, splitsFormatted);
+
+  // Fragmented session check
+  let groupedKm         = actualKm;
+  let groupedMovingTime = act.moving_time || 0;
+  let groupedMaxHR      = act.max_heartrate || 0;
+  let groupedCalories   = act.calories || 0;
+  let siblingCount      = 0;
+  let isFragmented      = false;
 
   if (plannedSession && plannedSession.dot === 'hard' && weekNum) {
     const anchorEpoch = Math.floor(actDate.getTime() / 1000);
     const siblings = await fetchSiblingActivities(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_KEY,
-      weekNum,
-      dayName,
-      act.id,
-      anchorEpoch
+      process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY,
+      act.id, anchorEpoch
     );
-
     if (siblings.length > 0) {
       isFragmented  = true;
       siblingCount  = siblings.length;
@@ -216,115 +429,57 @@ async function fetchAndStore(stravaId, access_token) {
         groupedMaxHR       = Math.max(groupedMaxHR, sib.max_heartrate || 0);
         groupedCalories   += parseInt(sib.calories || 0);
       });
-      fragmentNote = `Session split across ${siblingCount + 1} uploads — combined: ${groupedKm.toFixed(2)}km. `;
     }
   }
 
-  // 9. Completion % — use grouped km for fragmented sessions
   let completionPct = null;
   if (plannedSession && plannedSession.km) {
     completionPct = Math.round(groupedKm / plannedSession.km * 100);
   }
 
-  // 10. Build analysis notes
+  // ── Build auto_analysis ───────────────────────────────────────────────────
   const notes = [];
-  if (fragmentNote) notes.push(fragmentNote);
+
+  if (isFragmented) {
+    notes.push(`Session split across ${siblingCount + 1} uploads — combined ${groupedKm.toFixed(2)}km.`);
+  }
 
   if (completionPct !== null) {
     const kmLabel = isFragmented ? `${groupedKm.toFixed(2)}km (combined)` : `${actualKm.toFixed(2)}km`;
-    if (completionPct < 75)       notes.push(`Incomplete: ${kmLabel} of ${plannedSession.km}km planned (${completionPct}%).`);
-    else if (completionPct < 90)  notes.push(`Slightly short: ${kmLabel} of ${plannedSession.km}km planned (${completionPct}%).`);
-    else                          notes.push(`Distance complete: ${kmLabel} of ${plannedSession.km}km planned.`);
+    if (completionPct < 75)      notes.push(`Incomplete: ${kmLabel} of ${plannedSession.km}km planned (${completionPct}%).`);
+    else if (completionPct < 90) notes.push(`Slightly short: ${kmLabel} of ${plannedSession.km}km planned (${completionPct}%).`);
+    else                         notes.push(`Distance complete: ${kmLabel} of ${plannedSession.km}km planned.`);
   }
 
-  // ── Interval analysis — uses laps when available ──────────────────────────
-  if (sessionType === 'intervals' && plannedSession.intervals) {
-    const { reps, dist, targetPace } = plannedSession.intervals;
-    const targetSecs = paceToSecs(targetPace);
-
-    if (laps.length >= 2) {
-      // Lap-based analysis: find which laps are the effort laps vs recovery
-      // Effort laps are shorter in time-per-metre (faster) than median
-      const lapPaceSecs = laps.map(l => paceToSecs(l.pace)).filter(Boolean);
-      const sorted      = [...lapPaceSecs].sort((a, b) => a - b);
-      const median      = sorted[Math.floor(sorted.length / 2)];
-
-      // Effort laps = faster than median by >15s/km
-      const effortLaps = laps.filter(l => {
-        const s = paceToSecs(l.pace);
-        return s !== null && s < median - 15;
-      });
-
-      // Pace stats across effort laps
-      const effortPaces = effortLaps.map(l => paceToSecs(l.pace)).filter(Boolean);
-      const avgEffortSecs = effortPaces.length
-        ? Math.round(effortPaces.reduce((a, b) => a + b, 0) / effortPaces.length)
-        : null;
-      const avgEffortStr = avgEffortSecs
-        ? `${Math.floor(avgEffortSecs / 60)}:${String(avgEffortSecs % 60).padStart(2, '0')}`
-        : null;
-
-      const fasterThanTarget = avgEffortSecs !== null && avgEffortSecs < targetSecs;
-      const diffSecs         = avgEffortSecs !== null ? targetSecs - avgEffortSecs : null;
-
-      notes.push(
-        `Intervals (lap-based): ${effortLaps.length} effort lap(s) detected vs ${reps} planned.`
-        + (avgEffortStr ? ` Avg effort pace: ${avgEffortStr}/km (target: ${targetPace}/km).` : '')
-        + (diffSecs !== null && fasterThanTarget ? ` Running ${diffSecs}s/km ahead of target — consider adjusting target pace upward.` : '')
-        + (diffSecs !== null && !fasterThanTarget && Math.abs(diffSecs) <= 10 ? ' On target.' : '')
-        + (diffSecs !== null && avgEffortSecs > targetSecs ? ` ${Math.abs(diffSecs)}s/km slower than target.` : '')
-      );
-
-      // Fade check across effort laps
-      if (effortLaps.length >= 3) {
-        const half       = Math.floor(effortLaps.length / 2);
-        const firstPaces = effortLaps.slice(0, half).map(l => paceToSecs(l.pace)).filter(Boolean);
-        const lastPaces  = effortLaps.slice(half).map(l => paceToSecs(l.pace)).filter(Boolean);
-        const avgFirst   = firstPaces.reduce((a, b) => a + b, 0) / firstPaces.length;
-        const avgLast    = lastPaces.reduce((a, b) => a + b, 0) / lastPaces.length;
-        if (avgLast - avgFirst > 10) {
-          notes.push(`Pace fade: last ${lastPaces.length} effort(s) averaged ${Math.round(avgLast - avgFirst)}s/km slower than first ${firstPaces.length}.`);
-        } else if (avgFirst - avgLast > 10) {
-          notes.push(`Negative split pattern: effort pace improved across the session.`);
-        }
-      }
-    } else {
-      // No lap data — fall back to km-split analysis
-      const fastSplits = splitsFormatted.filter(s => {
-        const secs = paceToSecs(s.pace);
-        return secs !== null && secs <= targetSecs + 30;
-      });
-      const onTargetSplits = fastSplits.filter(s => paceToSecs(s.pace) <= targetSecs + 10);
-      notes.push(`Intervals (split-based, no lap data): ${fastSplits.length} fast km-splits vs ${reps} planned reps. ${onTargetSplits.length} hit target pace (${targetPace}/km).`);
-    }
+  // Rep / effort data source note (important for the user to understand confidence)
+  if (sessionType === 'intervals') {
+    const sourceLabel = {
+      laps:            `✓ Lap data (${repData.reps.length} reps detected from watch laps)`,
+      laps_inferred:   `~ Laps present but rep distance unclear — effort reps inferred`,
+      best_effort:     `~ Best effort data used (no individual lap data)`,
+      splits_inferred: `~ km-splits used — load structured workout on Garmin for accurate rep data`,
+      none:            `✗ No rep data available`,
+    }[repData.source] || '';
+    if (sourceLabel) notes.push(sourceLabel);
   }
 
-  // ── Tempo analysis ────────────────────────────────────────────────────────
-  if (sessionType === 'tempo' && plannedSession.tempo) {
-    const { duration_min, targetPace } = plannedSession.tempo;
-    const targetSecs  = paceToSecs(targetPace);
-    const tempoSplits = splitsFormatted.filter(s => {
-      const secs = paceToSecs(s.pace);
-      return secs !== null && secs <= targetSecs + 20;
-    });
-    notes.push(`Tempo: ${tempoSplits.length} km-splits at or near target pace (${targetPace}/km). Planned ~${Math.round(duration_min)} min effort.`);
-  }
+  if (paceFeedback.coach_note) notes.push(paceFeedback.coach_note);
 
-  // ── HR note ───────────────────────────────────────────────────────────────
+  // HR note
   if (act.average_heartrate) {
     const hr = Math.round(act.average_heartrate);
     if (plannedSession?.dot === 'easy' && hr > 155) {
       notes.push(`HR elevated for easy run (${hr}bpm avg) — consider slowing down.`);
-    } else if (plannedSession?.dot === 'hard' && hr > 170) {
-      notes.push(`HR ${hr}bpm avg — normal for intervals.`);
+    } else if (plannedSession?.dot === 'hard') {
+      notes.push(`Avg HR ${hr}bpm.`);
     } else {
-      notes.push(`Avg HR: ${hr}bpm.`);
+      notes.push(`Avg HR ${hr}bpm.`);
     }
   }
 
   const autoAnalysis = notes.join(' ') || null;
 
-  // 11. Upsert into Supabase
+  // Upsert
   const sbRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/strava_activities?on_conflict=strava_id`, {
     method: 'POST',
     headers: {
@@ -334,42 +489,50 @@ async function fetchAndStore(stravaId, access_token) {
       'Prefer':        'resolution=merge-duplicates,return=minimal'
     },
     body: JSON.stringify({
-      strava_id:            act.id,
-      name:                 act.name,
-      description:          act.description || null,
-      sport_type:           act.sport_type,
-      workout_type:         act.workout_type ?? null,
-      start_date:           act.start_date,
-      start_date_local:     act.start_date_local,
-      distance:             parseFloat(actualKm.toFixed(2)),
-      elapsed_time:         act.elapsed_time,
-      moving_time:          act.moving_time,
-      average_speed:        act.average_speed,
-      pace:                 paceStr,
-      max_speed:            act.max_speed || 0,
-      average_heartrate:    act.average_heartrate || null,
-      max_heartrate:        act.max_heartrate || null,
-      total_elevation_gain: act.total_elevation_gain || 0,
-      average_cadence:      act.average_cadence || null,
-      average_temp:         act.average_temp ?? null,
-      calories:             act.calories || null,
-      suffer_score:         act.suffer_score || null,
-      perceived_exertion:   act.perceived_exertion || null,
-      pr_count:             act.pr_count || 0,
-      achievement_count:    act.achievement_count || 0,
-      gear_id:              act.gear_id || null,
-      gear_name:            act.gear?.name || null,
-      splits_metric:        splitsFormatted.length ? splitsFormatted : null,
-      laps:                 laps.length ? laps : null,
-      best_efforts:         bestEfforts.length ? bestEfforts : null,
-      auto_analysis:        autoAnalysis,
-      completion_pct:       completionPct,
+      strava_id:             act.id,
+      name:                  act.name,
+      description:           act.description || null,
+      sport_type:            act.sport_type,
+      workout_type:          act.workout_type ?? null,
+      start_date:            act.start_date,
+      start_date_local:      act.start_date_local,
+      distance:              parseFloat(actualKm.toFixed(2)),
+      elapsed_time:          act.elapsed_time,
+      moving_time:           act.moving_time,
+      average_speed:         act.average_speed,
+      pace:                  paceStr,
+      max_speed:             act.max_speed || 0,
+      average_heartrate:     act.average_heartrate || null,
+      max_heartrate:         act.max_heartrate || null,
+      total_elevation_gain:  act.total_elevation_gain || 0,
+      average_cadence:       act.average_cadence || null,
+      average_temp:          act.average_temp ?? null,
+      calories:              act.calories || null,
+      suffer_score:          act.suffer_score || null,
+      perceived_exertion:    act.perceived_exertion || null,
+      pr_count:              act.pr_count || 0,
+      achievement_count:     act.achievement_count || 0,
+      gear_id:               act.gear_id || null,
+      gear_name:             act.gear?.name || null,
+      splits_metric:         splitsFormatted.length ? splitsFormatted : null,
+      laps:                  laps.length ? laps : null,
+      best_efforts:          bestEfforts.length ? bestEfforts : null,
+      auto_analysis:         autoAnalysis,
+      completion_pct:        completionPct,
       session_type_detected: sessionType,
-      // Extra fields written for fragmented sessions — useful for coach context
-      grouped_km:           isFragmented ? parseFloat(groupedKm.toFixed(2)) : null,
-      grouped_moving_time:  isFragmented ? groupedMovingTime : null,
-      is_fragmented:        isFragmented || null,
-      fragment_count:       isFragmented ? siblingCount + 1 : null,
+      // Structured pace feedback — readable by app.js and the coach
+      effort_pace_secs:      paceFeedback.effort_pace_secs,
+      target_pace_secs:      paceFeedback.target_pace_secs,
+      pace_diff_secs:        paceFeedback.diff_secs,
+      pace_verdict:          paceFeedback.verdict,
+      rep_count_planned:     paceFeedback.rep_count_planned,
+      rep_count_actual:      paceFeedback.rep_count_actual,
+      rep_paces:             paceFeedback.rep_paces.length ? paceFeedback.rep_paces : null,
+      pace_data_source:      paceFeedback.data_source,
+      grouped_km:            isFragmented ? parseFloat(groupedKm.toFixed(2)) : null,
+      grouped_moving_time:   isFragmented ? groupedMovingTime : null,
+      is_fragmented:         isFragmented || null,
+      fragment_count:        isFragmented ? siblingCount + 1 : null,
     })
   });
 
@@ -378,11 +541,10 @@ async function fetchAndStore(stravaId, access_token) {
     throw new Error(`Supabase upsert failed: ${sbRes.status} ${sbText}`);
   }
 
-  return { activity_id: act.id, analysis: autoAnalysis, session_type: sessionType };
+  return { activity_id: act.id, analysis: autoAnalysis, session_type: sessionType, verdict: paceFeedback.verdict };
 }
 
 // ── TOKEN REFRESH ─────────────────────────────────────────────────────────────
-
 async function getStravaToken() {
   const tokenRes = await fetch('https://www.strava.com/oauth/token', {
     method: 'POST',
@@ -400,9 +562,7 @@ async function getStravaToken() {
 }
 
 // ── HANDLER ───────────────────────────────────────────────────────────────────
-
 module.exports = async function handler(req, res) {
-  // GET: Strava hub verification
   if (req.method === 'GET') {
     const challenge = req.query['hub.challenge'];
     const verify    = req.query['hub.verify_token'];
