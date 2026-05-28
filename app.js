@@ -467,11 +467,19 @@ function getPlannedDistanceKm(planned) {
 
 function getMatchQuality(act, planned) {
   if (!planned || planned.dot === 'rest') return 'unmatched';
+
+  // For hard sessions, trust the backend's session_type_detected over avg pace,
+  // since avg pace across a WU+intervals+CD upload is meaningless.
+  if (planned.dot === 'hard') {
+    if (act.session_type_detected === 'intervals') return 'great';
+    if (act.is_fragmented) return 'great'; // sibling upload, primary already classified
+    return 'ok';
+  }
+
   if (!act.pace) return 'ok';
   const [m,s] = act.pace.split(':').map(Number);
   const secs = m*60 + (s||0);
-  if (planned.dot === 'easy') return (secs >= 310 && secs <= 390) ? 'great' : secs < 310 ? 'warn' : 'miss';
-  if (planned.dot === 'hard') return (secs >= 230 && secs <= 270) ? 'great' : 'ok';
+  if (planned.dot === 'easy')     return (secs >= 310 && secs <= 390) ? 'great' : secs < 310 ? 'warn' : 'miss';
   if (planned.dot === 'moderate') return (secs >= 260 && secs <= 310) ? 'great' : 'ok';
   return 'ok';
 }
