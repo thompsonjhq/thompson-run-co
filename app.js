@@ -468,30 +468,111 @@ function getPlannedDistanceKm(planned) {
 function getMatchQuality(act, planned) {
   if (!planned || planned.dot === 'rest') return 'unmatched';
 
-  // For hard sessions, trust the backend's session_type_detected over avg pace,
-  // since avg pace across a WU+intervals+CD upload is meaningless.
+  // For hard sessions, trust backend lap-based detection over avg pace.
+  // Avg pace across WU+intervals+CD fragments is meaningless.
   if (planned.dot === 'hard') {
     if (act.session_type_detected === 'intervals') return 'great';
-    if (act.is_fragmented) return 'great'; // sibling upload, primary already classified
+    if (act.is_fragmented || act._grouped) return 'great';
     return 'ok';
+  }
+
+  // For threshold/tempo sessions, trust grouped distance over raw pace.
+  if (planned.dot === 'moderate') {
+    if (act._grouped) return 'great';
+    if (!act.pace) return 'ok';
+    const [m,s] = act.pace.split(':').map(Number);
+    const secs = m*60 + (s||0);
+    return (secs >= 260 && secs <= 310) ? 'great' : 'ok';
   }
 
   if (!act.pace) return 'ok';
   const [m,s] = act.pace.split(':').map(Number);
   const secs = m*60 + (s||0);
-  if (planned.dot === 'easy')     return (secs >= 310 && secs <= 390) ? 'great' : secs < 310 ? 'warn' : 'miss';
-  if (planned.dot === 'moderate') return (secs >= 260 && secs <= 310) ? 'great' : 'ok';
+  if (planned.dot === 'easy') return (secs >= 310 && secs <= 390) ? 'great' : secs < 310 ? 'warn' : 'miss';
   return 'ok';
 }
 
 let _activityIndexCache = null;
 let _activityIndexCacheLen = 0;
 
+// ── CONSECUTIVE UPLOAD GROUPING ───────────────────────────────────────────────
+// Strava activities uploaded as separate segments (WU / intervals / CD) within
+// a 2-hour window on the same calendar day are collapsed into one logical session.
+// Individual rows are kept intact for the Activities tab; buildActivityIndex
+// receives a grouped list so plan matching works correctly.
+function groupConsecutiveActivities(acts) {
+  const isRun = a => !a.sport_type?.includes('Weight') && !a.sport_type?.includes('Strength') &&
+                     !a.sport_type?.includes('Ride') && !a.sport_type?.includes('Cycling');
+  const runs    = acts.filter(isRun);
+  const nonRuns = acts.filter(a => !isRun(a));
+
+  // Sort ascending by start time
+  const sorted = [...runs].sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
+
+  const WINDOW_MS = 2 * 60 * 60 * 1000; // 2 hours
+  const groups = [];
+  let current = null;
+
+  sorted.forEach(act => {
+    const t = new Date(act.start_date).getTime();
+    if (!current) {
+      current = { acts: [act], startMs: t };
+    } else {
+      const sameDay      = act.date === current.acts[0].date;
+      const withinWindow = t - current.startMs <= WINDOW_MS;
+      if (sameDay && withinWindow) {
+        current.acts.push(act);
+      } else {
+        groups.push(current);
+        current = { acts: [act], startMs: t };
+      }
+    }
+  });
+  if (current) groups.push(current);
+
+  const grouped = groups.map(g => {
+    if (g.acts.length === 1) return g.acts[0];
+
+    // Primary = largest distance upload (most likely the main effort)
+    const primary = [...g.acts].sort((a, b) => parseFloat(b.distance) - parseFloat(a.distance))[0];
+    const totalKm       = g.acts.reduce((s, a) => s + parseFloat(a.distance || 0), 0);
+    const totalMoving   = g.acts.reduce((s, a) => s + (a.moving_time || 0), 0);
+    const totalCalories = g.acts.reduce((s, a) => s + (a.calories || 0), 0);
+    const maxHR         = Math.max(...g.acts.map(a => a.max_heartrate || 0));
+    const hrActs        = g.acts.filter(a => a.average_heartrate);
+    const avgHR         = hrActs.length
+      ? Math.round(hrActs.reduce((s, a) => s + a.average_heartrate, 0) / hrActs.length)
+      : null;
+    // Combined avg pace
+    const combinedPaceSecs = totalMoving > 0 && totalKm > 0 ? (totalMoving / totalKm) : null;
+    const combinedPace = combinedPaceSecs
+      ? `${Math.floor(combinedPaceSecs / 60)}:${String(Math.round(combinedPaceSecs % 60)).padStart(2, '0')}`
+      : primary.pace;
+
+    return {
+      ...primary,
+      distance:          totalKm.toFixed(2),
+      moving_time:       totalMoving,
+      calories:          totalCalories || primary.calories,
+      max_heartrate:     maxHR || primary.max_heartrate,
+      average_heartrate: avgHR,
+      pace:              combinedPace,
+      _grouped:          true,
+      _fragmentCount:    g.acts.length,
+      _fragments:        g.acts,
+      name:              `${primary.name} (+${g.acts.length - 1} segments)`,
+    };
+  });
+
+  return [...grouped, ...nonRuns].sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
+}
+
 function buildActivityIndex() {
   if (_activityIndexCache && _activityIndexCacheLen === activities.length) return _activityIndexCache;
   const idx = {};
   const byWeek = {};
-  activities.forEach(act => {
+  const groupedActivities = groupConsecutiveActivities(activities);
+  groupedActivities.forEach(act => {
     if (!act.date) return;
     const [y,m,d] = act.date.split('-');
     const dt = new Date(y, m-1, d);
@@ -508,13 +589,18 @@ function buildActivityIndex() {
     if (!week) return;
     const claimedSessions = new Set();
     const matched = new Map();
-    // Pass 1: exact day matches
+    // Pass 1: exact day matches.
+    // Excluded: runs landing on Strength days (they flex to their actual run slot in Pass 2).
+    // Excluded: fragments < 40% of planned distance (so the primary upload claims the slot).
     entries.forEach(({ act, dayName }) => {
       const session = week.days[dayName];
-      if (session && session.dot !== 'rest') {
-        matched.set(act, { day: dayName, planned: session, flexible: false });
-        claimedSessions.add(dayName);
-      }
+      if (!session || session.dot === 'rest' || session.dot === 'strength') return;
+      const actKm = parseFloat(act.distance || 0);
+      const targetKm = getPlannedDistanceKm(session);
+      const isFragment = targetKm > 0 && actKm < targetKm * 0.4;
+      if (isFragment) return;
+      matched.set(act, { day: dayName, planned: session, flexible: false });
+      claimedSessions.add(dayName);
     });
     // Pass 2: flexible matches
     entries.forEach(({ act, dayName }) => {
@@ -552,7 +638,7 @@ function buildActivityIndex() {
     });
   });
   _activityIndexCache = idx;
-  _activityIndexCacheLen = activities.length;
+  _activityIndexCacheLen = activities.length; // keyed on raw count — invalidates on new sync
   return idx;
 }
 
