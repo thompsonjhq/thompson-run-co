@@ -468,21 +468,17 @@ function getPlannedDistanceKm(planned) {
 function getMatchQuality(act, planned) {
   if (!planned || planned.dot === 'rest') return 'unmatched';
 
-  // For hard sessions, trust backend lap-based detection over avg pace.
-  // Avg pace across WU+intervals+CD fragments is meaningless.
-  if (planned.dot === 'hard') {
-    if (act.session_type_detected === 'intervals') return 'great';
-    if (act.is_fragmented || act._grouped) return 'great';
+  // For hard/moderate sessions use pace_verdict from the webhook (stored per activity).
+  // This reflects actual effort pace vs planned target — far more meaningful than avg pace.
+  if (planned.dot === 'hard' || planned.dot === 'moderate') {
+    const v = act.pace_verdict;
+    if (v === 'on_target') return 'great';
+    if (v === 'faster')    return 'great'; // ahead = good, show as On Target
+    if (v === 'slower')    return 'warn';
+    // Fallback if no verdict stored yet (pre-webhook-update activities)
+    if (act.session_type_detected === 'intervals' || act.session_type_detected === 'tempo') return 'ok';
+    if (act.is_fragmented || act._grouped) return 'ok';
     return 'ok';
-  }
-
-  // For threshold/tempo sessions, trust grouped distance over raw pace.
-  if (planned.dot === 'moderate') {
-    if (act._grouped) return 'great';
-    if (!act.pace) return 'ok';
-    const [m,s] = act.pace.split(':').map(Number);
-    const secs = m*60 + (s||0);
-    return (secs >= 260 && secs <= 310) ? 'great' : 'ok';
   }
 
   if (!act.pace) return 'ok';
@@ -2123,7 +2119,81 @@ function renderActivitiesPage() {
     act.max_heartrate ? `<span class="act-footer-item">Max HR ${Math.round(act.max_heartrate)}bpm</span>` : '',
   ].filter(Boolean).join('');
   const footerHTML = footerParts ? `<div class="act-card-footer">${footerParts}</div>` : '';
-  const autoAnalysisHTML = act.auto_analysis ? `<div class="act-auto-analysis">${act.auto_analysis}</div>` : '';
+  // ── Pace verdict badge ───────────────────────────────────────────────────
+  const verdictConfig = {
+    faster:    { label: '↑ Ahead of target', bg: '#DCFCE7', col: '#14532D', border: '#86EFAC' },
+    on_target: { label: '✓ On target',        bg: '#EFF6FF', col: '#1E40AF', border: '#93C5FD' },
+    slower:    { label: '↓ Behind target',    bg: '#FEF9C3', col: '#713F12', border: '#FDE047' },
+    unknown:   null,
+  };
+  const verdict = act.pace_verdict || 'unknown';
+  const vc = verdictConfig[verdict] || null;
+
+  const verdictBadge = vc
+    ? `<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;background:${vc.bg};color:${vc.col};border:1px solid ${vc.border};font-size:12px;font-weight:600;font-family:var(--mono);margin-bottom:8px">${vc.label}</div>`
+    : '';
+
+  // ── Pace comparison line ─────────────────────────────────────────────────
+  const effortPaceStr = act.effort_pace_secs
+    ? Math.floor(act.effort_pace_secs/60)+':'+String(Math.round(act.effort_pace_secs%60)).padStart(2,'0')
+    : null;
+  const targetPaceStr = act.target_pace_secs
+    ? Math.floor(act.target_pace_secs/60)+':'+String(Math.round(act.target_pace_secs%60)).padStart(2,'0')
+    : null;
+  const diffSecs = act.pace_diff_secs;
+
+  const paceCompareHTML = (effortPaceStr && targetPaceStr) ? `
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;font-size:12px">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <span style="font-family:var(--mono);color:var(--text-faint);font-size:10px;text-transform:uppercase;letter-spacing:0.06em">Effort pace</span>
+        <span style="font-family:var(--mono);font-size:18px;font-weight:600;color:${diffSecs > 0 ? '#14532D' : diffSecs < 0 ? '#92600A' : 'var(--text)'}">${effortPaceStr}/km</span>
+      </div>
+      <div style="display:flex;align-items:center;padding-top:14px;color:var(--text-faint)">vs</div>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <span style="font-family:var(--mono);color:var(--text-faint);font-size:10px;text-transform:uppercase;letter-spacing:0.06em">Target</span>
+        <span style="font-family:var(--mono);font-size:18px;font-weight:400;color:var(--text-muted)">${targetPaceStr}/km</span>
+      </div>
+      ${diffSecs != null ? `<div style="display:flex;align-items:center;padding-top:14px">
+        <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:${diffSecs > 0 ? '#14532D' : '#92600A'}">${diffSecs > 0 ? '+' : ''}${diffSecs}s/km</span>
+      </div>` : ''}
+    </div>` : '';
+
+  // ── Rep table ────────────────────────────────────────────────────────────
+  const repPaces = Array.isArray(act.rep_paces) ? act.rep_paces : [];
+  const targetSecs = act.target_pace_secs;
+  const repTableHTML = repPaces.length >= 2 ? (() => {
+    const rows = repPaces.map((p, i) => {
+      const secs = p ? parseInt(p.split(':')[0])*60 + parseInt(p.split(':')[1]||0) : null;
+      const diff = secs && targetSecs ? targetSecs - secs : null;
+      const col  = diff == null ? 'var(--text-muted)'
+                 : diff > 5    ? '#14532D'
+                 : diff < -5   ? '#92600A'
+                 : '#1E40AF';
+      const diffStr = diff != null ? (diff > 0 ? `+${diff}s` : `${diff}s`) : '';
+      return `<tr>
+        <td style="font-family:var(--mono);font-size:12px;color:var(--text-faint);padding:4px 8px 4px 0">Rep ${i+1}</td>
+        <td style="font-family:var(--mono);font-size:13px;font-weight:600;color:${col};padding:4px 8px 4px 0">${p}/km</td>
+        <td style="font-family:var(--mono);font-size:11px;color:${col};padding:4px 0">${diffStr}</td>
+      </tr>`;
+    }).join('');
+    const repCountNote = act.rep_count_actual != null && act.rep_count_planned != null
+      ? `<div style="font-size:11px;color:var(--text-faint);font-family:var(--mono);margin-bottom:6px">${act.rep_count_actual} reps completed · ${act.rep_count_planned} planned · data: ${act.pace_data_source || '—'}</div>`
+      : `<div style="font-size:11px;color:var(--text-faint);font-family:var(--mono);margin-bottom:6px">Rep paces · data: ${act.pace_data_source || '—'}</div>`;
+    return `<div style="margin-bottom:12px">${repCountNote}<table style="border-collapse:collapse">${rows}</table></div>`;
+  })() : '';
+
+  // ── Coach insight block ──────────────────────────────────────────────────
+  const autoAnalysisHTML = act.auto_analysis ? `
+    <div style="background:var(--accent-light);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:12px;font-size:12px;line-height:1.7;color:var(--text-muted)">
+      <div style="font-size:10px;font-family:var(--mono);color:var(--accent);font-weight:600;letter-spacing:0.06em;margin-bottom:4px">COACH INSIGHT</div>
+      ${verdictBadge}
+      ${paceCompareHTML}
+      ${repTableHTML}
+      ${act.auto_analysis}
+    </div>` : (verdictBadge || paceCompareHTML || repTableHTML) ? `
+    <div style="background:var(--accent-light);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:12px">
+      ${verdictBadge}${paceCompareHTML}${repTableHTML}
+    </div>` : '';
 
 const statsHTML = isStrength ? '' : `
   <div class="activity-metrics">
