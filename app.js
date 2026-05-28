@@ -2043,9 +2043,26 @@ function renderActivitiesPage() {
     const debrief = activityDebriefs[actId];
     const note = activityNotes[actId] || '';
     const icon = isStrength ? '🏋️' : isCycling ? '🚴' : '🏃';
+    // Session type tag — uses matched planned session type, falls back gracefully
+    const sessionTypeTag = (() => {
+      if (isStrength) return { label: 'Strength', col: '#9B7DE8', bg: '#F0EBFF' };
+      if (isCycling)  return { label: 'Cycling',  col: '#1A3260', bg: '#E3EAF5' };
+      if (!match || !match.planned) return null;
+      const dot = match.planned.dot;
+      const type = match.planned.type || '—';
+      if (dot === 'hard')     return { label: type, col: '#1A5CA8', bg: '#E3EFF9' };
+      if (dot === 'moderate') return { label: type, col: '#92600A', bg: '#FEF3CD' };
+      if (dot === 'easy')     return { label: type, col: '#14532D', bg: '#DCFCE7' };
+      if (dot === 'race')     return { label: type, col: '#991B1B', bg: '#FEE2E2' };
+      return { label: type, col: 'var(--text-muted)', bg: 'var(--border)' };
+    })();
+    const sessionTagHTML = sessionTypeTag
+      ? `<span style="font-size:10px;font-family:var(--mono);font-weight:600;letter-spacing:0.04em;padding:2px 7px;border-radius:20px;background:${sessionTypeTag.bg};color:${sessionTypeTag.col};white-space:nowrap">${sessionTypeTag.label}</span>`
+      : '';
+
     const metaLabel = isStrength ? 'Strength session'
       : isCycling ? 'Cycling'
-      : match ? `Wk${match.week} ${match.day} · ${match.planned?.type||'—'}` : 'Outside plan dates';
+      : match ? `Wk${match.week} · ${match.day}${match.flexible ? ' (moved)' : ''}` : 'Outside plan dates';
     const badgeHTML = isStrength
       ? '<span class="match-badge mb-unmatched">🏋️ Strength</span>'
       : isCycling
@@ -2131,7 +2148,10 @@ return `<div class="activity-card" id="acard-${actId}">
     <div class="activity-card-main">
       <div class="act-meta-row">
         <span class="act-meta">${fmtDate(act.date)} · ${metaLabel}</span>
-        ${badgeHTML}
+        <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+          ${sessionTagHTML}
+          ${badgeHTML}
+        </div>
       </div>
       <div class="act-name">${act.name || act.sport_type || 'Activity'}</div>
       <div class="act-summary-line">${distPace}</div>
