@@ -3548,6 +3548,35 @@ if ('serviceWorker' in navigator) {
 showPage('dashboard');
 loadAllData();
 
+// ── Manual activity refresh ──────────────────────────────────────────────────
+async function refreshActivity(stravaId, btnEl) {
+  if (!stravaId) return;
+  const orig = btnEl ? btnEl.textContent : '';
+  if (btnEl) { btnEl.textContent = '…'; btnEl.disabled = true; }
+
+  try {
+    const res = await fetch('/api/strava-refresh', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ strava_id: stravaId })
+    });
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+    // Invalidate cache and re-render so updated fields appear immediately
+    _activityIndexCache    = null;
+    _activityIndexCacheLen = 0;
+    await loadData();
+    renderAll();
+
+    if (btnEl) { btnEl.textContent = '✓'; setTimeout(() => { btnEl.textContent = orig; btnEl.disabled = false; }, 1500); }
+  } catch (err) {
+    console.error('refreshActivity failed:', err);
+    if (btnEl) { btnEl.textContent = '!'; btnEl.title = err.message; setTimeout(() => { btnEl.textContent = orig; btnEl.disabled = false; btnEl.title = 'Re-fetch from Strava'; }, 2500); }
+  }
+}
+
 // Auto-refresh data every 60 seconds so new Strava activities appear automatically
 setInterval(() => {
   loadAllData();
