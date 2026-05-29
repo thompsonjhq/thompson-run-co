@@ -468,14 +468,22 @@ function getPlannedDistanceKm(planned) {
 function getMatchQuality(act, planned) {
   if (!planned || planned.dot === 'rest') return 'unmatched';
 
-  // For hard/moderate sessions use pace_verdict from the webhook (stored per activity).
-  // This reflects actual effort pace vs planned target — far more meaningful than avg pace.
+  // For hard/moderate sessions use pace_verdict from the webhook when available.
+  // Falls back gracefully for activities synced before the webhook update.
   if (planned.dot === 'hard' || planned.dot === 'moderate') {
     const v = act.pace_verdict;
     if (v === 'on_target') return 'great';
-    if (v === 'faster')    return 'great'; // ahead = good, show as On Target
+    if (v === 'faster')    return 'great';
     if (v === 'slower')    return 'warn';
-    // Fallback if no verdict stored yet (pre-webhook-update activities)
+    // No verdict yet — use distance completion as proxy
+    const actKm    = parseFloat(act.distance || 0);
+    const targetKm = planned.km || 0;
+    if (targetKm > 0) {
+      const pct = act._grouped
+        ? (parseFloat(act.distance || 0) / targetKm) // grouped = combined distance
+        : (actKm / targetKm);
+      if (pct >= 0.9) return 'ok'; // completed most of it
+    }
     if (act.session_type_detected === 'intervals' || act.session_type_detected === 'tempo') return 'ok';
     if (act.is_fragmented || act._grouped) return 'ok';
     return 'ok';
@@ -510,11 +518,14 @@ function groupConsecutiveActivities(acts) {
   let current = null;
 
   sorted.forEach(act => {
-    const t = new Date(act.start_date).getTime();
+    // Use start_date_local for time calculations to avoid UTC-offset issues
+    // (Perth is UTC+8, so UTC midnight = 8am local — cross-day boundary in UTC)
+    const localStr = act.start_date_local || act.start_date || '';
+    const t = new Date(localStr).getTime();
     if (!current) {
       current = { acts: [act], startMs: t };
     } else {
-      const sameDay      = act.date === current.acts[0].date;
+      const sameDay      = act.date === current.acts[0].date; // both YYYY-MM-DD from start_date_local
       const withinWindow = t - current.startMs <= WINDOW_MS;
       if (sameDay && withinWindow) {
         current.acts.push(act);
@@ -2126,7 +2137,17 @@ function renderActivitiesPage() {
     slower:    { label: '↓ Behind target',    bg: '#FEF9C3', col: '#713F12', border: '#FDE047' },
     unknown:   null,
   };
-  const verdict = act.pace_verdict || 'unknown';
+  // If no pace_verdict stored yet (pre-webhook activities), derive a rough verdict
+  // from splits_metric so the card is never empty for hard sessions
+  let verdict = act.pace_verdict || 'unknown';
+  if (verdict === 'unknown' && act.session_type_detected === 'intervals' && Array.isArray(act.splits_metric) && act.splits_metric.length >= 2) {
+    const fastSplits = act.splits_metric.filter(s => {
+      if (!s.pace) return false;
+      const [m,sc] = s.pace.split(':').map(Number);
+      return (m*60+(sc||0)) < 270; // faster than 4:30/km
+    });
+    if (fastSplits.length >= 1) verdict = 'has_data'; // signal that we have something to show
+  }
   const vc = verdictConfig[verdict] || null;
 
   const verdictBadge = vc
@@ -2142,21 +2163,49 @@ function renderActivitiesPage() {
     : null;
   const diffSecs = act.pace_diff_secs;
 
-  const paceCompareHTML = (effortPaceStr && targetPaceStr) ? `
-    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;font-size:12px">
+  // Derive effort pace from fast splits when effort_pace_secs not yet stored
+  let derivedEffortPaceSecs = act.effort_pace_secs || null;
+  let derivedTargetPaceSecs = act.target_pace_secs || null;
+  let derivedDiffSecs       = act.pace_diff_secs   || null;
+
+  if (!derivedEffortPaceSecs && act.session_type_detected === 'intervals' && Array.isArray(act.splits_metric)) {
+    const allPaces = act.splits_metric.map(s => {
+      if (!s.pace) return null;
+      const [m,sc] = s.pace.split(':').map(Number); return m*60+(sc||0);
+    }).filter(Boolean);
+    if (allPaces.length >= 2) {
+      const sorted   = [...allPaces].sort((a,b) => a-b);
+      const median   = sorted[Math.floor(sorted.length/2)];
+      const fast     = allPaces.filter(p => p < median - 15);
+      if (fast.length >= 1) {
+        derivedEffortPaceSecs = Math.round(fast.reduce((a,b) => a+b,0) / fast.length);
+      }
+    }
+  }
+
+  const paceCompareHTML = (effortPaceStr || derivedEffortPaceSecs) && (targetPaceStr || derivedTargetPaceSecs) ? (() => {
+    const ePace  = effortPaceStr  || (derivedEffortPaceSecs ? Math.floor(derivedEffortPaceSecs/60)+':'+String(Math.round(derivedEffortPaceSecs%60)).padStart(2,'0') : null);
+    const tPace  = targetPaceStr  || (derivedTargetPaceSecs ? Math.floor(derivedTargetPaceSecs/60)+':'+String(Math.round(derivedTargetPaceSecs%60)).padStart(2,'0') : null);
+    const diff   = derivedDiffSecs != null ? derivedDiffSecs
+                 : (derivedEffortPaceSecs && derivedTargetPaceSecs ? derivedTargetPaceSecs - derivedEffortPaceSecs : null);
+    const eColor = diff == null ? 'var(--text)' : diff > 0 ? '#14532D' : diff < 0 ? '#92600A' : 'var(--text)';
+    return `<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;font-size:12px">
       <div style="display:flex;flex-direction:column;gap:2px">
         <span style="font-family:var(--mono);color:var(--text-faint);font-size:10px;text-transform:uppercase;letter-spacing:0.06em">Effort pace</span>
-        <span style="font-family:var(--mono);font-size:18px;font-weight:600;color:${diffSecs > 0 ? '#14532D' : diffSecs < 0 ? '#92600A' : 'var(--text)'}">${effortPaceStr}/km</span>
+        <span style="font-family:var(--mono);font-size:18px;font-weight:600;color:${eColor}">${ePace}/km</span>
       </div>
-      <div style="display:flex;align-items:center;padding-top:14px;color:var(--text-faint)">vs</div>
+      ${tPace ? `<div style="display:flex;align-items:center;padding-top:14px;color:var(--text-faint)">vs</div>
       <div style="display:flex;flex-direction:column;gap:2px">
         <span style="font-family:var(--mono);color:var(--text-faint);font-size:10px;text-transform:uppercase;letter-spacing:0.06em">Target</span>
-        <span style="font-family:var(--mono);font-size:18px;font-weight:400;color:var(--text-muted)">${targetPaceStr}/km</span>
-      </div>
-      ${diffSecs != null ? `<div style="display:flex;align-items:center;padding-top:14px">
-        <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:${diffSecs > 0 ? '#14532D' : '#92600A'}">${diffSecs > 0 ? '+' : ''}${diffSecs}s/km</span>
+        <span style="font-family:var(--mono);font-size:18px;font-weight:400;color:var(--text-muted)">${tPace}/km</span>
       </div>` : ''}
-    </div>` : '';
+      ${diff != null ? `<div style="display:flex;align-items:center;padding-top:14px">
+        <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:${diff > 0 ? '#14532D' : '#92600A'}">${diff > 0 ? '+' : ''}${diff}s/km</span>
+      </div>` : ''}
+    </div>`;
+  })() : '';
+
+  // (replaced by derived pace logic above)
 
   // ── Rep table ────────────────────────────────────────────────────────────
   const repPaces = Array.isArray(act.rep_paces) ? act.rep_paces : [];
@@ -2183,16 +2232,34 @@ function renderActivitiesPage() {
   })() : '';
 
   // ── Coach insight block ──────────────────────────────────────────────────
-  const autoAnalysisHTML = act.auto_analysis ? `
+  // Generate a fallback coach note from splits if auto_analysis not yet stored
+  let coachNote = act.auto_analysis || '';
+  if (!coachNote && act.session_type_detected === 'intervals' && derivedEffortPaceSecs) {
+    const ePaceStr = Math.floor(derivedEffortPaceSecs/60)+':'+String(Math.round(derivedEffortPaceSecs%60)).padStart(2,'0');
+    const tSecs    = derivedTargetPaceSecs;
+    const diff     = tSecs ? tSecs - derivedEffortPaceSecs : null;
+    if (diff !== null) {
+      const margin = Math.abs(diff);
+      if (diff > 8) {
+        coachNote = `You ran ${margin}s/km faster than target (${ePaceStr}/km vs ${Math.floor(tSecs/60)}:${String(Math.round(tSecs%60)).padStart(2,'0')}/km). Strong session — consider nudging target pace up next time.`;
+      } else if (diff < -8) {
+        coachNote = `You ran ${margin}s/km slower than target (${ePaceStr}/km vs ${Math.floor(tSecs/60)}:${String(Math.round(tSecs%60)).padStart(2,'0')}/km). May have been a tough day — keep the same target and monitor.`;
+      } else {
+        coachNote = `Effort pace ${ePaceStr}/km — right on target. Excellent execution.`;
+      }
+    } else {
+      coachNote = `Effort pace ${ePaceStr}/km detected from fast splits. Re-sync to generate full analysis.`;
+    }
+  }
+
+  const hasInsight = coachNote || verdictBadge || paceCompareHTML || repTableHTML;
+  const autoAnalysisHTML = hasInsight ? `
     <div style="background:var(--accent-light);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:12px;font-size:12px;line-height:1.7;color:var(--text-muted)">
       <div style="font-size:10px;font-family:var(--mono);color:var(--accent);font-weight:600;letter-spacing:0.06em;margin-bottom:4px">COACH INSIGHT</div>
       ${verdictBadge}
       ${paceCompareHTML}
       ${repTableHTML}
-      ${act.auto_analysis}
-    </div>` : (verdictBadge || paceCompareHTML || repTableHTML) ? `
-    <div style="background:var(--accent-light);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:12px">
-      ${verdictBadge}${paceCompareHTML}${repTableHTML}
+      ${coachNote}
     </div>` : '';
 
 const statsHTML = isStrength ? '' : `
