@@ -1,4 +1,4 @@
-// ── HELPERS ──────────────────────────────────────────────────────────────────
+\// ── HELPERS ──────────────────────────────────────────────────────────────────
 
 function parsePace(speed) {
   if (!speed || speed <= 0) return null;
@@ -388,14 +388,68 @@ async function fetchAndStore(stravaId, access_token) {
     pr:         e.pr_rank === 1,
   }));
 
-  // Plan slot
-  const actDate  = new Date(act.start_date);
-  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const dayName  = dayNames[actDate.getDay()];
-  const diffDays = Math.floor((actDate - PLAN_START) / 86400000);
-  const weekNum  = diffDays >= 0 ? Math.floor(diffDays / 7) + 1 : null;
-  const plannedSession = weekNum && weekPlan[weekNum] ? weekPlan[weekNum][dayName] : null;
-  const actualKm = (act.distance || 0) / 1000;
+  // Plan slot — flexible matching mirrors app.js buildActivityIndex logic.
+  // A run on a Strength day (or any day that doesn't match its session type by
+  // distance/type) is scored against every unclaimed run slot in the week so
+  // the webhook generates correct feedback even when the athlete ran on the
+  // "wrong" day.
+  const actDate      = new Date(act.start_date_local || act.start_date);
+  const dayNames     = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const dayName      = dayNames[actDate.getDay()];
+  const diffDays     = Math.floor((actDate - PLAN_START) / 86400000);
+  const weekNum      = diffDays >= 0 ? Math.floor(diffDays / 7) + 1 : null;
+  const actualKm     = (act.distance || 0) / 1000;
+  const weekSessions = weekNum && weekPlan[weekNum] ? weekPlan[weekNum] : {};
+  const dayOrder     = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+  // Score an activity against a candidate plan slot (same logic as frontend scoreMatch)
+  function scoreSession(candidateDay, session) {
+    const targetKm = session.km || 0;
+    let score = 0;
+    // Distance proximity (0–6 pts)
+    if (targetKm && actualKm > 0) {
+      const ratio = Math.abs(actualKm - targetKm) / targetKm;
+      if      (ratio < 0.10) score += 6;
+      else if (ratio < 0.20) score += 4;
+      else if (ratio < 0.35) score += 2;
+      else if (ratio < 0.55) score += 1;
+    }
+    // Day proximity (0–3 pts)
+    const actIdx  = dayOrder.indexOf(dayName);
+    const planIdx = dayOrder.indexOf(candidateDay);
+    const dayDiff = Math.abs(actIdx - planIdx);
+    if      (dayDiff === 0) score += 3;
+    else if (dayDiff === 1) score += 2;
+    else if (dayDiff === 2) score += 1;
+    return score;
+  }
+
+  // Find best matching session across the whole week
+  let plannedSession  = null;
+  let matchedDay      = dayName;
+  let bestScore       = -1;
+
+  // First try exact day if it's a run session (not strength/rest)
+  const exactSession = weekSessions[dayName];
+  if (exactSession && exactSession.dot !== 'rest' && exactSession.dot !== 'strength') {
+    const targetKm = exactSession.km || 0;
+    const isFragment = targetKm > 0 && actualKm < targetKm * 0.4;
+    if (!isFragment) {
+      plannedSession = exactSession;
+      matchedDay     = dayName;
+      bestScore      = 99; // exact day wins unless it's clearly wrong
+    }
+  }
+
+  // If exact day is Strength/Rest or activity is a fragment, score all run slots
+  if (!plannedSession || bestScore < 99) {
+    dayOrder.forEach(day => {
+      const session = weekSessions[day];
+      if (!session || session.dot === 'rest' || session.dot === 'strength') return;
+      const s = scoreSession(day, session);
+      if (s > bestScore) { bestScore = s; plannedSession = session; matchedDay = day; }
+    });
+  }
 
   const sessionType = detectSessionType(plannedSession, laps, splitsFormatted);
 
