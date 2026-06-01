@@ -2457,10 +2457,14 @@ return `<div class="activity-card" id="acard-${actId}">
       </div>
       <div class="progress-bar-wrap"><div class="progress-label"><span>${pct}% of running target</span></div><div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${pct>=90?'#1D9E75':pct>=60?'#EF9F27':'#E24B4A'}"></div></div></div>
     </div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
       <div class="sec-title" style="margin:0">Recent Activities</div>
-      <span style="font-size:12px;color:var(--text-muted);font-family:var(--mono)" id="last-updated"></span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:12px;color:var(--text-muted);font-family:var(--mono)" id="last-updated"></span>
+        <button class="btn-secondary" style="font-size:12px;padding:4px 10px" onclick="backfillActivities(this)">⟳ Check for missing</button>
+      </div>
     </div>
+    <div id="backfill-status" style="display:none;font-size:12px;color:var(--text-muted);margin-bottom:10px;font-family:var(--mono)"></div>
     <div id="activities-list">${activitiesHTML}</div>
     <div class="sec-title">Add Activity Manually</div>
     <p class="sec-sub" style="margin-bottom:12px">For activities not on Strava — or if you need to log something manually.</p>
@@ -3564,7 +3568,6 @@ async function refreshActivity(stravaId, btnEl) {
 
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
-    // Invalidate cache and re-render so updated fields appear immediately
     _activityIndexCache    = null;
     _activityIndexCacheLen = 0;
     await loadAllData();
@@ -3573,6 +3576,47 @@ async function refreshActivity(stravaId, btnEl) {
   } catch (err) {
     console.error('refreshActivity failed:', err);
     if (btnEl) { btnEl.textContent = '!'; btnEl.title = err.message; setTimeout(() => { btnEl.textContent = orig; btnEl.disabled = false; btnEl.title = 'Re-fetch from Strava'; }, 2500); }
+  }
+}
+
+async function backfillActivities(btnEl) {
+  const orig = btnEl ? btnEl.textContent : '';
+  if (btnEl) { btnEl.textContent = '⟳ Checking…'; btnEl.disabled = true; }
+
+  try {
+    const res = await fetch('/api/strava-backfill', { method: 'POST' });
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+    _activityIndexCache    = null;
+    _activityIndexCacheLen = 0;
+    await loadAllData();
+
+    const msg = data.missing === 0
+      ? `All up to date — ${data.checked} runs checked, nothing missing.`
+      : `Synced ${data.synced} missing activit${data.synced !== 1 ? 'ies' : 'y'} of ${data.missing} found.`;
+
+    if (btnEl) {
+      btnEl.textContent = data.missing === 0 ? '✓ Up to date' : `✓ ${data.synced} synced`;
+      setTimeout(() => { btnEl.textContent = orig; btnEl.disabled = false; }, 3000);
+    }
+
+    // Show result inline below the button
+    const statusEl = document.getElementById('backfill-status');
+    if (statusEl) {
+      statusEl.textContent = msg;
+      statusEl.style.display = 'block';
+      setTimeout(() => { statusEl.style.display = 'none'; }, 6000);
+    }
+
+  } catch (err) {
+    console.error('Backfill failed:', err);
+    if (btnEl) {
+      btnEl.textContent = '! Error';
+      btnEl.title = err.message;
+      setTimeout(() => { btnEl.textContent = orig; btnEl.disabled = false; }, 3000);
+    }
   }
 }
 // Auto-refresh data every 60 seconds so new Strava activities appear automatically
