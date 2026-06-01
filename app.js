@@ -3567,8 +3567,7 @@ async function refreshActivity(stravaId, btnEl) {
     // Invalidate cache and re-render so updated fields appear immediately
     _activityIndexCache    = null;
     _activityIndexCacheLen = 0;
-    await loadData();
-    renderAll();
+    await loadAllData();
 
     if (btnEl) { btnEl.textContent = '✓'; setTimeout(() => { btnEl.textContent = orig; btnEl.disabled = false; }, 1500); }
   } catch (err) {
@@ -3576,7 +3575,6 @@ async function refreshActivity(stravaId, btnEl) {
     if (btnEl) { btnEl.textContent = '!'; btnEl.title = err.message; setTimeout(() => { btnEl.textContent = orig; btnEl.disabled = false; btnEl.title = 'Re-fetch from Strava'; }, 2500); }
   }
 }
-
 // Auto-refresh data every 60 seconds so new Strava activities appear automatically
 setInterval(() => {
   loadAllData();
