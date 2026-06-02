@@ -1,4 +1,4 @@
-\// ── HELPERS ──────────────────────────────────────────────────────────────────
+// ── HELPERS ──────────────────────────────────────────────────────────────────
 
 function parsePace(speed) {
   if (!speed || speed <= 0) return null;
@@ -403,7 +403,7 @@ async function fetchAndStore(stravaId, access_token) {
   const dayOrder     = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
   // Score an activity against a candidate plan slot (same logic as frontend scoreMatch)
-  function scoreSession(candidateDay, session) {
+  const scoreSession = (candidateDay, session) => {
     const targetKm = session.km || 0;
     let score = 0;
     // Distance proximity (0–6 pts)
