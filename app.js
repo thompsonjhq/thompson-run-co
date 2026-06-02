@@ -492,7 +492,14 @@ function getMatchQuality(act, planned) {
   if (!act.pace) return 'ok';
   const [m,s] = act.pace.split(':').map(Number);
   const secs = m*60 + (s||0);
-  if (planned.dot === 'easy') return (secs >= 310 && secs <= 390) ? 'great' : secs < 310 ? 'warn' : 'miss';
+  if (planned.dot === 'easy') {
+  if (secs < 310) return 'warn'; // too fast
+  const targetKm = getPlannedDistanceKm(planned) || getPlannedSessionKm(planned) || 0;
+  const elevation = act.total_elevation_gain || 0;
+  const elevationBuffer = Math.floor(elevation / 100) * 10; // +10s/km per 100m gain
+  const upperBound = 390 + elevationBuffer;
+  return secs <= upperBound ? 'great' : 'miss';
+}
   return 'ok';
 }
 
