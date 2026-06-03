@@ -40,7 +40,7 @@ const weeks = [
   { num:4, phase:'base', label:'Deload — Consolidate', km:29, note:'Planned deload after 3 progressive weeks. Volume drops ~15%. Quality maintained but sessions shorter. Body adapts during recovery weeks.', hamstring:true,
     days:{ Mon:{type:'Strides',detail:'7km easy + 6×100m strides · relaxed turnover',dot:'easy'}, Tue:{type:'Easy Run',detail:'6km easy Z2 · full recovery feel',dot:'easy'}, Wed:{type:'Tempo',detail:'2km WU · 10 min @ Z4 · 2km CD · total ~6km',dot:'moderate'}, Thu:{type:'Strength',detail:'40 min · reduced load, focus on form · 3×8',dot:'strength'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'11km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:5, phase:'build', label:'Threshold Introduction', km:40, note:'Phase 2 begins. A proper base is now under you. Longer intervals at race pace, longer tempo blocks. Resume full Z5b if hamstring soreness has resolved.', hamstring:false,
-    days:{ Mon:{type:'Intervals',detail:'6×1000m @ 10km RP (4:10–4:15) · 2 min rest · 2km WU/CD · total ~10km',dot:'hard'}, Tue:{type:'Easy Run',detail:'9km easy Z2',dot:'easy'}, Wed:{type:'Tempo',detail:'2km WU · 20 min Z4 continuous · 2km CD · total ~8km',dot:'moderate'}, Thu:{type:'Strength',detail:'50 min · Phase 2 load · 4×8',dot:'strength'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'15km easy Z2 + 2km Z3 finish · total 17km',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
+    days:{ Mon:{type:'Intervals',detail:'6×1000m @ 10km RP (4:10–4:15) · 2 min rest · 2km WU/CD · total ~10km',dot:'hard'}, Tue:{type:'Easy Run',detail:'9km easy Z2',dot:'easy'}, Wed:{type:'Tempo',detail:'2km WU · 20 min Z4 continuous · 2km CD · total ~8km',dot:'moderate'}, Thu:{type:'Strength',detail:'50 min · Phase 2 load · 4×8',dot:'strength'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'14km easy Z2',dot:'easy'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:6, phase:'build', label:'Volume Increase', km:44, note:'Longer intervals and tempo. Long run adds progression finish. Keep Monday genuinely easy.', hamstring:false,
     days:{ Mon:{type:'Intervals',detail:'5×1200m @ 10km RP · 2.5 min rest · 2km WU/CD · total ~10km',dot:'hard'}, Tue:{type:'Easy Run',detail:'10km easy Z2',dot:'easy'}, Wed:{type:'Tempo',detail:'2km WU · 2×15 min Z4 (3 min jog) · 2km CD · total ~9km',dot:'moderate'}, Thu:{type:'Strength',detail:'50 min · Progressive load · 3×8',dot:'strength'}, Fri:{type:'Rest',detail:'Full rest day',dot:'rest'}, Sat:{type:'Long Run',detail:'16km · last 4km @ Z3 progression',dot:'moderate'}, Sun:{type:'Rest',detail:'',dot:'rest'} }},
   { num:7, phase:'build', label:'Aerobic Push', km:47, note:'Highest aerobic volume of the build. Thursday 30 min tempo is the key session — protect it.', hamstring:false,
@@ -493,13 +493,13 @@ function getMatchQuality(act, planned) {
   const [m,s] = act.pace.split(':').map(Number);
   const secs = m*60 + (s||0);
   if (planned.dot === 'easy') {
-  if (secs < 310) return 'warn'; // too fast
-  const targetKm = getPlannedDistanceKm(planned) || getPlannedSessionKm(planned) || 0;
-  const elevation = act.total_elevation_gain || 0;
-  const elevationBuffer = Math.floor(elevation / 100) * 10; // +10s/km per 100m gain
-  const upperBound = 390 + elevationBuffer;
-  return secs <= upperBound ? 'great' : 'miss';
-}
+    if (secs < 310) return 'warn';
+    const targetKm = getPlannedDistanceKm(planned) || getPlannedSessionKm(planned) || 0;
+    const elevation = act.total_elevation_gain || 0;
+    const elevationBuffer = Math.floor(elevation / 100) * 10;
+    const upperBound = 390 + elevationBuffer;
+    return secs <= upperBound ? 'great' : 'miss';
+  }
   return 'ok';
 }
 
