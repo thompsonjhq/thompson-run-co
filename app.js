@@ -335,12 +335,17 @@ async function loadAllData() {
         const weekSessions = planSessions.filter(s => s.week_num === w.num);
         weekSessions.forEach(s => {
           if (weeks[i].days[s.day_name]) {
-           weeks[i].days[s.day_name].type = s.session_type;
-          weeks[i].days[s.day_name].detail = s.detail;
-          weeks[i].days[s.day_name].dot = s.dot;
-          weeks[i].days[s.day_name].distance_km = Number(s.distance_km || 0);
-          weeks[i].days[s.day_name].duration_min = s.duration_min || null;
-          weeks[i].days[s.day_name].target_pace = s.target_pace || null;
+            const hardcoded = weeks[i].days[s.day_name];
+            // Guard: never let a Supabase row change a run slot to strength/rest
+            // (guards against bad data rows overwriting correct hardcoded plan)
+            if ((hardcoded.dot === 'easy' || hardcoded.dot === 'hard' || hardcoded.dot === 'moderate') &&
+                (s.dot === 'strength' || s.dot === 'rest')) return;
+            weeks[i].days[s.day_name].type = s.session_type;
+            weeks[i].days[s.day_name].detail = s.detail;
+            weeks[i].days[s.day_name].dot = s.dot;
+            weeks[i].days[s.day_name].distance_km = Number(s.distance_km || 0);
+            weeks[i].days[s.day_name].duration_min = s.duration_min || null;
+            weeks[i].days[s.day_name].target_pace = s.target_pace || null;
             if (s.is_modified) {
               weeks[i].days[s.day_name]._modified = true;
               weeks[i].days[s.day_name]._reason = s.modification_reason;
