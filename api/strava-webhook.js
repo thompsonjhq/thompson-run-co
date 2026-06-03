@@ -434,14 +434,34 @@ async function fetchAndStore(stravaId, access_token) {
   if (exactSession && exactSession.dot !== 'rest' && exactSession.dot !== 'strength') {
     const targetKm = exactSession.km || 0;
     const isFragment = targetKm > 0 && actualKm < targetKm * 0.4;
-    if (!isFragment) {
+    // Detect type conflict: if laps/splits strongly suggest intervals but exact day
+    // is an easy session, don't lock in score 99 — let scoring find the right slot.
+    const detectedHard = (() => {
+      const lapPaces = (laps || []).map(l => paceToSecs(l.pace)).filter(Boolean);
+      if (lapPaces.length >= 4) {
+        const sorted = [...lapPaces].sort((a, b) => a - b);
+        const median = sorted[Math.floor(sorted.length / 2)];
+        const fastLaps = lapPaces.filter(p => p < median - 25);
+        if (fastLaps.length >= 2) return true;
+      }
+      const splitPaces = (splitsFormatted || []).map(s => paceToSecs(s.pace)).filter(Boolean);
+      if (splitPaces.length >= 4) {
+        const sorted = [...splitPaces].sort((a, b) => a - b);
+        const median = sorted[Math.floor(sorted.length / 2)];
+        const fastSplits = splitPaces.filter(p => p < median - 25);
+        if (fastSplits.length >= 2) return true;
+      }
+      return false;
+    })();
+    const typeConflict = detectedHard && exactSession.dot === 'easy';
+    if (!isFragment && !typeConflict) {
       plannedSession = exactSession;
       matchedDay     = dayName;
       bestScore      = 99; // exact day wins unless it's clearly wrong
     }
   }
 
-  // If exact day is Strength/Rest or activity is a fragment, score all run slots
+  // If exact day is Strength/Rest, fragment, or type-conflict — score all run slots
   if (!plannedSession || bestScore < 99) {
     dayOrder.forEach(day => {
       const session = weekSessions[day];
