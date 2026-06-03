@@ -2033,6 +2033,7 @@ function briefSession(weekNum, day, e) {
 
 // ── ACTIVITIES PAGE ──
 function renderActivitiesPage() {
+  buildActivityIndex();
   const el = document.getElementById('page-activities');
   const today = todayISO();
   const wkNum = getCurrentWeekNum();
