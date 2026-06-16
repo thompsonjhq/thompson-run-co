@@ -2176,24 +2176,32 @@ function renderActivitiesPage() {
     : null;
   const diffSecs = act.pace_diff_secs;
 
-  // Derive effort pace from fast splits when effort_pace_secs not yet stored
-  let derivedEffortPaceSecs = act.effort_pace_secs || null;
+  // Effort pace: use debrief rep segments first, then stored webhook value.
+  // For hard/moderate sessions, NEVER derive from Strava splits — they include
+  // recovery jogs and produce meaningless numbers like 13:30/km.
+  let derivedEffortPaceSecs = null;
   let derivedTargetPaceSecs = act.target_pace_secs || null;
   let derivedDiffSecs       = act.pace_diff_secs   || null;
+  const isHardSession = act.session_type_detected === 'intervals' || act.session_type_detected === 'tempo';
 
-  if (!derivedEffortPaceSecs && act.session_type_detected === 'intervals' && Array.isArray(act.splits_metric)) {
-    const allPaces = act.splits_metric.map(s => {
-      if (!s.pace) return null;
-      const [m,sc] = s.pace.split(':').map(Number); return m*60+(sc||0);
+  // Check if debrief has user-entered rep paces
+  const debriefSegments = Array.isArray(debrief?.segments) ? debrief.segments.filter(s => s.pace && s.type === 'rep') : [];
+  if (debriefSegments.length >= 1) {
+    // Use average of user-entered rep paces as effort pace
+    const repSecs = debriefSegments.map(s => {
+      const parts = s.pace.split(':').map(Number);
+      return parts[0]*60 + (parts[1]||0);
     }).filter(Boolean);
-    if (allPaces.length >= 2) {
-      const sorted   = [...allPaces].sort((a,b) => a-b);
-      const median   = sorted[Math.floor(sorted.length/2)];
-      const fast     = allPaces.filter(p => p < median - 15);
-      if (fast.length >= 1) {
-        derivedEffortPaceSecs = Math.round(fast.reduce((a,b) => a+b,0) / fast.length);
+    if (repSecs.length) {
+      derivedEffortPaceSecs = Math.round(repSecs.reduce((a,b) => a+b,0) / repSecs.length);
+      if (derivedTargetPaceSecs) {
+        derivedDiffSecs = derivedTargetPaceSecs - derivedEffortPaceSecs;
       }
     }
+  } else if (!isHardSession && act.effort_pace_secs) {
+    // For easy/long runs the webhook avg pace is meaningful
+    derivedEffortPaceSecs = act.effort_pace_secs;
+    derivedDiffSecs = act.pace_diff_secs || null;
   }
 
   const paceCompareHTML = (effortPaceStr || derivedEffortPaceSecs) && (targetPaceStr || derivedTargetPaceSecs) ? (() => {
@@ -2221,7 +2229,10 @@ function renderActivitiesPage() {
   // (replaced by derived pace logic above)
 
   // ── Rep table ────────────────────────────────────────────────────────────
-  const repPaces = Array.isArray(act.rep_paces) ? act.rep_paces : [];
+  // Only show rep table if we have user-entered debrief segments (not Strava lap guesses)
+  const repPaces = debriefSegments.length >= 1
+    ? debriefSegments.map(s => s.pace).filter(Boolean)
+    : [];
   const targetSecs = act.target_pace_secs;
   const repTableHTML = repPaces.length >= 2 ? (() => {
     const rows = repPaces.map((p, i) => {
@@ -2246,8 +2257,8 @@ function renderActivitiesPage() {
 
   // ── Coach insight block ──────────────────────────────────────────────────
   // Generate a fallback coach note from splits if auto_analysis not yet stored
-  let coachNote = act.auto_analysis || '';
-  if (!coachNote && act.session_type_detected === 'intervals' && derivedEffortPaceSecs) {
+  let coachNote = isHardSession && debriefSegments.length === 0 ? '' : (act.auto_analysis || '');
+  if (!coachNote && act.session_type_detected === 'intervals' && derivedEffortPaceSecs && debriefSegments.length >= 1) {
     const ePaceStr = Math.floor(derivedEffortPaceSecs/60)+':'+String(Math.round(derivedEffortPaceSecs%60)).padStart(2,'0');
     const tSecs    = derivedTargetPaceSecs;
     const diff     = tSecs ? tSecs - derivedEffortPaceSecs : null;
@@ -2265,13 +2276,17 @@ function renderActivitiesPage() {
     }
   }
 
-  const hasInsight = coachNote || verdictBadge || paceCompareHTML || repTableHTML;
+  const enterRepsPrompt = isHardSession && debriefSegments.length === 0 && !coachNote
+    ? `<div style="font-size:12px;color:var(--text-faint);font-style:italic;padding:4px 0">Add session details below to log your rep paces — coach insight will update automatically.</div>`
+    : '';
+  const hasInsight = coachNote || verdictBadge || paceCompareHTML || repTableHTML || enterRepsPrompt;
   const autoAnalysisHTML = hasInsight ? `
     <div style="background:var(--accent-light);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:12px;font-size:12px;line-height:1.7;color:var(--text-muted)">
       <div style="font-size:10px;font-family:var(--mono);color:var(--accent);font-weight:600;letter-spacing:0.06em;margin-bottom:4px">COACH INSIGHT</div>
       ${verdictBadge}
       ${paceCompareHTML}
       ${repTableHTML}
+      ${enterRepsPrompt}
       ${coachNote}
     </div>` : '';
 
@@ -2422,6 +2437,34 @@ return `<div class="activity-card" id="acard-${actId}">
     <input type="hidden" id="debrief-rpe-value-${actId}" value="${debrief?.rpe || ''}">
     <input type="hidden" id="debrief-soreness-value-${actId}" value="${debrief?.soreness_score ?? ''}">
 
+    ${(act.session_type_detected === 'intervals' || act.session_type_detected === 'tempo') ? (() => {
+      const planned = match?.planned;
+      const isTempo = act.session_type_detected === 'tempo';
+      // Determine correct number of reps from the plan
+      const plannedReps = isTempo ? 1 : (planned?.intervals?.reps || 0);
+      // Use saved debrief segments if they exist, otherwise blank slots from plan
+      const savedSegs = debrief?.segments?.filter(s => s.type === 'rep') || [];
+      const repCount = savedSegs.length || plannedReps || 3;
+      const slots = Array.from({ length: repCount }, (_, i) => savedSegs[i] || { pace: '' });
+      // Label and placeholder vary by session type
+      const repLabel = isTempo
+        ? `Tempo pace <span style="font-weight:400;color:var(--text-muted)">— average pace for the ${planned?.tempo?.duration_min || ''}min block</span>`
+        : `Rep paces <span style="font-weight:400;color:var(--text-muted)">— ${plannedReps} × ${planned?.intervals?.dist >= 1 ? planned.intervals.dist + 'km' : (planned?.intervals?.dist * 1000 || '—') + 'm'} @ ${planned?.intervals?.targetPace || '—'}/km target</span>`;
+      const placeholder = planned?.intervals?.targetPace || planned?.tempo?.targetPace || '4:12';
+      return `
+    <div style="margin:12px 0 4px;font-size:12px;font-weight:600;color:var(--text)">${repLabel}</div>
+    <div id="rep-inputs-${actId}">
+      ${slots.map((seg, i) =>
+        `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:11px;color:var(--text-faint);font-family:var(--mono);width:${isTempo ? '0' : '36px'}">${isTempo ? '' : 'Rep ' + (i+1)}</span>
+          <input class="debrief-input" style="width:90px;font-family:var(--mono)" placeholder="${placeholder}" value="${seg.pace || ''}" id="rep-pace-${actId}-${i}" />
+          <span style="font-size:11px;color:var(--text-faint)">/km</span>
+        </div>`
+      ).join('')}
+    </div>
+    ${!isTempo ? `<button class="btn-secondary" style="font-size:11px;padding:3px 8px;margin-bottom:12px" onclick="addRepInput('${actId}','${placeholder}')">+ Add rep</button>` : ''}
+    `; })() : ''}
+
     <div class="debrief-actions">
       <button class="btn-secondary" onclick="openDebriefEditor('${actId}')">Cancel</button>
       <button class="btn-primary" onclick="submitDebriefEditor('${actId}')">Save session details</button>
@@ -2522,28 +2565,81 @@ async function submitDebriefEditor(actId) {
   const sessionType = document.getElementById(`debrief-type-${actId}`)?.value || '';
   const shoes = document.getElementById(`debrief-shoes-${actId}`)?.value.trim() || '';
   const rpe = document.getElementById(`debrief-rpe-value-${actId}`)?.value || '';
-const soreness = document.getElementById(`debrief-soreness-value-${actId}`)?.value || '';
+  const soreness = document.getElementById(`debrief-soreness-value-${actId}`)?.value || '';
 
-  if (!detailText) {
-    alert('Add a short description of what the session actually was.');
-    return;
+  // Collect rep paces from structured inputs
+  const isTempoSession = act.session_type_detected === 'tempo';
+  const repSegments = [];
+  const repContainer = document.getElementById(`rep-inputs-${actId}`);
+  if (repContainer) {
+    const repInputs = repContainer.querySelectorAll('input[id^="rep-pace-"]');
+    repInputs.forEach((input, i) => {
+      const val = input.value.trim();
+      if (val && /^\d+:\d{2}$/.test(val)) {
+        repSegments.push({ type: 'rep', label: isTempoSession ? 'Tempo pace' : `Rep ${i+1}`, pace: val });
+      }
+    });
   }
 
+  const repsSummary = repSegments.length
+    ? (isTempoSession
+        ? `Tempo pace: ${repSegments[0].pace}/km`
+        : `Reps: ${repSegments.map((s,i) => `Rep ${i+1} ${s.pace}/km`).join(', ')}`)
+    : '';
+
   const enrichedText = [
-    detailText,
+    detailText || (repSegments.length ? (isTempoSession ? 'Tempo pace entered' : `${repSegments.length} reps entered`) : ''),
     sessionType ? `Session type: ${sessionType}` : '',
     shoes ? `Shoes: ${shoes}` : '',
     rpe ? `RPE: ${rpe}` : '',
-    soreness !== '' ? `Soreness/niggles: ${soreness}/5` : ''
+    soreness !== '' ? `Soreness/niggles: ${soreness}/5` : '',
+    repsSummary
   ].filter(Boolean).join('\n');
 
+  if (!enrichedText.trim()) {
+    alert('Add a description or at least one rep pace.');
+    return;
+  }
+
   const saveBtn = event?.target;
-if (saveBtn) {
-  saveBtn.disabled = true;
-  saveBtn.textContent = 'Saving...';
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
+
+  // Save rep segments directly alongside the text debrief
+  try {
+    const existing = activityDebriefs[actId];
+    const debriefPayload = {
+      activity_id: actId,
+      activity_date: act.date || null,
+      activity_name: act.name || null,
+      notes: enrichedText,
+      shoes: shoes || existing?.shoes || null,
+      rpe: rpe || existing?.rpe || null,
+      soreness_score: soreness !== '' ? Number(soreness) : (existing?.soreness_score ?? null),
+      session_type: sessionType || existing?.session_type || null,
+      segments: repSegments.length ? repSegments : (existing?.segments || []),
+      structured_summary: enrichedText,
+    };
+    await api.post('activity_debriefs', debriefPayload, 'on_conflict=activity_id&resolution=merge-duplicates&return=minimal');
+    activityDebriefs[actId] = { ...existing, ...debriefPayload };
+    await loadAllData();
+    renderActivitiesPage();
+  } catch(e) {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save session details'; }
+    alert('Could not save: ' + e.message);
+  }
 }
 
-await saveActivityDebriefFromText(actId, act, enrichedText);
+function addRepInput(actId, placeholder) {
+  const container = document.getElementById(`rep-inputs-${actId}`);
+  if (!container) return;
+  const count = container.querySelectorAll('input').length;
+  const ph = placeholder || '4:12';
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px';
+  div.innerHTML = `<span style="font-size:11px;color:var(--text-faint);font-family:var(--mono);width:36px">Rep ${count+1}</span>
+    <input class="debrief-input" style="width:90px;font-family:var(--mono)" placeholder="${ph}" id="rep-pace-${actId}-${count}" />
+    <span style="font-size:11px;color:var(--text-faint)">/km</span>`;
+  container.appendChild(div);
 }
 
 function buildSplitsHTML(splits, actId, act) {
